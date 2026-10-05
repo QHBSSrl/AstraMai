@@ -1,0 +1,238 @@
+<template>
+  <div class="page">
+    <text class="title">机台二维码</text>
+
+    <!-- 有内容：交给原生 qrcode 组件画，端上不需要自己出码 -->
+    <block if="{{ hasLink }}">
+      <div class="code-wrap">
+        <qrcode class="code" value="{{ link }}"></qrcode>
+      </div>
+
+      <text class="validity {{ validityClass }}">{{ validityText }}</text>
+      <text class="hint">对准机台扫描处即可登入</text>
+
+      <div class="actions">
+        <input class="btn" type="button" value="重新导入" onclick="focusInput" />
+        <input class="btn btn--ghost" type="button" value="清除" onclick="clearLink" />
+      </div>
+    </block>
+
+    <!-- 没内容：给一个输入框。手表上打长链接很痛苦，
+         真机上应当改由手机侧的配置下发，见 README。 -->
+    <block else>
+      <text class="hint">
+        把小程序的二维码链接粘贴到下面。手表的输入体验很差，正式版应当改由手机侧配置下发。
+      </text>
+      <input
+        class="input"
+        type="text"
+        value="{{ draft }}"
+        placeholder="https://wq.wahlap.net/qrcode/req/..."
+        onchange="onDraftChange"
+      />
+      <input class="btn" type="button" value="保存并生成" onclick="saveLink" />
+      <text class="error" if="{{ errorText }}">{{ errorText }}</text>
+    </block>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: #070b16;
+  }
+
+  .title {
+    font-size: 26px;
+    color: #e8eefc;
+    margin-bottom: 12px;
+  }
+
+  .code-wrap {
+    padding: 12px;
+    border-radius: 14px;
+    background-color: #ffffff;
+  }
+
+  .code {
+    width: 300px;
+    height: 300px;
+    color: #0a0e1a;
+    background-color: #ffffff;
+  }
+
+  .validity {
+    font-size: 20px;
+    margin-top: 14px;
+    color: #9bacd0;
+  }
+
+  .validity--valid {
+    color: #34d399;
+  }
+
+  .validity--expired {
+    color: #f87171;
+  }
+
+  .validity--unknown {
+    color: #fbbf24;
+  }
+
+  .hint {
+    font-size: 17px;
+    color: #9bacd0;
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  .actions {
+    flex-direction: row;
+    margin-top: 18px;
+  }
+
+  .btn {
+    height: 64px;
+    padding: 0 26px;
+    margin: 0 6px;
+    border-radius: 32px;
+    background-color: #ff5f9e;
+    color: #1a0710;
+    font-size: 22px;
+    text-align: center;
+  }
+
+  .btn--ghost {
+    background-color: #1c2740;
+    color: #e8eefc;
+  }
+
+  .input {
+    width: 100%;
+    height: 72px;
+    padding: 0 16px;
+    margin-top: 12px;
+    border-radius: 12px;
+    background-color: #0d1424;
+    color: #e8eefc;
+    font-size: 18px;
+  }
+
+  .error {
+    font-size: 18px;
+    color: #f87171;
+    margin-top: 10px;
+  }
+</style>
+
+<script>
+  import { describeValidity, parseWahlapQrPayload } from '../common/astramai-core.js'
+  import { clearSetting, readSetting, warmUp, writeSetting } from '../common/store.js'
+
+  export default {
+    private: {
+      link: '',
+      hasLink: false,
+      draft: '',
+      errorText: '',
+      validityText: '',
+      validityClass: '',
+      timer: null,
+    },
+
+    onInit() {
+      warmUp(['qrLink']).then(() => this.load())
+    },
+
+    onShow() {
+      this.load()
+    },
+
+    onHide() {
+      this.stopTimer()
+    },
+
+    onDestroy() {
+      this.stopTimer()
+    },
+
+    load() {
+      const link = readSetting('qrLink', '')
+      this.link = link
+      this.draft = link
+      this.hasLink = Boolean(link)
+      this.refreshValidity()
+
+      // 只有机台二维码才需要每秒重算有效期
+      const payload = link ? parseWahlapQrPayload(link) : null
+      if (payload && payload.expiresAt) this.startTimer()
+      else this.stopTimer()
+    },
+
+    startTimer() {
+      this.stopTimer()
+      this.timer = setInterval(() => this.refreshValidity(), 1000)
+    },
+
+    stopTimer() {
+      if (this.timer) {
+        clearInterval(this.timer)
+        this.timer = null
+      }
+    },
+
+    refreshValidity() {
+      if (!this.link) {
+        this.validityText = ''
+        this.validityClass = ''
+        return
+      }
+
+      const payload = parseWahlapQrPayload(this.link)
+      if (!payload || !payload.recognized) {
+        this.validityText = '这不是机台二维码，但仍可作为普通二维码使用'
+        this.validityClass = 'validity--unknown'
+        return
+      }
+
+      const validity = describeValidity(payload)
+      this.validityText = validity.text
+      this.validityClass = 'validity--' + validity.state
+    },
+
+    onDraftChange(event) {
+      this.draft = event.value
+    },
+
+    focusInput() {
+      // 回到输入态，方便替换链接
+      this.hasLink = false
+      this.stopTimer()
+    },
+
+    saveLink() {
+      const value = (this.draft || '').trim()
+      if (!value) {
+        this.errorText = '内容不能为空'
+        return
+      }
+      if (!parseWahlapQrPayload(value)) {
+        this.errorText = '这看起来不是一个网址'
+        return
+      }
+
+      this.errorText = ''
+      writeSetting('qrLink', value)
+      this.load()
+    },
+
+    clearLink() {
+      clearSetting('qrLink')
+      this.draft = ''
+      this.errorText = ''
+      this.load()
+    },
+  }
+</script>

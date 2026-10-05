@@ -54,6 +54,11 @@ if (!b50.json?.ok) {
 } else {
   const view = b50.json.data;
   check('mode=mock', b50.json.mode === 'mock', `实际 ${b50.json.mode}`);
+  check(
+    '响应带 success 信封（Vela 端的 core 客户端靠它解包）',
+    b50.json.success === true,
+    `实际 ${b50.json.success}`,
+  );
   check('player.name 存在', typeof view.player?.name === 'string');
   check('standard 有 35 条', view.standard?.length === 35, `实际 ${view.standard?.length}`);
   check('dx 有 15 条', view.dx?.length === 15, `实际 ${view.dx?.length}`);

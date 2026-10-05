@@ -1,0 +1,38 @@
+{
+  "package": "com.astranexus.astramai",
+  "name": "AstraMai",
+  "icon": "/common/icon.png",
+  "versionName": "0.1.0",
+  "versionCode": 1,
+  "minAPILevel": 1,
+  "deviceTypeList": ["watch"],
+  "features": [
+    { "name": "system.fetch" },
+    { "name": "system.storage" },
+    { "name": "system.router" }
+  ],
+  "config": {
+    "designWidth": 466,
+    "logLevel": "log"
+  },
+  "display": {
+    "backgroundColor": "#070b16"
+  },
+  "router": {
+    "entry": "Index",
+    "pages": {
+      "Index": {
+        "component": "index",
+        "path": "/"
+      },
+      "Qr": {
+        "component": "qr",
+        "path": "/qr"
+      },
+      "B50": {
+        "component": "b50",
+        "path": "/b50"
+      }
+    }
+  }
+}

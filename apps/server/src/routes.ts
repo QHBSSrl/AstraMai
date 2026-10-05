@@ -1,4 +1,4 @@
-/**
+﻿/**
  * API 路由。
  *
  * 对浏览器只暴露三类接口：
@@ -44,10 +44,28 @@ function clientKeyOf(ctx: RequestContext, config: ServerConfig): string | undefi
   return trimmed ? trimmed : undefined;
 }
 
+/**
+ * 成功响应。
+ *
+ * 刻意同时带 `ok` 与 `success`：
+ *   - Web 前端读 `ok`
+ *   - `@astramai/core` 的 `unwrapEnvelope` 读 `success`（对齐落雪的信封格式），
+ *     所以 Vela 端可以直接用同一个客户端，不需要另一套解析
+ */
+function ok(res: ServerResponse, payload: Record<string, unknown>): void {
+  sendJson(res, 200, { ok: true, success: true, ...payload });
+}
+
 function fail(res: ServerResponse, error: unknown, endpoint: string): void {
   const serialized = serializeLxnsError(error, endpoint);
   const status = STATUS_BY_KIND[serialized.kind] ?? 502;
-  sendJson(res, status, { ok: false, error: serialized });
+  sendJson(res, status, {
+    ok: false,
+    success: false,
+    // 顶层 message 是给 core 的 LxnsError 用的，它会优先读这个字段
+    message: serialized.friendlyMessage,
+    error: serialized,
+  });
 }
 
 function parseId(value: string | undefined, label: string): number {
@@ -73,9 +91,8 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
     } catch {
       mode = 'unconfigured';
     }
-    sendJson(ctx.res, 200, {
-      ok: true,
-      data: {
+    ok(ctx.res, {
+            data: {
         service: 'AstraMai server',
         mode,
         modeConfig: config.modeConfig,
@@ -105,9 +122,8 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
             : { friendCode: value, clientKey, forceMock },
         );
 
-        sendJson(ctx.res, 200, {
-          ok: true,
-          mode: result.mode,
+        ok(ctx.res, {
+                    mode: result.mode,
           usedServerKey: result.usedServerKey,
           librarySource: result.librarySource,
           elapsedMs: Date.now() - startedAt,
@@ -133,9 +149,8 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
         const mode = resolveMode(config, developerKey !== undefined);
 
         if (mode === 'mock') {
-          sendJson(ctx.res, 200, {
-            ok: true,
-            mode,
+          ok(ctx.res, {
+                        mode,
             data: { note: 'Mock 模式不提供玩家信息接口，请使用 /api/maimai/b50/... 获取完整模拟数据。' },
           });
           return;
@@ -143,7 +158,7 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
 
         const client = new LxnsClient({ developerKey });
         const player = kind === 'qq' ? await client.getPlayerByQq(value) : await client.getPlayer(value);
-        sendJson(ctx.res, 200, { ok: true, mode, data: player });
+        ok(ctx.res, { mode, data: player });
       } catch (error) {
         fail(ctx.res, error, ctx.url.pathname);
       }
@@ -157,9 +172,8 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
     try {
       const withNotes = ctx.query.get('notes') === '1' || ctx.query.get('notes') === 'true';
       const library = await service.getLibrary(clientKeyOf(ctx, config));
-      sendJson(ctx.res, 200, {
-        ok: true,
-        source: library.source,
+      ok(ctx.res, {
+                source: library.source,
         fetchedAt: new Date(library.fetchedAt).toISOString(),
         data: {
           songs: library.songs.songs.map((song) => compactSong(song, withNotes)),
@@ -176,7 +190,7 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
   router.get('/api/maimai/aliases', async (ctx) => {
     try {
       const library = await service.getLibrary(clientKeyOf(ctx, config));
-      sendJson(ctx.res, 200, { ok: true, source: library.source, data: library.aliases });
+      ok(ctx.res, { source: library.source, data: library.aliases });
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }
@@ -188,7 +202,7 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
       const keyword = (ctx.query.get('q') ?? '').trim();
       const limit = Math.min(Math.max(Number.parseInt(ctx.query.get('limit') ?? '30', 10) || 30, 1), 200);
       if (keyword.length === 0) {
-        sendJson(ctx.res, 200, { ok: true, data: { keyword, results: [] } });
+        ok(ctx.res, { data: { keyword, results: [] } });
         return;
       }
 
@@ -231,7 +245,7 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
         if (results.length >= limit) break;
       }
 
-      sendJson(ctx.res, 200, { ok: true, source: library.source, data: { keyword, count: results.length, results } });
+      ok(ctx.res, { source: library.source, data: { keyword, count: results.length, results } });
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }
@@ -253,7 +267,7 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
         ...(songType ? { songType } : {}),
         clientKey: clientKeyOf(ctx, config),
       });
-      sendJson(ctx.res, 200, { ok: true, mode: result.mode, data: result.scores });
+      ok(ctx.res, { mode: result.mode, data: result.scores });
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }
@@ -262,7 +276,7 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
   // ── 兜底 ──────────────────────────────────────────────────────────────
   router.add('POST', '/api/echo', async (ctx) => {
     const body = await readBody(ctx.req);
-    sendJson(ctx.res, 200, { ok: true, data: { length: body.length } });
+    ok(ctx.res, { data: { length: body.length } });
   });
 
   return router;

@@ -16,14 +16,14 @@ export interface SongListQuery {
 }
 
 function withQuery(path: string, params: Record<string, string | number | boolean | undefined>): string {
-  const search = new URLSearchParams();
+  // 刻意不用 `URLSearchParams`：它不是 ECMAScript 的一部分，Vela 的 JS 引擎不一定提供。
+  // 这里只依赖标准的 `encodeURIComponent` 与 `Object.entries`。
+  const parts: string[] = [];
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== '') {
-      search.set(key, String(value));
-    }
+    if (value === undefined || value === null || value === '') continue;
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
   }
-  const qs = search.toString();
-  return qs ? `${path}?${qs}` : path;
+  return parts.length > 0 ? `${path}?${parts.join('&')}` : path;
 }
 
 /** 舞萌 DX 接口路径。 */

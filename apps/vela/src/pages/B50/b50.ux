@@ -1,0 +1,267 @@
+<template>
+  <div class="page">
+    <div class="bar">
+      <input
+        class="input"
+        type="text"
+        value="{{ friendCode }}"
+        placeholder="好友码"
+        onchange="onCodeChange"
+      />
+      <input class="btn" type="button" value="{{ loading ? '查询中' : '查询' }}" onclick="query" />
+    </div>
+
+    <text class="error" if="{{ errorText }}">{{ errorText }}</text>
+
+    <block if="{{ hasResult }}">
+      <div class="summary">
+        <div class="summary__main">
+          <text class="rating">{{ ratingText }}</text>
+          <text class="tier">{{ tierText }}</text>
+        </div>
+        <div class="summary__side">
+          <text class="line">旧曲 B35　{{ b35Text }}</text>
+          <text class="line">新曲 B15　{{ b15Text }}</text>
+          <text class="line">平均定数　{{ avgLevelText }}</text>
+          <text class="line">公式对拍　{{ selfCheckText }}</text>
+        </div>
+      </div>
+
+      <list class="list">
+        <list-item class="row" type="item" for="{{ entries }}">
+          <text class="row__rank">{{ $idx + 1 }}</text>
+          <div class="row__main">
+            <text class="row__title">{{ $item.title }}</text>
+            <text class="row__sub">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
+          </div>
+          <div class="row__right">
+            <text class="row__rating">{{ $item.rating }}</text>
+            <text class="row__ach">{{ $item.achievements }}</text>
+          </div>
+        </list-item>
+      </list>
+    </block>
+
+    <text class="hint" else>输入好友码查询 Best 50。数据由自建服务端聚合后返回。</text>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    padding: 16px 16px 0 16px;
+    background-color: #070b16;
+  }
+
+  .bar {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .input {
+    flex: 1;
+    height: 60px;
+    padding: 0 14px;
+    border-radius: 12px;
+    background-color: #0d1424;
+    color: #e8eefc;
+    font-size: 20px;
+  }
+
+  .btn {
+    height: 60px;
+    padding: 0 22px;
+    margin-left: 10px;
+    border-radius: 30px;
+    background-color: #ff5f9e;
+    color: #1a0710;
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .error {
+    font-size: 18px;
+    color: #f87171;
+    margin-top: 10px;
+  }
+
+  .summary {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 14px;
+    padding: 16px;
+    border-radius: 14px;
+    background-color: #141d30;
+  }
+
+  .summary__main {
+    flex-direction: column;
+    align-items: center;
+    width: 150px;
+  }
+
+  .rating {
+    font-size: 40px;
+    font-weight: bold;
+    color: #f5c542;
+  }
+
+  .tier {
+    font-size: 18px;
+    color: #f5c542;
+  }
+
+  .summary__side {
+    flex-direction: column;
+    flex: 1;
+    margin-left: 12px;
+  }
+
+  .line {
+    font-size: 18px;
+    color: #9bacd0;
+    margin-bottom: 4px;
+  }
+
+  .list {
+    flex: 1;
+    margin-top: 12px;
+  }
+
+  .row {
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 8px;
+    border-bottom: 1px solid #1c2740;
+  }
+
+  .row__rank {
+    width: 40px;
+    font-size: 18px;
+    color: #6d7fa3;
+  }
+
+  .row__main {
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .row__title {
+    font-size: 20px;
+    color: #e8eefc;
+  }
+
+  .row__sub {
+    font-size: 16px;
+    color: #6d7fa3;
+  }
+
+  .row__right {
+    flex-direction: column;
+    align-items: flex-end;
+    width: 110px;
+  }
+
+  .row__rating {
+    font-size: 24px;
+    font-weight: bold;
+    color: #e8eefc;
+  }
+
+  .row__ach {
+    font-size: 15px;
+    color: #9bacd0;
+  }
+
+  .hint {
+    font-size: 18px;
+    color: #6d7fa3;
+    margin-top: 24px;
+    text-align: center;
+  }
+</style>
+
+<script>
+  import { fetchB50 } from '../common/api.js'
+  import { readSetting, warmUp, writeSetting } from '../common/store.js'
+
+  const TOP_N = 20
+
+  export default {
+    private: {
+      friendCode: '',
+      loading: false,
+      errorText: '',
+      hasResult: false,
+      ratingText: '',
+      tierText: '',
+      b35Text: '',
+      b15Text: '',
+      avgLevelText: '',
+      selfCheckText: '',
+      entries: [],
+    },
+
+    onInit() {
+      warmUp(['friendCode']).then(() => {
+        this.friendCode = readSetting('friendCode', '')
+        if (this.friendCode) this.query()
+      })
+    },
+
+    onCodeChange(event) {
+      this.friendCode = event.value
+    },
+
+    query() {
+      const code = (this.friendCode || '').trim()
+      if (!/^\d{15}$/.test(code)) {
+        this.errorText = '好友码应为 15 位数字'
+        return
+      }
+
+      this.errorText = ''
+      this.loading = true
+      writeSetting('friendCode', code)
+
+      fetchB50(code)
+        .then((view) => this.apply(view))
+        .catch((error) => {
+          this.errorText = error && error.message ? error.message : '查询失败'
+          this.hasResult = false
+        })
+        .then(() => {
+          this.loading = false
+        })
+    },
+
+    apply(view) {
+      const stats = view.stats
+      const player = view.player
+
+      this.ratingText = String(player.rating)
+      this.tierText = player.tier ? player.tier.label : ''
+      this.b35Text = String(stats.standardTotal)
+      this.b15Text = String(stats.dxTotal)
+      this.avgLevelText = stats.averageLevelValue.toFixed(2)
+      this.selfCheckText =
+        stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta
+
+      // 手表一屏放不下 50 条，先只取前 N 条并压平字段——
+      // 列表项只用到这几个值，减少跨端数据量
+      this.entries = view.standard
+        .concat(view.dx)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, TOP_N)
+        .map((entry) => ({
+          title: entry.title,
+          difficulty: entry.difficultyShort,
+          levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
+          rating: entry.rating === null ? '--' : String(entry.rating),
+          achievements: entry.achievements.toFixed(4) + '%',
+        }))
+
+      this.hasResult = true
+    },
+  }
+</script>

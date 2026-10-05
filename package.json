@@ -12,14 +12,15 @@
     "node": ">=20.10"
   },
   "scripts": {
-    "build": "npm run build -w @astramai/core && npm run build -w @astramai/server && npm run build -w @astramai/web",
+    "build": "npm run build -w @astramai/core && npm run bundle:core && npm run build -w @astramai/server && npm run build -w @astramai/web",
     "build:core": "npm run build -w @astramai/core",
     "dev": "npm run build:core && node scripts/dev.mjs",
     "dev:server": "npm run dev -w @astramai/server",
     "dev:web": "npm run dev -w @astramai/web",
     "dev:core": "npm run dev -w @astramai/core",
     "start": "node apps/server/dist/index.js",
-    "test": "npm run build:core && npm run test -w @astramai/core",
+    "test": "npm run build:core && npm run test -w @astramai/core && npm run test -w @astramai/vela",
+    "bundle:core": "node scripts/bundle-core.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "node scripts/clean.mjs"
   },

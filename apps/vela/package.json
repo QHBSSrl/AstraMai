@@ -1,0 +1,11 @@
+{
+  "name": "@astramai/vela",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AstraMai 的 Vela QuickApp 前端（小米手表 / eSIM）。",
+  "scripts": {
+    "bundle:core": "node ../../scripts/bundle-core.mjs",
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,128 @@
+<template>
+  <div class="page">
+    <text class="brand">AstraMai</text>
+    <text class="brand__sub">街机音游工具</text>
+
+    <div class="menu">
+      <div class="entry" onclick="goB50">
+        <text class="entry__title">Best 50</text>
+        <text class="entry__sub">舞萌 DX 查分</text>
+      </div>
+
+      <div class="entry" onclick="goQr">
+        <text class="entry__title">二维码</text>
+        <text class="entry__sub">{{ qrSummary }}</text>
+      </div>
+    </div>
+
+    <text class="foot">{{ serverSummary }}</text>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px;
+    background-color: #070b16;
+  }
+
+  .brand {
+    font-size: 38px;
+    font-weight: bold;
+    color: #ff5f9e;
+  }
+
+  .brand__sub {
+    font-size: 20px;
+    color: #9bacd0;
+    margin-top: 4px;
+  }
+
+  .menu {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 24px;
+  }
+
+  .entry {
+    flex-direction: column;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    border-radius: 16px;
+    background-color: #141d30;
+  }
+
+  .entry__title {
+    font-size: 28px;
+    color: #e8eefc;
+  }
+
+  .entry__sub {
+    font-size: 18px;
+    color: #9bacd0;
+    margin-top: 4px;
+  }
+
+  .foot {
+    font-size: 16px;
+    color: #6d7fa3;
+    margin-top: 10px;
+  }
+</style>
+
+<script>
+  import router from '@system.router'
+
+  import { describeValidity, parseWahlapQrPayload } from '../common/astramai-core.js'
+  import { getServerBase } from '../common/api.js'
+  import { readSetting, warmUp } from '../common/store.js'
+
+  export default {
+    private: {
+      qrSummary: '未导入',
+      serverSummary: '',
+    },
+
+    onInit() {
+      warmUp(['qrLink', 'serverBase']).then(() => this.refresh())
+    },
+
+    // 从二维码页返回时也要刷新状态
+    onShow() {
+      this.refresh()
+    },
+
+    refresh() {
+      const link = readSetting('qrLink', '')
+      if (!link) {
+        this.qrSummary = '未导入'
+      } else {
+        const payload = parseWahlapQrPayload(link)
+        if (!payload) {
+          this.qrSummary = '内容无法识别'
+        } else if (!payload.recognized) {
+          this.qrSummary = '已导入（非机台二维码）'
+        } else {
+          const validity = describeValidity(payload)
+          this.qrSummary =
+            validity.state === 'valid'
+              ? '有效 · ' + validity.text
+              : validity.state === 'expired'
+                ? '已过期，需重新导入'
+                : '已导入'
+        }
+      }
+
+      this.serverSummary = '服务端 ' + getServerBase()
+    },
+
+    goB50() {
+      router.push({ uri: '/b50' })
+    },
+
+    goQr() {
+      router.push({ uri: '/qr' })
+    },
+  }
+</script>

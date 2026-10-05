@@ -1,0 +1,17 @@
+/**
+ * 应用入口。
+ *
+ * 这里只放全局配置与跨页共享的常量。业务逻辑一律在 `common/` 与 `pages/` 里，
+ * 而且**尽可能下沉到 `@astramai/core`**——那样同一份逻辑在 Web 测试站上也能跑，
+ * 手表上出问题时可以先用浏览器复现。
+ */
+
+export default {
+  onCreate() {
+    console.log('[AstraMai] app onCreate')
+  },
+
+  onDestroy() {
+    console.log('[AstraMai] app onDestroy')
+  },
+}

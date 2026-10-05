@@ -6,8 +6,9 @@
 
 - **舞萌 DX Best 50 查询**——玩家名片、B35/B15 构成、统计、逐条 Rating 公式对拍、单曲详情
 - **二维码工作台**——本地渲染机台二维码，含载荷解析与有效期倒计时
+- **Vela QuickApp 骨架**——小米手表（eSIM）端，复用同一份 core，含 fetch 适配与三个页面
 
-后续规划：中二节奏（B30/New 20）、太鼓之达人，以及 Vela QuickApp 前端（先适配 eSIM 手表）。
+后续规划：中二节奏（B30/New 20）、太鼓之达人。
 
 数据来源：[落雪查分器](https://maimai.lxns.net)（API 文档：<https://maimai.lxns.net/docs>）。
 
@@ -77,8 +78,9 @@ npm start         # http://127.0.0.1:8787
 | 命令 | 作用 |
 | --- | --- |
 | `npm run dev` | 一键开发模式（core watch + 服务端 + 前端） |
-| `npm run build` | 全量构建 |
-| `npm test` | 核心层回归测试（含 244 条 QR 黄金向量） |
+| `npm run build` | 全量构建（含给 Vela 用的 core 单文件打包） |
+| `npm test` | core 与 Vela 的全部测试（244 条 QR 黄金向量 + 13 项 fetch 适配） |
+| `npm run bundle:core` | 单独重新打包 Vela 用的 core |
 | `npm start` | 以构建产物启动服务端（同时托管前端） |
 | `npm run typecheck` | 全工作区类型检查 |
 | `node scripts/smoke.mjs` | 对已启动的服务端跑端到端冒烟测试 |
@@ -215,12 +217,25 @@ QR 编码里全是「写错了也照样能渲染出方块」的环节（Reed–S
 
 `packages/core` 刻意做到：
 
-- **零运行时依赖**；
-- 不引用 Node 专有 API，`fetch` 通过结构化的 `FetchLike` 注入（QuickApp 的 `fetch` 直接可用）；
+- **零运行时依赖**，且**不引用任何宿主专有 API**——连 `TextEncoder` 和
+  `URLSearchParams` 都自己实现（后者不是 ECMAScript 的一部分，Vela 的引擎不保证有）；
+- `fetch` 通过结构化的 `FetchLike` 注入，Vela 的 `@system.fetch` 接一个适配器即可；
 - 计算与格式化都是纯函数，输入输出可序列化。
 
 `apps/server` 的 `/api/maimai/b50/...` 聚合成一个视图模型，也是为 Vela 准备的：
 手表端带宽和算力都紧张，一次请求拿到全部渲染数据，比连发三次接口再在端上组装更合适。
+
+### 可移植性是验证过的，不是声称的
+
+`scripts/bundle-core.mjs` 会把 core 打成一个零依赖单文件，
+然后把它丢进一个**只有标准内建**的 JS 上下文里跑（没有 `Buffer`、`process`、`require`、
+`fetch`、`TextEncoder`、`URL`、`URLSearchParams`、`document`）。
+Node 里这些**全都有**，所以在 Node 上跑得通完全不能说明手表上跑得通——
+这一步就是为了消掉那个盲区。当前 8 项检查全部通过。
+
+详见 [apps/vela/README.md](apps/vela/README.md)，其中包括**尚未在真实工具链上验证**的清单
+（`features` 名称、`router` 路径写法、`@system.storage` 签名、`designWidth`），
+以及一个需要在真机上拍板的风险：**77×77 的二维码在手表屏幕上还扫得出来吗**。
 
 ---
 
@@ -237,7 +252,8 @@ AstraMai/
 ├─ packages/core/test/  QR 黄金向量与回归测试
 ├─ apps/server/src/  配置、曲库缓存、路由、HTTP 工具
 ├─ apps/web/src/     React 界面与组件
-└─ scripts/          dev / build / smoke / clean
+├─ apps/vela/        Vela QuickApp（小米手表）：manifest、页面、fetch 适配与测试
+└─ scripts/          dev / build / bundle-core / smoke / clean
 ```
 
 ---
