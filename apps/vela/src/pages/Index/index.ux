@@ -72,11 +72,31 @@
 </style>
 
 <script>
-  import router from '@system.router'
+  // 刻意**不** import api.js：首页不需要网络，
+  // 而 api.js 会连上 @system.fetch，拖进来只会让首页多一个初始化失败的可能。
+  import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js';
+  import { getServerBase } from '../../common/config.js';
+  import { readSetting, warmUp } from '../../common/store.js';
 
-  import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js'
-  import { getServerBase } from '../../common/api.js'
-  import { readSetting, warmUp } from '../../common/store.js'
+  /** router 也延迟取，避免平台模块不可用时整页初始化失败。 */
+  let routerModule;
+  function getRouter() {
+    if (routerModule !== undefined) return routerModule;
+    try {
+      // eslint-disable-next-line global-require
+      routerModule = require('@system.router') || null;
+    } catch (error) {
+      console.warn('[AstraMai] @system.router 不可用：', error);
+      routerModule = null;
+    }
+    return routerModule;
+  }
+
+  function push(uri) {
+    const router = getRouter();
+    if (!router) return;
+    router.push({ uri });
+  }
 
   export default {
     private: {
@@ -85,44 +105,53 @@
     },
 
     onInit() {
-      warmUp(['qrInput', 'serverBase']).then(() => this.refresh())
+      console.log('[AstraMai] Index onInit');
+      warmUp(['qrInput', 'serverBase'])
+        .then(() => this.refresh())
+        .catch((error) => console.error('[AstraMai] Index 初始化失败：', error));
     },
 
     // 从二维码页返回时也要刷新状态
     onShow() {
-      this.refresh()
+      this.refresh();
     },
 
     refresh() {
-      const saved = readSetting('qrInput', '')
-      if (!saved) {
-        this.qrSummary = '未导入'
-      } else {
-        const payload = parseWahlapQrPayload(saved)
-        if (!payload || !payload.content) {
-          this.qrSummary = '内容无法识别'
-        } else if (!payload.recognized) {
-          this.qrSummary = '已导入（非机台二维码）'
+      try {
+        const saved = readSetting('qrInput', '');
+        if (!saved) {
+          this.qrSummary = '未导入';
         } else {
-          const validity = describeValidity(payload)
-          this.qrSummary =
-            validity.state === 'valid'
-              ? '有效 · ' + validity.text
-              : validity.state === 'expired'
-                ? '已过期，需重新导入'
-                : '已导入'
+          const payload = parseWahlapQrPayload(saved);
+          if (!payload || !payload.content) {
+            this.qrSummary = '内容无法识别';
+          } else if (!payload.recognized) {
+            this.qrSummary = '已导入（非机台二维码）';
+          } else {
+            const validity = describeValidity(payload);
+            this.qrSummary =
+              validity.state === 'valid'
+                ? '有效 · ' + validity.text
+                : validity.state === 'expired'
+                  ? '已过期，需重新导入'
+                  : '已导入';
+          }
         }
-      }
 
-      this.serverSummary = '服务端 ' + getServerBase()
+        this.serverSummary = '服务端 ' + getServerBase();
+      } catch (error) {
+        console.error('[AstraMai] Index refresh 失败：', error);
+        this.qrSummary = '读取失败';
+        this.serverSummary = '';
+      }
     },
 
     goB50() {
-      router.push({ uri: '/b50' })
+      push('/b50');
     },
 
     goQr() {
-      router.push({ uri: '/qr' })
+      push('/qr');
     },
-  }
+  };
 </script>

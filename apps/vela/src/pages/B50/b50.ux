@@ -203,10 +203,13 @@
     },
 
     onInit() {
-      warmUp(['friendCode']).then(() => {
-        this.friendCode = readSetting('friendCode', '')
-        if (this.friendCode) this.query()
-      })
+      console.log('[AstraMai] B50 onInit')
+      warmUp(['friendCode'])
+        .then(() => {
+          this.friendCode = readSetting('friendCode', '')
+          if (this.friendCode) this.query()
+        })
+        .catch((error) => console.error('[AstraMai] B50 初始化失败：', error))
     },
 
     onCodeChange(event) {

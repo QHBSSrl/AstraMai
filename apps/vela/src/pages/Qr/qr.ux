@@ -152,7 +152,10 @@
     },
 
     onInit() {
-      warmUp([STORAGE_KEY]).then(() => this.load())
+      console.log('[AstraMai] Qr onInit')
+      warmUp([STORAGE_KEY])
+        .then(() => this.load())
+        .catch((error) => console.error('[AstraMai] Qr 初始化失败：', error))
     },
 
     onShow() {

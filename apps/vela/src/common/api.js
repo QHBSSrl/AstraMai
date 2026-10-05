@@ -1,58 +1,59 @@
 /**
- * 应用级数据访问。
+ * 网络请求。
  *
- * 这里做两件事：
- *   1. 把 Vela 的 `@system.fetch` 接到 `@astramai/core` 的 `LxnsClient` 上；
- *   2. 把「服务端地址」做成可配置项——手表访问的不是用户电脑上的 dev server，
- *      而是需要单独部署的一个实例。
+ * 把 Vela 的 `@system.fetch` 接到 `@astramai/core` 的 `LxnsClient` 上。
  *
- * 注意：**开发者密钥不放这里**。手表是端侧设备，密钥应该由服务端持有；
+ * **开发者密钥不放这里。** 手表是端侧设备，密钥由服务端持有；
  * 端上只请求我们自己服务端的聚合接口。
- */
-
-import systemFetch from '@system.fetch'
-
-import { LxnsClient } from './astramai-core.js'
-import { readSetting } from './store.js'
-import { createVelaFetch } from './vela-fetch.js'
-
-/** 默认服务端地址。真机调试时改成电脑在局域网里的地址。 */
-export const DEFAULT_SERVER_BASE = 'http://192.168.1.100:8787'
-
-/** 读当前配置的服务端地址。 */
-export function getServerBase() {
-  return readSetting('serverBase', DEFAULT_SERVER_BASE)
-}
-
-/**
- * 读访问令牌。
  *
- * 服务端一旦设了 `API_TOKEN`（暴露到公网时必须设），
- * 除健康检查外的接口都要求带上它。
+ * `@system.fetch` 用延迟 require 而不是顶层 import：
+ * 静态 import 会在页面模块初始化时立刻解析平台模块，一旦设备/模拟器不提供它，
+ * **整个页面脚本初始化就会抛错，页面直接空白**，日志里还没有有用的报错。
  */
-export function getApiToken() {
-  return readSetting('apiToken', '')
+
+import { LxnsClient } from './astramai-core.js';
+import { getApiToken, getServerBase } from './config.js';
+import { createVelaFetch } from './vela-fetch.js';
+
+export { DEFAULT_SERVER_BASE, getApiToken, getServerBase } from './config.js';
+
+let fetchModule;
+function getFetchModule() {
+  if (fetchModule !== undefined) return fetchModule;
+  try {
+    // eslint-disable-next-line global-require
+    fetchModule = require('@system.fetch') || null;
+  } catch (error) {
+    console.warn('[AstraMai] @system.fetch 不可用：', error);
+    fetchModule = null;
+  }
+  return fetchModule;
 }
 
-let cachedClient = null
-let cachedBase = null
-let cachedToken = null
+let cachedClient = null;
+let cachedBase = null;
+let cachedToken = null;
 
-/** 取一个绑定到 `base` 的客户端（服务端地址或令牌变了会自动重建）。 */
+/** 取一个绑定到当前配置的客户端（地址或令牌变了会自动重建）。 */
 export function getClient(base) {
-  const target = base || getServerBase()
-  const token = getApiToken()
-  if (cachedClient && cachedBase === target && cachedToken === token) return cachedClient
+  const target = base || getServerBase();
+  const token = getApiToken();
+  if (cachedClient && cachedBase === target && cachedToken === token) return cachedClient;
 
-  const velaFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 })
+  const systemFetch = getFetchModule();
+  if (!systemFetch) {
+    throw new Error('当前设备不提供 @system.fetch，无法发起网络请求');
+  }
+
+  const velaFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 });
   cachedClient = new LxnsClient({
     baseUrl: target,
     fetchImpl: velaFetch,
     ...(token ? { extraHeaders: { 'x-api-key': token } } : {}),
-  })
-  cachedBase = target
-  cachedToken = token
-  return cachedClient
+  });
+  cachedBase = target;
+  cachedToken = token;
+  return cachedClient;
 }
 
 /**
@@ -62,16 +63,17 @@ export function getClient(base) {
  * 可以直接渲染的视图模型——手表算力和流量都紧张，不适合端上拼装。
  */
 export function fetchB50(friendCode) {
-  return getClient().request(`/api/maimai/b50/${friendCode}`)
+  return getClient().request(`/api/maimai/b50/${friendCode}`);
 }
 
 /** 服务端健康检查，用来判断地址填对没有。 */
 export function fetchHealth() {
-  return getClient().request('/api/health')
+  return getClient().request('/api/health');
 }
 
-/** 换服务端地址后调用，清掉缓存。 */
+/** 换地址或令牌后调用，清掉缓存。 */
 export function resetClient() {
-  cachedClient = null
-  cachedBase = null
+  cachedClient = null;
+  cachedBase = null;
+  cachedToken = null;
 }

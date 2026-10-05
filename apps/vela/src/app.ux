@@ -1,17 +1,29 @@
 /**
  * 应用入口。
  *
- * 这里只放全局配置与跨页共享的常量。业务逻辑一律在 `common/` 与 `pages/` 里，
- * 而且**尽可能下沉到 `@astramai/core`**——那样同一份逻辑在 Web 测试站上也能跑，
- * 手表上出问题时可以先用浏览器复现。
+ * `onError` 不是装饰——没有它的时候，页面脚本初始化失败会**静默变成黑屏**，
+ * IDE 控制台里一句有用的报错都没有。加上它之后，同样的问题会直接打出来。
+ *
+ * 见 https://iot.mi.com/vela/quickapp/zh/guide/framework/ux.html
  */
 
 export default {
   onCreate() {
-    console.log('[AstraMai] app onCreate')
+    console.log('[AstraMai] app onCreate');
+  },
+
+  onError(error) {
+    // 尽量把能拿到的信息都打出来：不同版本传进来的东西形状不一样
+    try {
+      console.error('[AstraMai] app onError:', error && (error.message || error.stack) ? error.message : String(error));
+      if (error && error.stack) console.error(error.stack);
+      if (error && error.name) console.error('name =', error.name);
+    } catch (loggingError) {
+      console.error('[AstraMai] app onError（打印失败）:', loggingError);
+    }
   },
 
   onDestroy() {
-    console.log('[AstraMai] app onDestroy')
+    console.log('[AstraMai] app onDestroy');
   },
-}
+};
