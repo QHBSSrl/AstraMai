@@ -182,8 +182,8 @@
 </style>
 
 <script>
-  import { fetchB50 } from '../common/api.js'
-  import { readSetting, warmUp, writeSetting } from '../common/store.js'
+  import { fetchB50 } from '../../common/api.js'
+  import { readSetting, warmUp, writeSetting } from '../../common/store.js'
 
   const TOP_N = 20
 

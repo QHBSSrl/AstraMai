@@ -132,8 +132,8 @@
 </style>
 
 <script>
-  import { describeValidity, parseWahlapQrPayload } from '../common/astramai-core.js'
-  import { clearSetting, readSetting, warmUp, writeSetting } from '../common/store.js'
+  import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js'
+  import { clearSetting, readSetting, warmUp, writeSetting } from '../../common/store.js'
 
   const STORAGE_KEY = 'qrInput'
 

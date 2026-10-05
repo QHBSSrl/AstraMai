@@ -6,7 +6,8 @@
   "description": "AstraMai —— 面向小米 Vela 端的街机音游工具（落雪查分器对接）基础工程与 Web 测试站",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/server",
+    "apps/web"
   ],
   "engines": {
     "node": ">=20.10"
@@ -19,8 +20,10 @@
     "dev:web": "npm run dev -w @astramai/web",
     "dev:core": "npm run dev -w @astramai/core",
     "start": "node apps/server/dist/index.js",
-    "test": "npm run build:core && npm run test -w @astramai/core && npm run test -w @astramai/server && npm run test -w @astramai/vela",
+    "test": "npm run build:core && npm run test -w @astramai/core && npm run test -w @astramai/server && npm --prefix apps/vela test",
+    "test:vela": "npm --prefix apps/vela test",
     "bundle:core": "node scripts/bundle-core.mjs",
+    "icon:vela": "node scripts/make-vela-icon.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "node scripts/clean.mjs"
   },

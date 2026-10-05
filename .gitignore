@@ -5,6 +5,12 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Vela 工具链产物（aiot-toolkit 生成）
+apps/vela/build/
+apps/vela/sign/
+# 工具链在构建期间临时复制的工程副本
+apps/.temp_vela/
+
 # 环境变量（含落雪密钥，切勿提交）
 .env
 .env.local

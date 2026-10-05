@@ -19,17 +19,17 @@
     "backgroundColor": "#070b16"
   },
   "router": {
-    "entry": "Index",
+    "entry": "pages/Index",
     "pages": {
-      "Index": {
+      "pages/Index": {
         "component": "index",
         "path": "/"
       },
-      "Qr": {
+      "pages/Qr": {
         "component": "qr",
         "path": "/qr"
       },
-      "B50": {
+      "pages/B50": {
         "component": "b50",
         "path": "/b50"
       }

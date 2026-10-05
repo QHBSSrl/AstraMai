@@ -1,11 +1,17 @@
 {
-  "name": "@astramai/vela",
+  "name": "astramai-vela",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AstraMai 的 Vela QuickApp 前端（小米手表 / eSIM）。",
+  "description": "AstraMai · 小米手表（Vela JS 应用）端",
   "scripts": {
-    "bundle:core": "node ../../scripts/bundle-core.mjs",
-    "test": "node --test"
+    "start": "aiot start",
+    "build": "aiot build",
+    "release": "aiot release",
+    "test": "node --test",
+    "bundle:core": "node ../../scripts/bundle-core.mjs"
+  },
+  "devDependencies": {
+    "aiot-toolkit": "^2.0.5"
   }
 }

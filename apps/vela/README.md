@@ -1,6 +1,7 @@
 # AstraMai · Vela QuickApp 端
 
-小米手表（Vela JS 应用）前端。这是「先适配 eSIM 手表」这一步的落点。
+小米手表（Vela JS 应用）前端。目标设备：**REDMI Watch 5 eSIM**。
+这是「先适配 eSIM 手表」这一步的落点。
 
 ## 与其他部分的关系
 
@@ -13,55 +14,108 @@ apps/vela  ──HTTP──▶  自建服务端（apps/server）  ──HTTPS─
 **开发者密钥不在端上。** 手表是端侧设备，密钥由服务端持有；端上只请求我们自己服务端的聚合接口，
 一次拿到可直接渲染的视图模型——手表算力和流量都紧张，不适合端上拼装。
 
+## 这是一个独立项目，不是 monorepo 的 workspace 成员
+
+**这一点很重要，踩过坑。**
+
+`aiot-toolkit` 检查的是「项目目录下有没有 `node_modules` 和 `aiot-toolkit`」。
+如果 `apps/vela` 挂进根目录的 npm workspaces，依赖会被提升到仓库根，
+`apps/vela/node_modules` 根本不会生成，IDE 会一直报：
+
+```
+2: 安装项目依赖 ❌
+node_modules: 未安装
+aiot-toolkit: 未安装
+```
+
+所以 `apps/vela` **刻意不在根 `package.json` 的 `workspaces` 里**，它有自己独立的
+`package.json` 与 `package-lock.json`。
+
+### 首次使用
+
+```bash
+cd apps/vela
+npm install          # 装 aiot-toolkit，生成它自己的 node_modules
+```
+
+首次使用前还要先打包一次核心层（在仓库根目录）：
+
+```bash
+npm run build:core && npm run bundle:core
+```
+
+### 命令
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm run start` | `aiot start` —— 启动预览（会拉起模拟器/真机） |
+| `npm run build` | `aiot build` —— 产出 `dist/*.rpk` |
+| `npm run release` | `aiot release` —— 发布包 |
+| `npm test` | 跑 `test/` 下的适配器单元测试 |
+
+> 官方文档写的是 `aiot server`，但 2.0.5 的实际命令是 `aiot start`。
+
 ## 目录
 
 ```
 apps/vela/
-├── package.json
-├── test/vela-fetch.test.mjs      fetch 适配器的单元测试（可在 Node 里跑）
+├── package.json / package-lock.json   独立项目，勿并入根 workspaces
+├── test/vela-fetch.test.mjs           fetch 适配器的单元测试
+├── dist/                              aiot build 产物（gitignore）
 └── src/
-    ├── manifest.json             应用配置与路由
-    ├── app.ux                    应用入口
+    ├── manifest.json                  应用配置与路由
+    ├── app.ux                         应用入口
     ├── common/
-    │   ├── astramai-core.js      ← 由 npm run bundle:core 生成，勿手改
-    │   ├── vela-fetch.js         @system.fetch → core 的 FetchLike
-    │   ├── api.js                服务端地址配置 + B50 拉取
-    │   └── store.js              @system.storage 封装
+    │   ├── astramai-core.js           ← 由 npm run bundle:core 生成，勿手改
+    │   ├── icon.png                   ← 由 npm run icon:vela 生成，占位图
+    │   ├── vela-fetch.js              @system.fetch → core 的 FetchLike
+    │   ├── api.js                     服务端地址 / 访问令牌 / B50 拉取
+    │   └── store.js                   @system.storage 封装
     └── pages/
-        ├── Index/index.ux        首页
-        ├── Qr/qr.ux              机台二维码
-        └── B50/b50.ux            Best 50
+        ├── Index/index.ux             首页
+        ├── Qr/qr.ux                   机台二维码
+        └── B50/b50.ux                 Best 50
 ```
 
 ## 已实现
 
 - **[核心层复用]** `packages/core` 打成一个 72 KB 的零依赖文件，端上直接 `import`。
-  `calculateDxRating`、`buildB50View`、`parseWahlapQrPayload`、`describeValidity`
-  等全部可用。
 - **[fetch 适配]** Vela 的 `@system.fetch` 是回调式、非 2xx 也走 success、
-  没有 `Response.text()`。适配器把这些差异抹平，并有 13 项单元测试覆盖
+  没有 `Response.text()`。适配器把这些差异抹平，13 项单元测试覆盖
   （超时、竞态、同步抛错、错误码透传都测了）。
 - **[二维码页]** 用 Vela 原生的 `<qrcode value="...">` 组件；
   **喂进去的是还原出的 84 字符短码，不是用户粘贴的链接**；有效期每秒重算。
 - **[B50 页]** 好友码查询 + 概要 + 前 20 条列表。
 - **[访问令牌]** 服务端设了 `API_TOKEN` 时，端上自动带 `X-API-Key`。
 
-## 还没做 / 需要真机确认的部分
+## 已经用真实工具链验证过的事
 
-这些我**没有**在真实工具链上验证过，因为本仓库里没有 Vela 的 IDE / 模拟器：
+下面这些**不是猜测**，是在本机用 `aiot-toolkit@2.0.5` 实际构建通过之后确认的：
 
-| 项 | 状态 |
+| 项 | 结论 |
 | --- | --- |
-| `manifest.json` 里 `features` 的名称 | `system.fetch` 已由官方文档确认；`system.storage`、`system.router` 待确认 |
-| `router.push({ uri })` 的路径写法 | 官方两份文档里 `pages` 与 `Pages` 大小写不一致，本工程改用 manifest 显式声明的 `path` |
-| `@system.storage` 的方法名与回调签名 | 收在 `store.js` 一处，对不上只改这一个文件 |
+| `npm install` 后 IDE 的两项检查 | `node_modules` ✅ / `aiot-toolkit` ✅ |
+| `aiot build` | **成功**，产出 `dist/com.astranexus.astramai.debug.0.1.0.rpk`（66 KB） |
+| `features` 名称 | 用 `--complete-feature` 反向验证：`system.fetch` / `system.storage` / `system.router` 一个不差 |
+| `router` 的 key 写法 | 必须是 **`pages/Index` 这种带目录前缀的**，写成裸 `Index` 会报 `path 'src\Index\index.ux' does not exist` |
+| 页面里的相对导入 | 必须是 `../../common/xxx.js`——页面在 `src/pages/<Page>/`，退一级是 `pages/`，退两级才是 `src/` |
+| `router.path` | 编译进 RPK 的 manifest 里原样保留（`/`、`/qr`、`/b50`），`router.push({ uri: '/qr' })` 可用 |
+| `icon` | **必填**，指向不存在的文件会直接构建失败（IDE 只报「项目无法启动」，不会说缺图标） |
+| 签名 | debug 构建用工具箱自带的 pem，**不需要**自己准备 `sign/` |
+
+## 还没验证的部分
+
+| 项 | 说明 |
+| --- | --- |
+| 运行时行为 | `@system.storage` 的方法名与回调签名、`<qrcode>` 的实际渲染 |
+| 页面跳转 | 编译产物里的 path 是对的，但没在模拟器上点过 |
+| 手表上的扫码 | 见下 |
 | `designWidth` | 暂填 466，需按 REDMI Watch 5 的实际分辨率调整 |
-| `<qrcode>` 对 84 字符内容的实际渲染 | 见下，风险已大幅降低但仍建议上机扫一次 |
-| `setInterval` 在页面 `onHide` 后是否真的停止 | 已显式 `clearInterval`，但手表上的后台行为需实测 |
+| 包体积 | debug 构建未压缩，每个页面都内联了一份 core（约 170 KB/页）。`release` 构建会压缩，实际发布前需要复测 |
 
-## 最大的风险：一度以为手表扫不出来，实测后基本解除
+## 关于手表扫码：风险已大幅降低
 
-一开始我把那个 ~400 字符的展示页链接当成了二维码内容，算出 **版本 15 / 77×77 模块**，
+一开始我把 ~400 字符的展示页链接当成了二维码内容，算出 **版本 15 / 77×77 模块**，
 担心手表上模块太小扫不出来。
 
 后来把官方生成的 PNG 下载下来、用独立解码器解了一遍，发现二维码内容其实是
@@ -70,40 +124,23 @@ apps/vela/
 | 项 | 实测值 |
 | --- | --- |
 | 内容长度 | 84 字符 |
-| 版本 / 纠错 | 版本 4 / 字母数字模式 |
+| 版本 / 模式 | 版本 4 / 字母数字模式 |
 | 模块数 | **33 × 33** |
 | 官方 PNG | 200×200 px，码区 198×198，每模块 **6 px** |
 
-33×33 而不是 77×77 —— **每边少了 2.3 倍的模块**。在 REDMI Watch 5 这类
+33×33 而不是 77×77——**每边少了 2.3 倍的模块**。在 REDMI Watch 5 这类
 400px 级别的手表屏上，模块尺寸从约 3.9px 涨到约 10px 以上，可扫性完全不是一个量级。
 
-所以这件事从「必须真机验证的高风险项」降级为「大概率没问题，但上机扫一次确认」。
-
 **开发时务必用 `payload.content`（短码），不要用用户粘贴的链接原文**——
-`apps/vela/src/pages/Qr/qr.ux` 里已经这么做了，那里也写了原因。
+`src/pages/Qr/qr.ux` 里已经这么做了，那里也写了原因。
 如果哪天有人改成直接喂链接，二维码会变成 77×77，在手表上直接不可用。
 
-另外一点：**官方 PNG 的静区只有 1px**（规范要求 4 个模块）。
-我们这边渲染时留足，不要照抄官方。
+另外：**官方 PNG 的静区只有 1px**（规范要求 4 个模块）。我们这边留足了，不要照抄官方。
 
-## 开发
-
-```bash
-# 在仓库根目录
-npm run build:core          # 编译 packages/core
-npm run bundle:core         # 打包给 Vela 用的单文件
-npm test                    # core / server / vela 的全部测试
-
-# 真机/模拟器
-# 用 Vela IDE 打开 apps/vela，或把 src/ 拷进 IDE 生成的项目里
-```
-
-目标设备：**REDMI Watch 5 eSIM**（在官方 `system.fetch` 支持列表内）。
-
-真机调试时：
+## 真机调试
 
 1. 把 `src/common/api.js` 里的 `DEFAULT_SERVER_BASE` 改成可达的地址
    （局域网 IP，或经 frp 暴露的公网地址）；
-2. 如果服务端设了 `API_TOKEN`，在应用设置里填同样的值；
+2. 如果服务端设了 `API_TOKEN`，在应用里填同样的值；
 3. **不需要**把服务端改成 `HOST=0.0.0.0`——frpc 与它同机时走 `127.0.0.1` 即可。
    只有 frpc 跑在别的机器上时才需要放开监听。

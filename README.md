@@ -81,6 +81,7 @@ npm start         # http://127.0.0.1:8787
 | `npm run build` | 全量构建（含给 Vela 用的 core 单文件打包） |
 | `npm test` | core 与 Vela 的全部测试（244 条 QR 黄金向量 + 13 项 fetch 适配） |
 | `npm run bundle:core` | 单独重新打包 Vela 用的 core |
+| `npm run icon:vela` | 重新生成 Vela 的占位图标 |
 | `npm start` | 以构建产物启动服务端（同时托管前端） |
 | `npm run typecheck` | 全工作区类型检查 |
 | `node scripts/smoke.mjs` | 对已启动的服务端跑端到端冒烟测试 |
@@ -327,9 +328,17 @@ frp 裸 TCP 是明文 HTTP。做成产品之前建议：
 Node 里这些**全都有**，所以在 Node 上跑得通完全不能说明手表上跑得通——
 这一步就是为了消掉那个盲区。当前 8 项检查全部通过。
 
-详见 [apps/vela/README.md](apps/vela/README.md)，其中包括**尚未在真实工具链上验证**的清单
-（`features` 名称、`router` 路径写法、`@system.storage` 签名、`designWidth`），
-以及一个需要在真机上拍板的风险：**77×77 的二维码在手表屏幕上还扫得出来吗**。
+详见 [apps/vela/README.md](apps/vela/README.md)。那里区分了两类内容：
+
+- **已用真实工具链验证过的**：`aiot build` 通过并产出 RPK、`features` 名称经
+  `--complete-feature` 反向确认、`router` 的 key 必须写成 `pages/Index` 这种带目录前缀的形式、
+  页面里的相对导入必须退两级到 `src/common/`、`icon` 是必填项……
+  这些都是文档里没写、只能靠构建工具撞出来的；
+- **还没验证的**：`@system.storage` 的方法签名、`<qrcode>` 的实际渲染、页面跳转、
+  以及最关键的——**手表上的码在机台扫不扫得出来**。
+
+`apps/vela` **刻意不是 monorepo 的 workspace 成员**：`aiot-toolkit` 要求项目自己有
+`node_modules`，挂进 workspaces 会被提升到仓库根，IDE 就会一直报「依赖未安装」。
 
 ---
 
@@ -346,8 +355,8 @@ AstraMai/
 ├─ packages/core/test/  QR 黄金向量与回归测试
 ├─ apps/server/src/  配置、曲库缓存、路由、HTTP 工具
 ├─ apps/web/src/     React 界面与组件
-├─ apps/vela/        Vela QuickApp（小米手表）：manifest、页面、fetch 适配与测试
-└─ scripts/          dev / build / bundle-core / smoke / clean
+├─ apps/vela/        Vela QuickApp（小米手表）：独立项目，见其 README
+└─ scripts/          dev / build / bundle-core / make-vela-icon / smoke / clean
 ```
 
 ---

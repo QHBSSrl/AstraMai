@@ -74,9 +74,9 @@
 <script>
   import router from '@system.router'
 
-  import { describeValidity, parseWahlapQrPayload } from '../common/astramai-core.js'
-  import { getServerBase } from '../common/api.js'
-  import { readSetting, warmUp } from '../common/store.js'
+  import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js'
+  import { getServerBase } from '../../common/api.js'
+  import { readSetting, warmUp } from '../../common/store.js'
 
   export default {
     private: {
