@@ -1,5 +1,61 @@
 # 用宝塔面板部署 AstraMai 服务端
 
+## ✅ 当前状态：已经部署好了
+
+**不用再按下面的步骤做一遍。** 截至最近一次部署：
+
+| 项目 | 值 |
+| --- | --- |
+| 地址 | `http://101.132.148.117:8787` |
+| 运行方式 | Docker 容器 `astramai`，`--restart unless-stopped`（服务器重启会自动拉起） |
+| 代码目录 | `/www/wwwroot/astramai` |
+| 容器内存占用 | 约 **33–38 MB** |
+| 健康检查 | `curl http://101.132.148.117:8787/api/health` |
+
+### 怎么拿 API_TOKEN
+
+它只存在服务器的 `/www/wwwroot/astramai/.env` 里（权限 600）。想看：
+
+```bash
+grep '^API_TOKEN=' /www/wwwroot/astramai/.env
+```
+
+客户端（网页版设置里）需要填这个值。
+
+### 怎么更新
+
+改完代码后在**本地仓库**执行一条命令即可：
+
+```bash
+node scripts/deploy-server.mjs          # 部署/更新
+node scripts/deploy-server.mjs --check  # 只看远端状态，不动任何东西
+```
+
+**它不会覆盖服务器上已有的 `.env`**，所以 `API_TOKEN` 不会每次都被换掉、
+把已经配好的客户端搞失效。
+
+> ⚠️ 为什么不是「服务器上 `npm ci && npm run build`」：
+> 这台机器只有 1676 MB 内存，上面还跑着 MySQL、宝塔、雷池 WAF、QQ 机器人、frps，
+> 空闲通常只有 100–180 MB。在上面做一次前端构建很容易 OOM。
+> 所以部署脚本改为**本地构建、只上传运行产物**（约 375 KB），
+> 服务器上只做一次纯 COPY 的 `docker build`。
+
+### 常用排查命令
+
+```bash
+docker ps --filter name=astramai          # 在不在跑
+docker logs --tail 50 astramai            # 看日志
+docker stats --no-stream astramai         # 看内存占用
+curl -s http://127.0.0.1:8787/api/health  # 本机健康检查
+```
+
+---
+
+## 下面是完整的从零部署步骤
+
+> 只有在换服务器、或者要从头重来的时候才需要看。
+> 正常更新用上面那条 `node scripts/deploy-server.mjs` 就够。
+
 面向「不想敲太多命令」的场景。全程只需要复制粘贴两次命令，其余都是点鼠标。
 
 **你的地址**：`http://101.132.148.117:8787`
