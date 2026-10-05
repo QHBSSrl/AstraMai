@@ -24,7 +24,7 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 const HOST = process.env.DEPLOY_HOST ?? '101.132.148.117';
 const PORT = process.env.DEPLOY_PORT ?? '52778';
@@ -91,10 +91,15 @@ docker inspect -f '  {{.HostConfig.RestartPolicy.Name}}' astramai 2>/dev/null ||
 
 // ── 1. 本地构建 ─────────────────────────────────────────────────────────
 console.log('① 本地构建');
-execFileSync('node', [resolve(root, 'node_modules/npm/bin/npm-cli.js'), 'run', 'build'], {
-  cwd: root,
-  stdio: 'pipe',
-});
+// npm-cli.js 在 Node 安装目录下，不在仓库里。
+// 也不能直接 spawn `npm.cmd`：Node 20+ 在 Windows 上出于安全不允许，
+// 会以 status:null 静默失败；而 shell:true 又会让 PowerShell 吞掉退出码。
+const npmCli = resolve(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
+if (!existsSync(npmCli)) {
+  console.error(`   找不到 npm CLI：${npmCli}`);
+  process.exit(1);
+}
+execFileSync(process.execPath, [npmCli, 'run', 'build'], { cwd: root, stdio: 'pipe' });
 console.log('   完成');
 
 // ── 2. 组装最小运行目录 ─────────────────────────────────────────────────

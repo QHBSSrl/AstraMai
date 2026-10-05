@@ -7,6 +7,7 @@
 
 import {
   LxnsClient,
+  LxnsError,
   buildB50View,
   buildSongIndex,
   createMockBests,
@@ -41,8 +42,46 @@ export interface B50Result {
 export class LxnsService {
   private library: SongLibrary | null = null;
   private libraryInflight: Promise<SongLibrary> | null = null;
+  /** 全局上游预算的固定窗口。 */
+  private upstream = { count: 0, resetAt: 0 };
 
   constructor(private readonly config: ServerConfig) {}
+
+  /**
+   * 扣减全局上游预算，额度不足时抛错。
+   *
+   * 为什么需要它：令牌会随客户端分发出去（写进手表 App 的包里，谁都能解出来），
+   * 所以不能靠令牌来限制用量。一旦有人写脚本刷，烧的是我们自己的开发者密钥配额，
+   * 落雪会直接返回 429。这一层与「有多少客户端」无关，只统计真正打到落雪的请求，
+   * 因此命中缓存的请求不消耗预算。
+   */
+  private spendUpstream(count: number): void {
+    const limit = this.config.upstreamLimitPerMinute;
+    if (limit <= 0) return;
+
+    const now = Date.now();
+    if (now >= this.upstream.resetAt) {
+      this.upstream = { count: 0, resetAt: now + 60_000 };
+    }
+    if (this.upstream.count + count > limit) {
+      throw new LxnsError('rate-limited', `上游调用已达每分钟 ${limit} 次上限`, {
+        friendly: '当前使用人数较多，服务器对落雪的调用已达每分钟上限，请过一会儿再试。',
+      });
+    }
+    this.upstream.count += count;
+  }
+
+  /** 供 /api/health 展示上游预算余量。 */
+  upstreamStatus(): { limitPerMinute: number; usedThisMinute: number; remaining: number } {
+    const limit = this.config.upstreamLimitPerMinute;
+    const now = Date.now();
+    const used = now >= this.upstream.resetAt ? 0 : this.upstream.count;
+    return {
+      limitPerMinute: limit,
+      usedThisMinute: used,
+      remaining: limit <= 0 ? Number.POSITIVE_INFINITY : Math.max(0, limit - used),
+    };
+  }
 
   /** 解析本次请求实际使用的密钥。浏览器临时密钥优先于服务端密钥。 */
   private resolveKeys(clientKey: string | undefined): { developerKey: string | undefined; usedServerKey: boolean } {
@@ -71,6 +110,8 @@ export class LxnsService {
     const task = (async (): Promise<SongLibrary> => {
       const client = this.clientFor(clientKey);
       try {
+        // 曲库只在缓存过期时才真的打上游：歌单 + 别名两次
+        this.spendUpstream(2);
         const [songs, aliases] = await Promise.all([
           client.getSongList({ notes: true }),
           client.getAliasList().catch(() => ({ aliases: [] }) as MaimaiAliasList),
@@ -147,6 +188,8 @@ export class LxnsService {
     }
 
     const client = new LxnsClient({ developerKey });
+    // 一次 B50 要打两次上游：取玩家、取 Best 50。都无法缓存（每个玩家不同）
+    this.spendUpstream(2);
     const player: MaimaiPlayer = input.qq
       ? await client.getPlayerByQq(input.qq)
       : await client.getPlayer(input.friendCode as number);
@@ -173,6 +216,7 @@ export class LxnsService {
     if (mode === 'mock') return { mode, scores: [] };
 
     const client = new LxnsClient({ developerKey });
+    this.spendUpstream(1);
     const scores = await client.getSongScores(input.friendCode, {
       song_id: input.songId,
       ...(input.songType ? { song_type: input.songType } : {}),

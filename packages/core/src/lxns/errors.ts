@@ -23,11 +23,25 @@ export class LxnsError extends Error {
   readonly detail: string;
   /** 触发错误的接口路径。 */
   readonly endpoint: string;
+  /** 本实例专用的友好文案；为空时回退到 `kind` 的默认文案。 */
+  readonly friendly: string;
 
   constructor(
     kind: LxnsErrorKind,
     message: string,
-    options: { status?: number; detail?: string; endpoint?: string; cause?: unknown } = {},
+    options: {
+      status?: number;
+      detail?: string;
+      endpoint?: string;
+      cause?: unknown;
+      /**
+       * 覆盖默认友好文案。
+       *
+       * 用途：同样是 `rate-limited`，「落雪把我们限流了」和
+       * 「我们自己设的上游预算用完了」对玩家是两件事，说法应当不同。
+       */
+      friendly?: string;
+    } = {},
   ) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'LxnsError';
@@ -35,11 +49,12 @@ export class LxnsError extends Error {
     this.status = options.status ?? 0;
     this.detail = options.detail ?? '';
     this.endpoint = options.endpoint ?? '';
+    this.friendly = options.friendly ?? '';
   }
 
   /** 可直接展示给玩家的中文说明。 */
   get friendlyMessage(): string {
-    return FRIENDLY_MESSAGES[this.kind];
+    return this.friendly || FRIENDLY_MESSAGES[this.kind];
   }
 }
 

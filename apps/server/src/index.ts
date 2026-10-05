@@ -129,9 +129,16 @@ server.listen(config.port, config.host, () => {
   console.log(`  ├─ 页面填密钥 ${config.allowClientKey ? '允许（仅本地测试）' : '禁止'}`);
   console.log(
     `  ├─ 访问门禁   ${
-      config.apiToken
-        ? '已要求 API_TOKEN'
-        : '⚠ 未设 API_TOKEN —— 仅限本机使用，切勿直接暴露到公网'
+      config.apiTokens.length > 0
+        ? `已要求访问令牌（${config.apiTokens.length} 个）`
+        : '⚠ 未设访问令牌 —— 仅限本机使用，切勿直接暴露到公网'
+    }`,
+  );
+  console.log(
+    `  ├─ 上游预算   ${
+      config.upstreamLimitPerMinute > 0
+        ? `${config.upstreamLimitPerMinute} 次/分钟（全局，保护开发者密钥配额）`
+        : '已关闭'
     }`,
   );
   console.log(

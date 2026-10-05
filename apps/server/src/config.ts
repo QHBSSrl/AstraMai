@@ -71,11 +71,24 @@ export interface ServerConfig {
   /** 是否允许浏览器临时递交密钥。 */
   allowClientKey: boolean;
   /**
-   * 访问本服务的共享令牌。
-   * 配置后，除 /api/health 外的所有 /api/* 都要求带令牌——
-   * 一旦通过 frp 之类暴露到公网，**必须**配上，否则等于把你的落雪密钥开放给所有人。
+   * 访问本服务的共享令牌。配置后，除 /api/health 外的所有 /api/* 都要求带令牌。
+   *
+   * 支持多个（`API_TOKENS` 逗号分隔），这样发给不同的人可以用不同的口令，
+   * 某一个泄露了单独停用即可，不必让所有人的口令一起失效。
+   *
+   * ⚠️ 但要清楚：**令牌一旦写进客户端（比如手表 App 的包），就不再是秘密**——
+   * 谁拿到 App 都能解出来。所以这道闸挡的是随机扫描器，不是拿到 App 的人。
+   * 真正保护落雪密钥配额的是 `upstreamLimitPerMinute`。
    */
-  apiToken: string | undefined;
+  apiTokens: string[];
+  /**
+   * 全局上游预算：每分钟最多向落雪发起多少次请求，与有多少客户端无关。
+   *
+   * 存在的理由：令牌会随客户端分发出去，无法依赖它限制用量；
+   * 一旦有人写脚本刷，烧的是我们自己的开发者密钥配额（落雪会返回 429）。
+   * 设为 0 表示不限。
+   */
+  upstreamLimitPerMinute: number;
   /** 每个来源 IP 每分钟允许的请求数；0 表示不限流。 */
   rateLimitPerMinute: number;
   songCacheTtlMs: number;
@@ -93,6 +106,21 @@ export function isLoopbackHost(host: string): boolean {
 }
 
 /**
+ * 解析令牌列表。
+ *
+ * `API_TOKENS` 支持逗号或换行分隔的多个令牌，`API_TOKEN` 作为单令牌的兼容写法。
+ * 去重并丢掉空白项，避免 `a,,b` 这种输入产生一个空令牌——那会让任何人都能通过。
+ */
+export function parseTokenList(multi: string | undefined, single: string | undefined): string[] {
+  const raw = [multi ?? '', single ?? ''].join(',');
+  const tokens = raw
+    .split(/[,\n]/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  return [...new Set(tokens)];
+}
+
+/**
  * 部署安全校验。
  *
  * 这个服务端持有落雪开发者密钥，一旦对外可达却没有 `API_TOKEN`，
@@ -102,12 +130,12 @@ export function isLoopbackHost(host: string): boolean {
 export function assertDeploymentSafety(config: ServerConfig): void {
   if (!config.isPublicBind) return;
 
-  if (!config.apiToken) {
+  if (config.apiTokens.length === 0) {
     throw new Error(
       [
-        `拒绝启动：HOST=${config.host} 对外可达，但没有设置 API_TOKEN。`,
+        `拒绝启动：HOST=${config.host} 对外可达，但没有设置任何访问令牌。`,
         '该服务端持有落雪开发者密钥，无令牌暴露到公网等于把密钥公开。',
-        '请在环境变量或 .env 里设置一个足够长的随机 API_TOKEN 后重启。',
+        '请设置 API_TOKENS（可用逗号分隔多个）或 API_TOKEN，然后重启。',
         '（生成示例：node -e "console.log(require(\'crypto\').randomBytes(24).toString(\'base64url\'))"）',
       ].join('\n'),
     );
@@ -129,6 +157,7 @@ export function readConfig(): ServerConfig {
 
   const ttlSeconds = Number.parseInt(process.env.SONG_CACHE_TTL ?? '', 10);
   const rateLimit = Number.parseInt(process.env.RATE_LIMIT_PER_MINUTE ?? '', 10);
+  const upstreamLimit = Number.parseInt(process.env.UPSTREAM_LIMIT_PER_MINUTE ?? '', 10);
   const host = process.env.HOST?.trim() || '127.0.0.1';
 
   return {
@@ -137,7 +166,9 @@ export function readConfig(): ServerConfig {
     modeConfig,
     apiKey: process.env.LXNS_API_KEY?.trim() || undefined,
     allowClientKey: (process.env.ALLOW_CLIENT_KEY ?? 'true').trim().toLowerCase() !== 'false',
-    apiToken: process.env.API_TOKEN?.trim() || undefined,
+    apiTokens: parseTokenList(process.env.API_TOKENS, process.env.API_TOKEN),
+    upstreamLimitPerMinute:
+      Number.isFinite(upstreamLimit) && upstreamLimit >= 0 ? upstreamLimit : 150,
     rateLimitPerMinute: Number.isFinite(rateLimit) && rateLimit >= 0 ? rateLimit : 120,
     songCacheTtlMs: (Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 21_600) * 1000,
     repoRoot: repoRoot(),

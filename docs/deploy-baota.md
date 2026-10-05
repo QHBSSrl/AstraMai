@@ -40,6 +40,62 @@ node scripts/deploy-server.mjs --check  # 只看远端状态，不动任何东�
 > 所以部署脚本改为**本地构建、只上传运行产物**（约 375 KB），
 > 服务器上只做一次纯 COPY 的 `docker build`。
 
+### 分享给别人用
+
+别人没有落雪开发者密钥，所以让他们直接用我们这台服务器是对的。
+做法就是**把上面那个 `API_TOKEN` 给出去**（写进 App 配置、或让网页版用户填进设置里）。
+
+有两点要清楚：
+
+**1. 令牌一旦分发出去就不是秘密了。** 它写进手表 App 的包里，谁拿到 App 都能解出来。
+所以这道闸挡的是**随机扫描器和路过的路人**，挡不住拿到 App 的人——
+而这恰好就是「开放给别人用、但不想公开」所需要的效果。
+
+**2. 真正保护你密钥配额的是全局上游预算。** 见下面的说明。
+因为令牌拦不住拿到 App 的人，所以不能靠它限制用量；万一有人写脚本刷，
+烧的是**你自己的**开发者密钥配额，[落雪会返回 429](https://maimai.lxns.net/docs/developer-guide)。
+
+#### 给不同的人发不同的令牌（便于单独吊销）
+
+`API_TOKENS` 支持逗号分隔的多个令牌：
+
+```ini
+API_TOKENS=friends-8f3a...,group-2b91...
+```
+
+这样某一个人的令牌泄露了，**只把他的去掉重启即可**，不用让所有人的一起失效；
+用户侧只需要改自己那一份配置。
+
+改完重启：
+
+```bash
+docker rm -f astramai
+docker run -d --name astramai --restart unless-stopped \
+  --env-file /www/wwwroot/astramai/.env \
+  -e HOST=0.0.0.0 -e PORT=8787 -p 8787:8787 astramai-server:latest
+```
+
+#### 全局上游预算
+
+```ini
+UPSTREAM_LIMIT_PER_MINUTE=150
+```
+
+意思是**整个服务器每分钟最多向落雪发 150 次请求，跟有多少客户端无关**。
+
+- 只统计真正打到落雪的请求，命中曲库缓存的不算
+- 一次 B50 查询 = 2 次上游调用（取玩家 + 取 Best 50），所以 150 ≈ 每分钟 75 次查询
+- 小圈子正常用**根本碰不到**，只在被脚本刷的时候才会生效
+- 触发时返回 429 和一句明确的提示，而不是让落雪来拒绝你
+- 设为 `0` 关闭
+
+当前余量可以从健康检查里看到：
+
+```bash
+curl -s http://127.0.0.1:8787/api/health | grep -o '"upstreamBudget":{[^}]*}'
+# {"limitPerMinute":150,"usedThisMinute":0,"remaining":150}
+```
+
 ### 常用排查命令
 
 ```bash

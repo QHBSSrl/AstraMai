@@ -187,7 +187,7 @@ var maimaiEndpoints = {
 // packages/core/dist/lxns/errors.js
 var LxnsError = class extends Error {
   constructor(kind, message, options = {}) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     super(message, options.cause === void 0 ? void 0 : { cause: options.cause });
     __publicField(this, "kind");
     /** HTTP 状态码；网络层错误时为 0。 */
@@ -196,15 +196,18 @@ var LxnsError = class extends Error {
     __publicField(this, "detail");
     /** 触发错误的接口路径。 */
     __publicField(this, "endpoint");
+    /** 本实例专用的友好文案；为空时回退到 `kind` 的默认文案。 */
+    __publicField(this, "friendly");
     this.name = "LxnsError";
     this.kind = kind;
     this.status = (_a = options.status) != null ? _a : 0;
     this.detail = (_b = options.detail) != null ? _b : "";
     this.endpoint = (_c = options.endpoint) != null ? _c : "";
+    this.friendly = (_d = options.friendly) != null ? _d : "";
   }
   /** 可直接展示给玩家的中文说明。 */
   get friendlyMessage() {
-    return FRIENDLY_MESSAGES[this.kind];
+    return this.friendly || FRIENDLY_MESSAGES[this.kind];
   }
 };
 var FRIENDLY_MESSAGES = {

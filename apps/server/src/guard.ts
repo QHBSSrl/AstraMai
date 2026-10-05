@@ -1,15 +1,19 @@
 /**
  * 访问控制。
  *
- * 存在的理由很具体：**服务端持有落雪开发者密钥**，一旦通过 frp 之类的方式
- * 暴露到公网而没有任何门禁，任何知道地址的人都能拿你的密钥和配额随便查分。
+ * 存在的理由很具体：**服务端持有落雪开发者密钥**，一旦暴露到公网而没有任何门禁，
+ * 任何知道地址的人都能拿你的密钥和配额随便查分。
  *
- * 两道闸：
- *   1. 共享令牌——`API_TOKEN` 配置后，除健康检查外的所有 /api/* 都要带令牌；
- *   2. 限流——按来源 IP 的固定窗口计数，防止被当成免费代理刷。
+ * 三道闸：
+ *   1. 共享令牌——`API_TOKENS`（可多个）配置后，除健康检查外的所有 /api/* 都要带令牌；
+ *   2. 按来源 IP 限流——防止单个客户端把我们当免费代理刷；
+ *   3. 全局上游预算——见 lxns-service.ts，与客户端数量无关，真正保护密钥配额的那道。
  *
- * 这两道都是「够用就好」的量级，不追求抗攻击。真正的防护应当由 frps 侧
- * 的 TLS + 域名 + 反向代理规则一起承担。
+ * ⚠️ 关于第 1 道的定位要清楚：**令牌会随客户端一起分发出去**
+ * （比如写进手表 App 的包里，谁都能解出来），所以它挡不住拿到 App 的人，
+ * 挡的是随机扫描器和路过的路人。这也正是「开放给别人用、但不想公开」所需要的。
+ *
+ * 这三道都是「够用就好」的量级，不追求抗攻击。
  */
 
 import type { IncomingMessage } from 'node:http';
@@ -26,7 +30,12 @@ export interface Guard {
   /** 检查一个请求是否放行。 */
   check(req: IncomingMessage, pathname: string): GuardResult;
   /** 供健康检查展示当前限流状态。 */
-  stats(): { trackedClients: number; limitPerMinute: number; tokenRequired: boolean };
+  stats(): {
+    trackedClients: number;
+    limitPerMinute: number;
+    tokenRequired: boolean;
+    tokenCount: number;
+  };
 }
 
 /**
@@ -38,6 +47,7 @@ const OPEN_PATHS = new Set(['/api/health']);
 export function createGuard(config: ServerConfig): Guard {
   const windows = new Map<string, { count: number; resetAt: number }>();
   const limit = config.rateLimitPerMinute;
+  const tokens = config.apiTokens;
 
   /** 顺手清理过期窗口，避免 Map 无限增长。 */
   function sweep(now: number): void {
@@ -52,13 +62,13 @@ export function createGuard(config: ServerConfig): Guard {
       if (OPEN_PATHS.has(pathname)) return { ok: true, status: 200, message: '' };
 
       // ── 令牌 ────────────────────────────────────────────────────────
-      if (config.apiToken) {
+      if (tokens.length > 0) {
         const provided = extractToken(req);
-        if (provided !== config.apiToken) {
+        if (!provided || !tokens.includes(provided)) {
           return {
             ok: false,
             status: 401,
-            message: '缺少或错误的访问令牌。请在客户端设置 API_TOKEN 对应的值。',
+            message: '缺少或错误的访问令牌。请在客户端设置与本服务 API_TOKENS 一致的值。',
           };
         }
       }
@@ -90,7 +100,8 @@ export function createGuard(config: ServerConfig): Guard {
       return {
         trackedClients: windows.size,
         limitPerMinute: limit,
-        tokenRequired: config.apiToken !== undefined,
+        tokenRequired: tokens.length > 0,
+        tokenCount: tokens.length,
       };
     },
   };

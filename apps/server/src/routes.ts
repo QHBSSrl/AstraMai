@@ -104,6 +104,7 @@ export function createRouter(
         hasServerKey: config.apiKey !== undefined,
         allowClientKey: config.allowClientKey,
         songCache: service.cacheStatus(),
+        upstreamBudget: service.upstreamStatus(),
         accessControl: guard.stats(),
         upstream: 'https://maimai.lxns.net/api/v0',
         time: new Date().toISOString(),
