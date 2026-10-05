@@ -82,6 +82,43 @@ export interface ServerConfig {
   repoRoot: string;
   /** 前端构建产物目录。 */
   webDist: string;
+  /** 是否绑定在非回环地址上（即对外可达）。 */
+  isPublicBind: boolean;
+}
+
+/** 判断 host 是否只对本机可达。 */
+export function isLoopbackHost(host: string): boolean {
+  const value = host.trim().toLowerCase();
+  return value === '127.0.0.1' || value === 'localhost' || value === '::1' || value === '[::1]';
+}
+
+/**
+ * 部署安全校验。
+ *
+ * 这个服务端持有落雪开发者密钥，一旦对外可达却没有 `API_TOKEN`，
+ * 等于把密钥开放给所有人。所以这里**直接让进程起不来**，
+ * 而不是打一行警告了事——警告在 systemd/docker 的日志里没人看。
+ */
+export function assertDeploymentSafety(config: ServerConfig): void {
+  if (!config.isPublicBind) return;
+
+  if (!config.apiToken) {
+    throw new Error(
+      [
+        `拒绝启动：HOST=${config.host} 对外可达，但没有设置 API_TOKEN。`,
+        '该服务端持有落雪开发者密钥，无令牌暴露到公网等于把密钥公开。',
+        '请在环境变量或 .env 里设置一个足够长的随机 API_TOKEN 后重启。',
+        '（生成示例：node -e "console.log(require(\'crypto\').randomBytes(24).toString(\'base64url\'))"）',
+      ].join('\n'),
+    );
+  }
+
+  if (config.allowClientKey) {
+    console.warn(
+      '[AstraMai] 警告：对外可达且 ALLOW_CLIENT_KEY 未关闭，' +
+        '任何客户端都可以递交自己的密钥。生产环境建议设为 false。',
+    );
+  }
 }
 
 export function readConfig(): ServerConfig {
@@ -92,9 +129,10 @@ export function readConfig(): ServerConfig {
 
   const ttlSeconds = Number.parseInt(process.env.SONG_CACHE_TTL ?? '', 10);
   const rateLimit = Number.parseInt(process.env.RATE_LIMIT_PER_MINUTE ?? '', 10);
+  const host = process.env.HOST?.trim() || '127.0.0.1';
 
   return {
-    host: process.env.HOST?.trim() || '127.0.0.1',
+    host,
     port: Number.parseInt(process.env.PORT ?? '8787', 10) || 8787,
     modeConfig,
     apiKey: process.env.LXNS_API_KEY?.trim() || undefined,
@@ -104,6 +142,7 @@ export function readConfig(): ServerConfig {
     songCacheTtlMs: (Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 21_600) * 1000,
     repoRoot: repoRoot(),
     webDist: resolve(repoRoot(), 'apps', 'web', 'dist'),
+    isPublicBind: !isLoopbackHost(host),
   };
 }
 

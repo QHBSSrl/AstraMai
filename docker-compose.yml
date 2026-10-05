@@ -1,0 +1,41 @@
+# AstraMai 服务端部署编排。
+#
+#   cp .env.server.example .env.server   # 然后填密钥和令牌
+#   docker compose up -d --build
+#   docker compose logs -f
+#
+# 只把 8787 绑到本机，再由 Nginx/Caddy 反代出去会更稳妥；
+# 想直接对外就改成 "8787:8787"。
+#
+# 注意：如果宿主机还有 frp，两种方式选一种即可，不要重复暴露。
+
+services:
+  astramai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: astramai-server:latest
+    container_name: astramai
+    restart: unless-stopped
+
+    # 默认只监听宿主机回环，交给反向代理终结 TLS。
+    # 若确实要让容器直接对外，改成 "8787:8787"。
+    ports:
+      - '127.0.0.1:8787:8787'
+
+    env_file:
+      - .env.server
+
+    environment:
+      # 容器内必须绑 0.0.0.0，否则端口映射进不来
+      HOST: 0.0.0.0
+      PORT: '8787'
+      # 生产环境不要让客户端递交自己的密钥
+      ALLOW_CLIENT_KEY: 'false'
+
+    # 曲库缓存在内存里，重启后第一次查询会稍慢
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

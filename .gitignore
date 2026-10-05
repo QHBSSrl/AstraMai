@@ -28,3 +28,4 @@ npm-debug.log*
 
 # 临时探测目录（文档抓取 / 样例数据）
 .probe/
+.env.server

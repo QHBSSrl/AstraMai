@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.gitignore
+.probe
+.vscode
+.env
+**/.env
+apps/vela
+apps/.temp_vela
+*.rpk
+docs/screenshots

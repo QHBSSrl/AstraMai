@@ -11,13 +11,17 @@
 import { existsSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-import { readConfig } from './config.js';
+import { assertDeploymentSafety, readConfig } from './config.js';
 import { createGuard } from './guard.js';
 import { sendJson, serveStatic } from './http.js';
 import { LxnsService } from './lxns-service.js';
 import { createRouter, notFound } from './routes.js';
 
 const config = readConfig();
+
+// 安全校验放在建服务之前：绑公网却不带令牌就别启动了
+assertDeploymentSafety(config);
+
 const service = new LxnsService(config);
 const guard = createGuard(config);
 const router = createRouter(service, config, guard);

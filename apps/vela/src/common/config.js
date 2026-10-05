@@ -8,15 +8,32 @@
 
 import { readSetting } from './store.js';
 
-/** 默认服务端地址。真机调试时改成可达的地址。 */
-export const DEFAULT_SERVER_BASE = 'http://192.168.1.100:8787';
+/**
+ * 默认服务端地址。
+ *
+ * ⚠️ `10.0.2.2` 是 **QEMU 用户态网络里宿主机的地址**。
+ * Vela 模拟器的 `wlan0` 是 `10.0.2.15`、网关是 `10.0.2.2`（实测确认），
+ * 所以模拟器要访问跑在电脑上的服务端，必须用 `10.0.2.2` ——
+ * 填局域网 IP（192.168.x.x）或 `localhost` 都连不上。
+ *
+ * 真机上这个值不对，需要通过设置页填 frp 暴露出来的地址。
+ */
+export const DEFAULT_SERVER_BASE = 'http://10.0.2.2:8787';
 
 /**
  * 服务端地址。
- * 局域网调试填电脑 IP；经 frp 暴露后填公网地址。
+ * 模拟器用默认值；真机经 frp 暴露后填公网地址；局域网调试填电脑 IP。
  */
 export function getServerBase() {
   return readSetting('serverBase', DEFAULT_SERVER_BASE);
+}
+
+/** 规范化用户填的地址：补协议、去掉结尾斜杠。 */
+export function normalizeServerBase(input) {
+  let value = String(input ?? '').trim();
+  if (!value) return '';
+  if (!/^https?:\/\//i.test(value)) value = `http://${value}`;
+  return value.replace(/\/+$/, '');
 }
 
 /**
