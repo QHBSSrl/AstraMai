@@ -19,6 +19,7 @@
     "dev:web": "npm run dev -w @astramai/web",
     "dev:core": "npm run dev -w @astramai/core",
     "start": "node apps/server/dist/index.js",
+    "test": "npm run build:core && npm run test -w @astramai/core",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "node scripts/clean.mjs"
   },

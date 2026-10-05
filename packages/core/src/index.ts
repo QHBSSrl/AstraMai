@@ -10,6 +10,9 @@
  * 以便同一份逻辑在 Web 测试站与小米 Vela QuickApp 中复用。
  */
 
+// ── 通用工具 ────────────────────────────────────────────────────────────
+export * from './util/utf8.js';
+
 // ── 落雪 API ────────────────────────────────────────────────────────────
 export * from './lxns/types.js';
 export * from './lxns/endpoints.js';
@@ -21,6 +24,10 @@ export * from './maimai/constants.js';
 export * from './maimai/rating.js';
 export * from './maimai/format.js';
 export * from './maimai/b50.js';
+export * from './maimai/qr-payload.js';
+
+// ── 二维码（零依赖，Vela 端可直接复用）────────────────────────────────
+export * from './qr/index.js';
 
 // ── 模拟数据 ────────────────────────────────────────────────────────────
 export * from './mock/generate.js';

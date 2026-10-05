@@ -19,6 +19,7 @@ import {
   type QueryKind,
 } from './api';
 import { PlayerCard } from './components/PlayerCard';
+import { QrStudio } from './components/QrStudio';
 import { QueryBar } from './components/QueryBar';
 import { ScoreDetail } from './components/ScoreDetail';
 import { ScoreTable, entryKey } from './components/ScoreTable';
@@ -30,6 +31,9 @@ import { StatsPanel } from './components/StatsPanel';
 const DEMO_FRIEND_CODE = '888888888888888';
 
 type Tab = 'mix' | 'standard' | 'dx' | 'selections';
+
+/** 顶层页面。B50 查分与二维码工作台各自独立，互不干扰对方的状态。 */
+type Page = 'b50' | 'qr';
 
 interface Result {
   view: B50View;
@@ -50,6 +54,7 @@ export function App() {
   const [result, setResult] = useState<Result | null>(null);
 
   const [tab, setTab] = useState<Tab>('mix');
+  const [page, setPage] = useState<Page>('b50');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [query, setQuery] = useState<{ kind: QueryKind; value: string }>({
     kind: 'friendCode',
@@ -111,6 +116,11 @@ export function App() {
 
     const hash = window.location.hash.replace(/^#\/?/, '');
     const parts = hash.split('/').filter(Boolean);
+
+    if (parts[0] === 'qr') {
+      setPage('qr');
+      return;
+    }
 
     if (parts[0] === 'demo') {
       setQuery({ kind: 'friendCode', value: DEMO_FRIEND_CODE });
@@ -225,13 +235,44 @@ export function App() {
         </button>
       </header>
 
-      <QueryBar
-        loading={loading}
-        onSubmit={handleSubmit}
-        onDemo={handleDemo}
-        initialKind={query.kind}
-        initialValue={query.value}
-      />
+      <nav className="nav" aria-label="主导航">
+        <button
+          type="button"
+          aria-current={page === 'b50' ? 'page' : undefined}
+          onClick={() => {
+            setPage('b50');
+            window.location.hash = lastQuery
+              ? lastQuery.kind === 'qq'
+                ? `#/b50/qq/${lastQuery.value}`
+                : `#/b50/${lastQuery.value}`
+              : '';
+          }}
+        >
+          B50 查分
+        </button>
+        <button
+          type="button"
+          aria-current={page === 'qr' ? 'page' : undefined}
+          onClick={() => {
+            setPage('qr');
+            window.location.hash = '#/qr';
+          }}
+        >
+          二维码
+        </button>
+      </nav>
+
+      {page === 'qr' ? (
+        <QrStudio />
+      ) : (
+        <>
+          <QueryBar
+            loading={loading}
+            onSubmit={handleSubmit}
+            onDemo={handleDemo}
+            initialKind={query.kind}
+            initialValue={query.value}
+          />
 
       {healthError ? (
         <div className="alert alert--error">
@@ -342,6 +383,8 @@ export function App() {
           </p>
         </>
       ) : null}
+        </>
+      )}
 
       <SettingsDialog
         open={settingsOpen}

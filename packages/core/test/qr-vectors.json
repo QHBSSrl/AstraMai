@@ -1,0 +1,3271 @@
+{
+ "generatedBy": "scripts that must run after the differential test against node-qrcode",
+ "note": "令牌为伪造值；这些向量用于在没有第三方依赖时检测编码器回归。",
+ "count": 244,
+ "vectors": [
+  {
+   "literal": "A",
+   "ecLevel": "L",
+   "mask": null,
+   "version": 1,
+   "size": 21,
+   "darkCount": 226,
+   "chosenMask": 0,
+   "digest": "4597c26c5a34a79c80006146bbb14ade"
+  },
+  {
+   "literal": "HELLO WORLD",
+   "ecLevel": "L",
+   "mask": null,
+   "version": 1,
+   "size": 21,
+   "darkCount": 230,
+   "chosenMask": 3,
+   "digest": "59047e77ff643f4c941969a88e3ad399"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "L",
+   "mask": null,
+   "version": 2,
+   "size": 25,
+   "darkCount": 334,
+   "chosenMask": 3,
+   "digest": "0f259c1024ee011e9bbc556d6da646c8"
+  },
+  {
+   "literal": "https://example.com/a/very/long/path?with=query&and=more&params=here",
+   "ecLevel": "L",
+   "mask": null,
+   "version": 4,
+   "size": 33,
+   "darkCount": 551,
+   "chosenMask": 2,
+   "digest": "e54bdb30da7c3351e10c7f43ed504fa1"
+  },
+  {
+   "literal": "舞萌DX 玩家二维码",
+   "ecLevel": "L",
+   "mask": null,
+   "version": 2,
+   "size": 25,
+   "darkCount": 324,
+   "chosenMask": 3,
+   "digest": "561e80a35eb134715ef55fded333488f"
+  },
+  {
+   "literal": "𝄞 代理对与 emoji 🎵🎮",
+   "ecLevel": "L",
+   "mask": null,
+   "version": 2,
+   "size": 25,
+   "darkCount": 325,
+   "chosenMask": 5,
+   "digest": "1c65f2e27ae5acd5c68a494af9c7192f"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 200
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "version": 9,
+   "size": 53,
+   "darkCount": 1474,
+   "chosenMask": 0,
+   "digest": "9638c892adc9d70487d1d9221e6b2a57"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1200
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "version": 25,
+   "size": 117,
+   "darkCount": 6968,
+   "chosenMask": 0,
+   "digest": "1439857bdece191febc0b73fc127f7ed"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "L",
+   "mask": null,
+   "version": 13,
+   "size": 69,
+   "darkCount": 2304,
+   "chosenMask": 2,
+   "digest": "f39a3321634308c30e0a22d3a4bf5d43"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": null,
+   "version": 1,
+   "size": 21,
+   "darkCount": 226,
+   "chosenMask": 3,
+   "digest": "f5c1d2ce63a03b40b0cd134c86a84c77"
+  },
+  {
+   "literal": "HELLO WORLD",
+   "ecLevel": "M",
+   "mask": null,
+   "version": 1,
+   "size": 21,
+   "darkCount": 232,
+   "chosenMask": 4,
+   "digest": "97c1a581e2a1d0759baec4d7f56740bc"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": null,
+   "version": 2,
+   "size": 25,
+   "darkCount": 334,
+   "chosenMask": 4,
+   "digest": "c0183ef005087abc43b27fbfd3532b2a"
+  },
+  {
+   "literal": "https://example.com/a/very/long/path?with=query&and=more&params=here",
+   "ecLevel": "M",
+   "mask": null,
+   "version": 5,
+   "size": 37,
+   "darkCount": 704,
+   "chosenMask": 2,
+   "digest": "73b9ae17d48a0d6b6d3ac19732f9a391"
+  },
+  {
+   "literal": "舞萌DX 玩家二维码",
+   "ecLevel": "M",
+   "mask": null,
+   "version": 2,
+   "size": 25,
+   "darkCount": 324,
+   "chosenMask": 4,
+   "digest": "8458f43c193eecd7f82902423bd1d654"
+  },
+  {
+   "literal": "𝄞 代理对与 emoji 🎵🎮",
+   "ecLevel": "M",
+   "mask": null,
+   "version": 3,
+   "size": 29,
+   "darkCount": 444,
+   "chosenMask": 1,
+   "digest": "145ee13d53abf46affd34a21004f2b28"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 200
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "version": 10,
+   "size": 57,
+   "darkCount": 1650,
+   "chosenMask": 2,
+   "digest": "d83b99da7009c014503f4b3194089e35"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1200
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "version": 29,
+   "size": 133,
+   "darkCount": 9070,
+   "chosenMask": 0,
+   "digest": "31a3723e0d876885ae1eae53434c6cf7"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": null,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2834,
+   "chosenMask": 2,
+   "digest": "a9c23ffa685e89f27db5447f4c89c301"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 1,
+   "size": 21,
+   "darkCount": 220,
+   "chosenMask": 0,
+   "digest": "347686f1e80e35e1d04c1703140c1086"
+  },
+  {
+   "literal": "HELLO WORLD",
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 1,
+   "size": 21,
+   "darkCount": 228,
+   "chosenMask": 2,
+   "digest": "3750cdb2a3cd6d3a67cd3f667a77a438"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 2,
+   "size": 25,
+   "darkCount": 328,
+   "chosenMask": 4,
+   "digest": "b5b4f64913eac93d3e667614b80b26a2"
+  },
+  {
+   "literal": "https://example.com/a/very/long/path?with=query&and=more&params=here",
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 6,
+   "size": 41,
+   "darkCount": 829,
+   "chosenMask": 2,
+   "digest": "8249440c573cbe3faf754701e6d5b204"
+  },
+  {
+   "literal": "舞萌DX 玩家二维码",
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 3,
+   "size": 29,
+   "darkCount": 430,
+   "chosenMask": 0,
+   "digest": "d6b13afd467caeb86c7b9233ed768ac7"
+  },
+  {
+   "literal": "𝄞 代理对与 emoji 🎵🎮",
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 3,
+   "size": 29,
+   "darkCount": 424,
+   "chosenMask": 0,
+   "digest": "25f5036d8dbd0e095e5bfd8d931d02b7"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 200
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 12,
+   "size": 65,
+   "darkCount": 2082,
+   "chosenMask": 0,
+   "digest": "29a75603ae6133a37315e0bf7cff5775"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1200
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 34,
+   "size": 153,
+   "darkCount": 11636,
+   "chosenMask": 0,
+   "digest": "b4f7084b9c920e4a3ce9f6f8163e59bc"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "Q",
+   "mask": null,
+   "version": 19,
+   "size": 93,
+   "darkCount": 4320,
+   "chosenMask": 2,
+   "digest": "11b2b4d894f267ff8995c090c2794249"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": null,
+   "version": 1,
+   "size": 21,
+   "darkCount": 220,
+   "chosenMask": 7,
+   "digest": "22ab3bf2cd0ed98fdb03284c7f9e5765"
+  },
+  {
+   "literal": "HELLO WORLD",
+   "ecLevel": "H",
+   "mask": null,
+   "version": 2,
+   "size": 25,
+   "darkCount": 330,
+   "chosenMask": 2,
+   "digest": "3a901e49a0bec2eaedbdf5d08d27a794"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": null,
+   "version": 3,
+   "size": 29,
+   "darkCount": 402,
+   "chosenMask": 3,
+   "digest": "0158ff47c4e55d05e9359d28f639974c"
+  },
+  {
+   "literal": "https://example.com/a/very/long/path?with=query&and=more&params=here",
+   "ecLevel": "H",
+   "mask": null,
+   "version": 8,
+   "size": 49,
+   "darkCount": 1226,
+   "chosenMask": 7,
+   "digest": "9d0b1210a9d8c36d42da321364e2fb94"
+  },
+  {
+   "literal": "舞萌DX 玩家二维码",
+   "ecLevel": "H",
+   "mask": null,
+   "version": 3,
+   "size": 29,
+   "darkCount": 422,
+   "chosenMask": 0,
+   "digest": "a21e13dd68d8bdc12c4880d589aa493e"
+  },
+  {
+   "literal": "𝄞 代理对与 emoji 🎵🎮",
+   "ecLevel": "H",
+   "mask": null,
+   "version": 4,
+   "size": 33,
+   "darkCount": 562,
+   "chosenMask": 1,
+   "digest": "adeb6865f4595d7137ce1c30d8be30e2"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 200
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2968,
+   "chosenMask": 0,
+   "digest": "d5a249251ba743c59f84c786186e446e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1200
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "version": 39,
+   "size": 173,
+   "darkCount": 15388,
+   "chosenMask": 0,
+   "digest": "28d0ee2715d929082090e469e0a45798"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": null,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5072,
+   "chosenMask": 2,
+   "digest": "731aa9922cc85105bbf3f02e42963948"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 0,
+   "version": 1,
+   "size": 21,
+   "darkCount": 212,
+   "chosenMask": 0,
+   "digest": "a2788d06dc3225eafd5d7bc499d8ddf3"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 1,
+   "version": 1,
+   "size": 21,
+   "darkCount": 236,
+   "chosenMask": 1,
+   "digest": "1d39fd65f117c135e1c3b377c614e4d7"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 2,
+   "version": 1,
+   "size": 21,
+   "darkCount": 222,
+   "chosenMask": 2,
+   "digest": "fdd53ccf1890487d70e16a8b95786c16"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 3,
+   "version": 1,
+   "size": 21,
+   "darkCount": 226,
+   "chosenMask": 3,
+   "digest": "f5c1d2ce63a03b40b0cd134c86a84c77"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 4,
+   "version": 1,
+   "size": 21,
+   "darkCount": 240,
+   "chosenMask": 4,
+   "digest": "e7f54841f44718f31c391182f4993c63"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 5,
+   "version": 1,
+   "size": 21,
+   "darkCount": 234,
+   "chosenMask": 5,
+   "digest": "c529d3aa46adf88ab6d53172ede7eb68"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 6,
+   "version": 1,
+   "size": 21,
+   "darkCount": 242,
+   "chosenMask": 6,
+   "digest": "84d546bf2525f2f108d250049c6c1a8d"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "M",
+   "mask": 7,
+   "version": 1,
+   "size": 21,
+   "darkCount": 216,
+   "chosenMask": 7,
+   "digest": "763cb5f2d82c33e4cf0bad66f4e48f4a"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 0,
+   "version": 1,
+   "size": 21,
+   "darkCount": 218,
+   "chosenMask": 0,
+   "digest": "6052f36adb10ebcef948d4cb786263c4"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 1,
+   "version": 1,
+   "size": 21,
+   "darkCount": 240,
+   "chosenMask": 1,
+   "digest": "54001a2581c0288ca682c458af81d798"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 2,
+   "version": 1,
+   "size": 21,
+   "darkCount": 216,
+   "chosenMask": 2,
+   "digest": "9444fe96c3b077cf49bc22977234e7da"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 3,
+   "version": 1,
+   "size": 21,
+   "darkCount": 218,
+   "chosenMask": 3,
+   "digest": "c74a0484025523f3d8206abf4f833053"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 4,
+   "version": 1,
+   "size": 21,
+   "darkCount": 228,
+   "chosenMask": 4,
+   "digest": "327d5935ed99cde2199d33c343eac54f"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 5,
+   "version": 1,
+   "size": 21,
+   "darkCount": 220,
+   "chosenMask": 5,
+   "digest": "43c0cd2fb5bd9f1df8101de8260325ba"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 6,
+   "version": 1,
+   "size": 21,
+   "darkCount": 220,
+   "chosenMask": 6,
+   "digest": "175b5a8e5b76f70b2a8e7def17c50dda"
+  },
+  {
+   "literal": "A",
+   "ecLevel": "H",
+   "mask": 7,
+   "version": 1,
+   "size": 21,
+   "darkCount": 220,
+   "chosenMask": 7,
+   "digest": "22ab3bf2cd0ed98fdb03284c7f9e5765"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 0,
+   "version": 2,
+   "size": 25,
+   "darkCount": 316,
+   "chosenMask": 0,
+   "digest": "106d4a6058e58ed4dc8af005e85622ea"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 1,
+   "version": 2,
+   "size": 25,
+   "darkCount": 324,
+   "chosenMask": 1,
+   "digest": "eb83eb71ae5bd1edd6891146caaba37b"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 2,
+   "version": 2,
+   "size": 25,
+   "darkCount": 330,
+   "chosenMask": 2,
+   "digest": "8228e1e0a70ca3a234861072052f5b9f"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 3,
+   "version": 2,
+   "size": 25,
+   "darkCount": 340,
+   "chosenMask": 3,
+   "digest": "9205e054dd8e7893900682b2df770b4c"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 4,
+   "version": 2,
+   "size": 25,
+   "darkCount": 334,
+   "chosenMask": 4,
+   "digest": "c0183ef005087abc43b27fbfd3532b2a"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 5,
+   "version": 2,
+   "size": 25,
+   "darkCount": 327,
+   "chosenMask": 5,
+   "digest": "84fc2d9aa5406c0da2ee5ce6064b3afa"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 6,
+   "version": 2,
+   "size": 25,
+   "darkCount": 354,
+   "chosenMask": 6,
+   "digest": "435f53d56a872b237da30519f7754c91"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "M",
+   "mask": 7,
+   "version": 2,
+   "size": 25,
+   "darkCount": 302,
+   "chosenMask": 7,
+   "digest": "1aea82f5623a0b626860f4b0c95cbae6"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 0,
+   "version": 3,
+   "size": 29,
+   "darkCount": 418,
+   "chosenMask": 0,
+   "digest": "93365f49af2040ac840fa0f4d3ce2614"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 1,
+   "version": 3,
+   "size": 29,
+   "darkCount": 432,
+   "chosenMask": 1,
+   "digest": "6e160c00eeeb57fa66b056cbafede551"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 2,
+   "version": 3,
+   "size": 29,
+   "darkCount": 457,
+   "chosenMask": 2,
+   "digest": "53ff6b255830b27b57beb7fc2c1b76db"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 3,
+   "version": 3,
+   "size": 29,
+   "darkCount": 402,
+   "chosenMask": 3,
+   "digest": "0158ff47c4e55d05e9359d28f639974c"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 4,
+   "version": 3,
+   "size": 29,
+   "darkCount": 415,
+   "chosenMask": 4,
+   "digest": "0be9726cab0fdb446ec4194173ab0539"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 5,
+   "version": 3,
+   "size": 29,
+   "darkCount": 443,
+   "chosenMask": 5,
+   "digest": "3659ac2c9dfcfdfbb92d2d8993ab6bc8"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 6,
+   "version": 3,
+   "size": 29,
+   "darkCount": 426,
+   "chosenMask": 6,
+   "digest": "49afd9ede922a0117c542450b283c7ff"
+  },
+  {
+   "literal": "https://example.com/",
+   "ecLevel": "H",
+   "mask": 7,
+   "version": 3,
+   "size": 29,
+   "darkCount": 442,
+   "chosenMask": 7,
+   "digest": "d319c41011d1947df3488f8d67878f2e"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 0,
+   "version": 15,
+   "size": 77,
+   "darkCount": 3056,
+   "chosenMask": 0,
+   "digest": "d3fc4847dd73091ad267dcbebc132a7f"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 1,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2975,
+   "chosenMask": 1,
+   "digest": "3102df12a3d892e4c59829108c922ba0"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 2,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2834,
+   "chosenMask": 2,
+   "digest": "a9c23ffa685e89f27db5447f4c89c301"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 3,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2917,
+   "chosenMask": 3,
+   "digest": "eb0297ef24e1d0d6b10cd1a2dccbbe25"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 4,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2973,
+   "chosenMask": 4,
+   "digest": "1c8b74e7bfd6e05f974e0d5b1a3b8842"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 5,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2913,
+   "chosenMask": 5,
+   "digest": "2cedbd0157c7d01ee2532136ed913019"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 6,
+   "version": 15,
+   "size": 77,
+   "darkCount": 3123,
+   "chosenMask": 6,
+   "digest": "26200616541a2fff73d98b61ec944d74"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "M",
+   "mask": 7,
+   "version": 15,
+   "size": 77,
+   "darkCount": 3007,
+   "chosenMask": 7,
+   "digest": "c620109486f9ac8291cd45611e5bdf43"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 0,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5200,
+   "chosenMask": 0,
+   "digest": "c5d731c6aa11e5680299aaebe73af603"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 1,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5211,
+   "chosenMask": 1,
+   "digest": "b8c66a65b1aea011fa19a4ef472f3fad"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 2,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5072,
+   "chosenMask": 2,
+   "digest": "731aa9922cc85105bbf3f02e42963948"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 3,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5116,
+   "chosenMask": 3,
+   "digest": "7d8fb3a264c25e49ff2e6d9372385cd3"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 4,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5186,
+   "chosenMask": 4,
+   "digest": "1a978ebd7bb7adf9498e6246a10f6151"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 5,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5209,
+   "chosenMask": 5,
+   "digest": "a80beae4816e61e9ad6ef479404f41f8"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 6,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5376,
+   "chosenMask": 6,
+   "digest": "8667e19ae474d68d1ccc3d9162872187"
+  },
+  {
+   "literal": "https://wq.wahlap.net/qrcode/req/MAID2401011200000123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF.html?l=1704082200&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091",
+   "ecLevel": "H",
+   "mask": 7,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5224,
+   "chosenMask": 7,
+   "digest": "121ce8bf2dfc74d099b37fcc9dc079f3"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 17
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 1,
+   "maxVersion": 1,
+   "version": 1,
+   "size": 21,
+   "darkCount": 226,
+   "chosenMask": 0,
+   "digest": "5c35352c5fe94d7887f85e65c2a7e91f"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 14
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 1,
+   "maxVersion": 1,
+   "version": 1,
+   "size": 21,
+   "darkCount": 228,
+   "chosenMask": 0,
+   "digest": "6d1a4b24d69a3096bd16b1d9d73d1981"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 11
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 1,
+   "maxVersion": 1,
+   "version": 1,
+   "size": 21,
+   "darkCount": 224,
+   "chosenMask": 0,
+   "digest": "587084d5910771394354ffe38ce1e2e3"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 7
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 1,
+   "maxVersion": 1,
+   "version": 1,
+   "size": 21,
+   "darkCount": 226,
+   "chosenMask": 0,
+   "digest": "64687277a90509bdf31fa3ec5d379f8e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 32
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 2,
+   "maxVersion": 2,
+   "version": 2,
+   "size": 25,
+   "darkCount": 328,
+   "chosenMask": 0,
+   "digest": "c7d20020cad45b39f6993ea1e6bdcd77"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 26
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 2,
+   "maxVersion": 2,
+   "version": 2,
+   "size": 25,
+   "darkCount": 318,
+   "chosenMask": 0,
+   "digest": "b04446e32a097d0ac3af47176cb6d9b0"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 20
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 2,
+   "maxVersion": 2,
+   "version": 2,
+   "size": 25,
+   "darkCount": 316,
+   "chosenMask": 0,
+   "digest": "119f0541022e69a12a0f52859b26aa1a"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 14
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 2,
+   "maxVersion": 2,
+   "version": 2,
+   "size": 25,
+   "darkCount": 320,
+   "chosenMask": 0,
+   "digest": "e26b468bd4771d698ccd7bec64d4315b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 53
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 3,
+   "maxVersion": 3,
+   "version": 3,
+   "size": 29,
+   "darkCount": 440,
+   "chosenMask": 0,
+   "digest": "52b52f525cd7443a16d4eae5b2048abc"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 42
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 3,
+   "maxVersion": 3,
+   "version": 3,
+   "size": 29,
+   "darkCount": 424,
+   "chosenMask": 0,
+   "digest": "63063c4e37b601874529b861f60975ab"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 32
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 3,
+   "maxVersion": 3,
+   "version": 3,
+   "size": 29,
+   "darkCount": 426,
+   "chosenMask": 0,
+   "digest": "3c58bb4fc1262095a5f476469acdebdf"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 24
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 3,
+   "maxVersion": 3,
+   "version": 3,
+   "size": 29,
+   "darkCount": 428,
+   "chosenMask": 0,
+   "digest": "b7951f65337f0bcdac216206d8442bb5"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 78
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 4,
+   "maxVersion": 4,
+   "version": 4,
+   "size": 33,
+   "darkCount": 552,
+   "chosenMask": 0,
+   "digest": "58a85205399833c6244116072f838bc4"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 62
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 4,
+   "maxVersion": 4,
+   "version": 4,
+   "size": 33,
+   "darkCount": 552,
+   "chosenMask": 0,
+   "digest": "b5ad162bcf833da02d3531aac2cd68ef"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 46
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 4,
+   "maxVersion": 4,
+   "version": 4,
+   "size": 33,
+   "darkCount": 568,
+   "chosenMask": 0,
+   "digest": "f7d876dd23d73ba953a3dcd117d2cb56"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 34
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 4,
+   "maxVersion": 4,
+   "version": 4,
+   "size": 33,
+   "darkCount": 566,
+   "chosenMask": 0,
+   "digest": "784b2a92b4cabadbbf380dacdca909c9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 106
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 5,
+   "maxVersion": 5,
+   "version": 5,
+   "size": 37,
+   "darkCount": 692,
+   "chosenMask": 0,
+   "digest": "36c90a95675915b05f17cb265e3052e1"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 84
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 5,
+   "maxVersion": 5,
+   "version": 5,
+   "size": 37,
+   "darkCount": 696,
+   "chosenMask": 0,
+   "digest": "2c48155288b7fa80c534e4c78efd7b8e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 60
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 5,
+   "maxVersion": 5,
+   "version": 5,
+   "size": 37,
+   "darkCount": 698,
+   "chosenMask": 0,
+   "digest": "cfa80af6ae67524be202f512f5be7703"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 44
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 5,
+   "maxVersion": 5,
+   "version": 5,
+   "size": 37,
+   "darkCount": 676,
+   "chosenMask": 7,
+   "digest": "41879fafd4efe41ebe5e0247d9ce2d1e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 134
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 6,
+   "maxVersion": 6,
+   "version": 6,
+   "size": 41,
+   "darkCount": 848,
+   "chosenMask": 0,
+   "digest": "df5a9dfb6db968c9d246b1948742544a"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 106
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 6,
+   "maxVersion": 6,
+   "version": 6,
+   "size": 41,
+   "darkCount": 852,
+   "chosenMask": 3,
+   "digest": "060daf242d4025e976bcbc8642f9766e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 74
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 6,
+   "maxVersion": 6,
+   "version": 6,
+   "size": 41,
+   "darkCount": 838,
+   "chosenMask": 0,
+   "digest": "a88b13e7f42d4544c79b061259cee13e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 58
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 6,
+   "maxVersion": 6,
+   "version": 6,
+   "size": 41,
+   "darkCount": 852,
+   "chosenMask": 0,
+   "digest": "27b593e7911bc896b4dadf2efa0626b4"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 154
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 7,
+   "maxVersion": 7,
+   "version": 7,
+   "size": 45,
+   "darkCount": 1062,
+   "chosenMask": 0,
+   "digest": "a6577091c734431b8ab8710dbab67191"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 122
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 7,
+   "maxVersion": 7,
+   "version": 7,
+   "size": 45,
+   "darkCount": 1056,
+   "chosenMask": 0,
+   "digest": "c6c49609272c857f5a072b86089d603d"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 86
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 7,
+   "maxVersion": 7,
+   "version": 7,
+   "size": 45,
+   "darkCount": 1048,
+   "chosenMask": 0,
+   "digest": "a1c07144b4a5843eaf0533b6edf0779e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 64
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 7,
+   "maxVersion": 7,
+   "version": 7,
+   "size": 45,
+   "darkCount": 1063,
+   "chosenMask": 1,
+   "digest": "b80217ee14b02e8d8002abcb41e3eb03"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 192
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 8,
+   "maxVersion": 8,
+   "version": 8,
+   "size": 49,
+   "darkCount": 1260,
+   "chosenMask": 0,
+   "digest": "0280f0adce4393e0d65eaa2398c0aeca"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 152
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 8,
+   "maxVersion": 8,
+   "version": 8,
+   "size": 49,
+   "darkCount": 1208,
+   "chosenMask": 2,
+   "digest": "e595e6b75fe3d0596c11683d71516008"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 108
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 8,
+   "maxVersion": 8,
+   "version": 8,
+   "size": 49,
+   "darkCount": 1242,
+   "chosenMask": 0,
+   "digest": "03a34e4f5a8ccb57a3ef776dc1e10380"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 84
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 8,
+   "maxVersion": 8,
+   "version": 8,
+   "size": 49,
+   "darkCount": 1250,
+   "chosenMask": 0,
+   "digest": "ea420c62b05a1c5b50a7e950b4187a09"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 230
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 9,
+   "maxVersion": 9,
+   "version": 9,
+   "size": 53,
+   "darkCount": 1458,
+   "chosenMask": 0,
+   "digest": "2fc6360b36cb9d812ff356d049456425"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 180
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 9,
+   "maxVersion": 9,
+   "version": 9,
+   "size": 53,
+   "darkCount": 1438,
+   "chosenMask": 0,
+   "digest": "33578f38f647ea0ef5faaa02d53a9293"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 130
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 9,
+   "maxVersion": 9,
+   "version": 9,
+   "size": 53,
+   "darkCount": 1464,
+   "chosenMask": 0,
+   "digest": "cc81ef5805caa13f527fd152235f681a"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 98
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 9,
+   "maxVersion": 9,
+   "version": 9,
+   "size": 53,
+   "darkCount": 1436,
+   "chosenMask": 2,
+   "digest": "118c33de9a4fd727550b6bae17ca8fda"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 271
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 10,
+   "maxVersion": 10,
+   "version": 10,
+   "size": 57,
+   "darkCount": 1690,
+   "chosenMask": 0,
+   "digest": "7426a9e8f08e418dc6b0f94bcc969235"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 213
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 10,
+   "maxVersion": 10,
+   "version": 10,
+   "size": 57,
+   "darkCount": 1674,
+   "chosenMask": 0,
+   "digest": "b27c5d8141e70c48573b858359d3a971"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 151
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 10,
+   "maxVersion": 10,
+   "version": 10,
+   "size": 57,
+   "darkCount": 1690,
+   "chosenMask": 0,
+   "digest": "3e7a83c7529bd325c9830e86db4b2f2c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 119
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 10,
+   "maxVersion": 10,
+   "version": 10,
+   "size": 57,
+   "darkCount": 1607,
+   "chosenMask": 1,
+   "digest": "db6dbb11dc0fa97c8154e2f191076ceb"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 321
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 11,
+   "maxVersion": 11,
+   "version": 11,
+   "size": 61,
+   "darkCount": 1934,
+   "chosenMask": 0,
+   "digest": "67e828e2b368087ca8d741de86bf165b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 251
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 11,
+   "maxVersion": 11,
+   "version": 11,
+   "size": 61,
+   "darkCount": 1972,
+   "chosenMask": 0,
+   "digest": "f10d272e91d1029233665ccce16d6fd0"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 177
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 11,
+   "maxVersion": 11,
+   "version": 11,
+   "size": 61,
+   "darkCount": 1864,
+   "chosenMask": 2,
+   "digest": "8bae4336e9e4e90838929799d2572590"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 137
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 11,
+   "maxVersion": 11,
+   "version": 11,
+   "size": 61,
+   "darkCount": 1908,
+   "chosenMask": 2,
+   "digest": "eb99db6b6cb7b8699e4cf19795553231"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 367
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 12,
+   "maxVersion": 12,
+   "version": 12,
+   "size": 65,
+   "darkCount": 2154,
+   "chosenMask": 0,
+   "digest": "3465921cebf795de8977eed4f1c6aa5e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 287
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 12,
+   "maxVersion": 12,
+   "version": 12,
+   "size": 65,
+   "darkCount": 2170,
+   "chosenMask": 0,
+   "digest": "f589e0b3f4dae26fdc3fcae2a3bbe21b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 203
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 12,
+   "maxVersion": 12,
+   "version": 12,
+   "size": 65,
+   "darkCount": 2185,
+   "chosenMask": 1,
+   "digest": "1954292a6734b6b2bde3b6f5ef642303"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 155
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 12,
+   "maxVersion": 12,
+   "version": 12,
+   "size": 65,
+   "darkCount": 2156,
+   "chosenMask": 0,
+   "digest": "a848383b76cc03b3322bd1c3bc4a2b4f"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 425
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 13,
+   "maxVersion": 13,
+   "version": 13,
+   "size": 69,
+   "darkCount": 2450,
+   "chosenMask": 0,
+   "digest": "4d3396a7283029a3af6ed5c1dfaa2373"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 331
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 13,
+   "maxVersion": 13,
+   "version": 13,
+   "size": 69,
+   "darkCount": 2460,
+   "chosenMask": 0,
+   "digest": "ac9c5cca8acc8ea5bf1d8cfbd74f7e91"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 241
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 13,
+   "maxVersion": 13,
+   "version": 13,
+   "size": 69,
+   "darkCount": 2396,
+   "chosenMask": 0,
+   "digest": "cf3c1b3f6563ad7e155ae0dd268113ef"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 177
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 13,
+   "maxVersion": 13,
+   "version": 13,
+   "size": 69,
+   "darkCount": 2502,
+   "chosenMask": 2,
+   "digest": "e337b4bfad4daaf6e5e346067759d00b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 458
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 14,
+   "maxVersion": 14,
+   "version": 14,
+   "size": 73,
+   "darkCount": 2740,
+   "chosenMask": 0,
+   "digest": "e8517ac66cb00db8d2e851e5e6d0ea75"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 362
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 14,
+   "maxVersion": 14,
+   "version": 14,
+   "size": 73,
+   "darkCount": 2704,
+   "chosenMask": 0,
+   "digest": "b3154078cefc66558276b0438f18e7ac"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 258
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 14,
+   "maxVersion": 14,
+   "version": 14,
+   "size": 73,
+   "darkCount": 2698,
+   "chosenMask": 0,
+   "digest": "369ac1128f724f9c83cce20228df6251"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 194
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 14,
+   "maxVersion": 14,
+   "version": 14,
+   "size": 73,
+   "darkCount": 2726,
+   "chosenMask": 0,
+   "digest": "9609ccc18bbc62ae3b25a01f3738c6f7"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 520
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 15,
+   "maxVersion": 15,
+   "version": 15,
+   "size": 77,
+   "darkCount": 3054,
+   "chosenMask": 0,
+   "digest": "c226b0a483739a2fff7f3fc6b063b6ab"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 412
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 15,
+   "maxVersion": 15,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2962,
+   "chosenMask": 0,
+   "digest": "dc8aed7499b6bf661a5d6760781b0748"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 292
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 15,
+   "maxVersion": 15,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2982,
+   "chosenMask": 0,
+   "digest": "f8668f047ffd8f8997f1446cb64d7711"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 220
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 15,
+   "maxVersion": 15,
+   "version": 15,
+   "size": 77,
+   "darkCount": 2958,
+   "chosenMask": 0,
+   "digest": "9ba256fb94238a9f7ef045ea55377dd8"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 586
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 16,
+   "maxVersion": 16,
+   "version": 16,
+   "size": 81,
+   "darkCount": 3398,
+   "chosenMask": 0,
+   "digest": "7eae1665d8d0a8b2fa8840b4939f058b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 450
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 16,
+   "maxVersion": 16,
+   "version": 16,
+   "size": 81,
+   "darkCount": 3398,
+   "chosenMask": 0,
+   "digest": "cb84623f18652fec39484c430d566a6c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 322
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 16,
+   "maxVersion": 16,
+   "version": 16,
+   "size": 81,
+   "darkCount": 3334,
+   "chosenMask": 0,
+   "digest": "88d3a1879c376db21be3273261fed334"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 250
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 16,
+   "maxVersion": 16,
+   "version": 16,
+   "size": 81,
+   "darkCount": 3266,
+   "chosenMask": 0,
+   "digest": "cba149873faff8e8dd36370a97f437f8"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 644
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 17,
+   "maxVersion": 17,
+   "version": 17,
+   "size": 85,
+   "darkCount": 3688,
+   "chosenMask": 0,
+   "digest": "9db1d6928339e34f33ed8c11d30b7ec3"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 504
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 17,
+   "maxVersion": 17,
+   "version": 17,
+   "size": 85,
+   "darkCount": 3784,
+   "chosenMask": 0,
+   "digest": "98ff769e9a076bb38b07f50882feaacc"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 364
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 17,
+   "maxVersion": 17,
+   "version": 17,
+   "size": 85,
+   "darkCount": 3746,
+   "chosenMask": 2,
+   "digest": "167c18b6710924c4755f98488742dde9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 280
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 17,
+   "maxVersion": 17,
+   "version": 17,
+   "size": 85,
+   "darkCount": 3768,
+   "chosenMask": 0,
+   "digest": "e4adc676611e6c80711352cfe1abff16"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 718
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 18,
+   "maxVersion": 18,
+   "version": 18,
+   "size": 89,
+   "darkCount": 4054,
+   "chosenMask": 0,
+   "digest": "2b2cf29e4b83c44bbeedab58155a9409"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 560
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 18,
+   "maxVersion": 18,
+   "version": 18,
+   "size": 89,
+   "darkCount": 4076,
+   "chosenMask": 0,
+   "digest": "c49806c14115d7a0a351b1f5578156c9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 394
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 18,
+   "maxVersion": 18,
+   "version": 18,
+   "size": 89,
+   "darkCount": 3977,
+   "chosenMask": 3,
+   "digest": "8e4dfa8e24f26097905e5f88dd58123c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 310
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 18,
+   "maxVersion": 18,
+   "version": 18,
+   "size": 89,
+   "darkCount": 3956,
+   "chosenMask": 0,
+   "digest": "e9619cdcb0981febcdbfdadd35b7386f"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 792
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 19,
+   "maxVersion": 19,
+   "version": 19,
+   "size": 93,
+   "darkCount": 4388,
+   "chosenMask": 0,
+   "digest": "b4ac7bbf7ed5d82954683af67165dba1"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 624
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 19,
+   "maxVersion": 19,
+   "version": 19,
+   "size": 93,
+   "darkCount": 4430,
+   "chosenMask": 0,
+   "digest": "77e9000ccba69fa990b8c59d5c221c17"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 442
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 19,
+   "maxVersion": 19,
+   "version": 19,
+   "size": 93,
+   "darkCount": 4352,
+   "chosenMask": 0,
+   "digest": "f4ccebee2aa942b0a382a879d87267ad"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 338
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 19,
+   "maxVersion": 19,
+   "version": 19,
+   "size": 93,
+   "darkCount": 4358,
+   "chosenMask": 0,
+   "digest": "64a986e3ca9d3324fadb4659cf9f42bd"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 858
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 20,
+   "maxVersion": 20,
+   "version": 20,
+   "size": 97,
+   "darkCount": 4728,
+   "chosenMask": 0,
+   "digest": "8215dd34ce23e8ff7df08766edf15cd9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 666
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 20,
+   "maxVersion": 20,
+   "version": 20,
+   "size": 97,
+   "darkCount": 4644,
+   "chosenMask": 0,
+   "digest": "8916b477db5c6d487d2a511a371670da"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 482
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 20,
+   "maxVersion": 20,
+   "version": 20,
+   "size": 97,
+   "darkCount": 4722,
+   "chosenMask": 0,
+   "digest": "f08a5db70f1a1d6a4d34e8ae2b64d8d7"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 382
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 20,
+   "maxVersion": 20,
+   "version": 20,
+   "size": 97,
+   "darkCount": 4782,
+   "chosenMask": 0,
+   "digest": "15cd12f5256f8737772fd5d36e49a7d0"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 929
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 21,
+   "maxVersion": 21,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5128,
+   "chosenMask": 0,
+   "digest": "8ad272c5af52f166e0bd17d5bc80831a"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 711
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 21,
+   "maxVersion": 21,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5068,
+   "chosenMask": 0,
+   "digest": "b28b72af38f0200398d6099cfa67719d"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 509
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 21,
+   "maxVersion": 21,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5229,
+   "chosenMask": 1,
+   "digest": "946b1c2c1ec593d46892b66edd20ad87"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 403
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 21,
+   "maxVersion": 21,
+   "version": 21,
+   "size": 101,
+   "darkCount": 5166,
+   "chosenMask": 0,
+   "digest": "8a78d2aeb4c4b7240400e6bb553bb7bf"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1003
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 22,
+   "maxVersion": 22,
+   "version": 22,
+   "size": 105,
+   "darkCount": 5604,
+   "chosenMask": 0,
+   "digest": "5718a333dde6a82f009dc7f4c5cadc9b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 779
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 22,
+   "maxVersion": 22,
+   "version": 22,
+   "size": 105,
+   "darkCount": 5697,
+   "chosenMask": 1,
+   "digest": "51792ef1934524941c8b1e62f472eb7b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 565
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 22,
+   "maxVersion": 22,
+   "version": 22,
+   "size": 105,
+   "darkCount": 5727,
+   "chosenMask": 1,
+   "digest": "a2198c7ab0b34cda9786522824c5d80e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 439
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 22,
+   "maxVersion": 22,
+   "version": 22,
+   "size": 105,
+   "darkCount": 5466,
+   "chosenMask": 0,
+   "digest": "4e3b0f4ccc226523953106121d31e328"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1091
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 23,
+   "maxVersion": 23,
+   "version": 23,
+   "size": 109,
+   "darkCount": 6010,
+   "chosenMask": 0,
+   "digest": "435f4253d9f9005f876e679f56eb2bf0"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 857
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 23,
+   "maxVersion": 23,
+   "version": 23,
+   "size": 109,
+   "darkCount": 6001,
+   "chosenMask": 1,
+   "digest": "6ab6ca2e9a73faf81bf16242f17c00ff"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 611
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 23,
+   "maxVersion": 23,
+   "version": 23,
+   "size": 109,
+   "darkCount": 6138,
+   "chosenMask": 0,
+   "digest": "99d83de4cb30f62c9ee900a08c4d499c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 461
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 23,
+   "maxVersion": 23,
+   "version": 23,
+   "size": 109,
+   "darkCount": 6192,
+   "chosenMask": 0,
+   "digest": "9a6cdf9b0309bb229af2f393eced26b9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1171
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 24,
+   "maxVersion": 24,
+   "version": 24,
+   "size": 113,
+   "darkCount": 6579,
+   "chosenMask": 1,
+   "digest": "b34c80697e334f16419f8462a5bad60d"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 911
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 24,
+   "maxVersion": 24,
+   "version": 24,
+   "size": 113,
+   "darkCount": 6436,
+   "chosenMask": 0,
+   "digest": "2a51ba14b23b78fbae14e418c2858df9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 661
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 24,
+   "maxVersion": 24,
+   "version": 24,
+   "size": 113,
+   "darkCount": 6535,
+   "chosenMask": 1,
+   "digest": "f3fd3add504d033374b159f18d8b2c13"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 511
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 24,
+   "maxVersion": 24,
+   "version": 24,
+   "size": 113,
+   "darkCount": 6442,
+   "chosenMask": 0,
+   "digest": "fc4e59b5e9750c1b9c5148981907792e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1273
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 25,
+   "maxVersion": 25,
+   "version": 25,
+   "size": 117,
+   "darkCount": 6930,
+   "chosenMask": 0,
+   "digest": "1c03578cf74aa43254fb706d13f515ca"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 997
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 25,
+   "maxVersion": 25,
+   "version": 25,
+   "size": 117,
+   "darkCount": 6848,
+   "chosenMask": 0,
+   "digest": "1da53bbc482d4f59db1b600a65d759fa"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 715
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 25,
+   "maxVersion": 25,
+   "version": 25,
+   "size": 117,
+   "darkCount": 6872,
+   "chosenMask": 0,
+   "digest": "acbc3c9e635fe980cf16ec2ac6d4a1eb"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 535
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 25,
+   "maxVersion": 25,
+   "version": 25,
+   "size": 117,
+   "darkCount": 7099,
+   "chosenMask": 1,
+   "digest": "dbc116bab562e6203d612e2c5fec59c0"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1367
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 26,
+   "maxVersion": 26,
+   "version": 26,
+   "size": 121,
+   "darkCount": 7475,
+   "chosenMask": 1,
+   "digest": "7396e543eec979d84a7fa063eb301793"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1059
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 26,
+   "maxVersion": 26,
+   "version": 26,
+   "size": 121,
+   "darkCount": 7380,
+   "chosenMask": 2,
+   "digest": "46cdf8deef55f12aded12c9e9edeb643"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 751
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 26,
+   "maxVersion": 26,
+   "version": 26,
+   "size": 121,
+   "darkCount": 7469,
+   "chosenMask": 1,
+   "digest": "ddfcd44c3bc7cf7086b82d30cd43b3ae"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 593
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 26,
+   "maxVersion": 26,
+   "version": 26,
+   "size": 121,
+   "darkCount": 7364,
+   "chosenMask": 0,
+   "digest": "a1a87a3474a5014c67060bcfe9641474"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1465
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 27,
+   "maxVersion": 27,
+   "version": 27,
+   "size": 125,
+   "darkCount": 7868,
+   "chosenMask": 0,
+   "digest": "6551b6e4fa179fbb2a33dc6523a26c2c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1125
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 27,
+   "maxVersion": 27,
+   "version": 27,
+   "size": 125,
+   "darkCount": 7764,
+   "chosenMask": 0,
+   "digest": "81ab43882dcea37db077abb2020f0f78"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 805
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 27,
+   "maxVersion": 27,
+   "version": 27,
+   "size": 125,
+   "darkCount": 7659,
+   "chosenMask": 1,
+   "digest": "62c5f37437c29e9a44bd56cc8fb262cf"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 625
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 27,
+   "maxVersion": 27,
+   "version": 27,
+   "size": 125,
+   "darkCount": 7794,
+   "chosenMask": 0,
+   "digest": "5a1ea06f81282532b7909f954a7da05e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1528
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 28,
+   "maxVersion": 28,
+   "version": 28,
+   "size": 129,
+   "darkCount": 8454,
+   "chosenMask": 0,
+   "digest": "e4d73cb47892bfff5bf8787c9aabd5b9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1190
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 28,
+   "maxVersion": 28,
+   "version": 28,
+   "size": 129,
+   "darkCount": 8436,
+   "chosenMask": 0,
+   "digest": "f4bcbc612fb74e99410dd96692ece3aa"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 868
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 28,
+   "maxVersion": 28,
+   "version": 28,
+   "size": 129,
+   "darkCount": 8518,
+   "chosenMask": 0,
+   "digest": "889063dafc1a8100d29407b3a42010de"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 658
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 28,
+   "maxVersion": 28,
+   "version": 28,
+   "size": 129,
+   "darkCount": 8272,
+   "chosenMask": 0,
+   "digest": "0b70347469c8d02f4aab2e3fcef9b4a2"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1628
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 29,
+   "maxVersion": 29,
+   "version": 29,
+   "size": 133,
+   "darkCount": 8962,
+   "chosenMask": 0,
+   "digest": "5965dd595d12534f5898a57e9f6e2896"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1264
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 29,
+   "maxVersion": 29,
+   "version": 29,
+   "size": 133,
+   "darkCount": 9106,
+   "chosenMask": 0,
+   "digest": "7027c7ac42fb6a217c7bc1423b5a7254"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 908
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 29,
+   "maxVersion": 29,
+   "version": 29,
+   "size": 133,
+   "darkCount": 9028,
+   "chosenMask": 0,
+   "digest": "ac0797ef3607f88a06702ce49ab65dd5"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 698
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 29,
+   "maxVersion": 29,
+   "version": 29,
+   "size": 133,
+   "darkCount": 8742,
+   "chosenMask": 0,
+   "digest": "b7139820497ddabcd48f97ff2a08a49c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1732
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 30,
+   "maxVersion": 30,
+   "version": 30,
+   "size": 137,
+   "darkCount": 9594,
+   "chosenMask": 0,
+   "digest": "ee544fa7a812ea35bd9e15eab85f267d"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1370
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 30,
+   "maxVersion": 30,
+   "version": 30,
+   "size": 137,
+   "darkCount": 9620,
+   "chosenMask": 0,
+   "digest": "464e6a8e45a20c93458dccafebcddb4f"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 982
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 30,
+   "maxVersion": 30,
+   "version": 30,
+   "size": 137,
+   "darkCount": 9490,
+   "chosenMask": 0,
+   "digest": "194a59bcc3195065d423ccbd076959e9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 742
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 30,
+   "maxVersion": 30,
+   "version": 30,
+   "size": 137,
+   "darkCount": 9202,
+   "chosenMask": 0,
+   "digest": "9466d36a364d70d1b8f91d5abc18067f"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1840
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 31,
+   "maxVersion": 31,
+   "version": 31,
+   "size": 141,
+   "darkCount": 10186,
+   "chosenMask": 0,
+   "digest": "f1f3a29288b503c6039ffca58854adcd"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1452
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 31,
+   "maxVersion": 31,
+   "version": 31,
+   "size": 141,
+   "darkCount": 10356,
+   "chosenMask": 0,
+   "digest": "19e6a88a41937ed4415daf69167f8ea2"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1030
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 31,
+   "maxVersion": 31,
+   "version": 31,
+   "size": 141,
+   "darkCount": 9932,
+   "chosenMask": 0,
+   "digest": "37d3e7b2d5a863ae47f034078c6cd5b9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 790
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 31,
+   "maxVersion": 31,
+   "version": 31,
+   "size": 141,
+   "darkCount": 9942,
+   "chosenMask": 0,
+   "digest": "ee3c09acb38cbd0adc8896aacb4f6681"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1952
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 32,
+   "maxVersion": 32,
+   "version": 32,
+   "size": 145,
+   "darkCount": 10882,
+   "chosenMask": 0,
+   "digest": "f22786c58767cb95d4dca663ba911fb8"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1538
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 32,
+   "maxVersion": 32,
+   "version": 32,
+   "size": 145,
+   "darkCount": 10860,
+   "chosenMask": 0,
+   "digest": "0ea0919bf706c9e0e68aefa5edca630f"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1112
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 32,
+   "maxVersion": 32,
+   "version": 32,
+   "size": 145,
+   "darkCount": 10730,
+   "chosenMask": 0,
+   "digest": "f5f4a764181837a181c3a908ebe0bb91"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 842
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 32,
+   "maxVersion": 32,
+   "version": 32,
+   "size": 145,
+   "darkCount": 10664,
+   "chosenMask": 0,
+   "digest": "52fc4eb4ffdbb0fdedc6b284b4f68e8e"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2068
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 33,
+   "maxVersion": 33,
+   "version": 33,
+   "size": 149,
+   "darkCount": 11440,
+   "chosenMask": 0,
+   "digest": "3c55aef9b49fe96a7b73ccf31769ee28"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1628
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 33,
+   "maxVersion": 33,
+   "version": 33,
+   "size": 149,
+   "darkCount": 11324,
+   "chosenMask": 0,
+   "digest": "79f07f751e95e7de911d35d37baeb38a"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1168
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 33,
+   "maxVersion": 33,
+   "version": 33,
+   "size": 149,
+   "darkCount": 11322,
+   "chosenMask": 0,
+   "digest": "7b17686caa5f8f669aad51ddcb6c4c70"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 898
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 33,
+   "maxVersion": 33,
+   "version": 33,
+   "size": 149,
+   "darkCount": 11396,
+   "chosenMask": 0,
+   "digest": "47b4cf37c2f897e9c8ddc5259972ee23"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2188
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 34,
+   "maxVersion": 34,
+   "version": 34,
+   "size": 153,
+   "darkCount": 11836,
+   "chosenMask": 0,
+   "digest": "9870cfcd64a99cd5a8fad0df63eac8ce"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1722
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 34,
+   "maxVersion": 34,
+   "version": 34,
+   "size": 153,
+   "darkCount": 11984,
+   "chosenMask": 0,
+   "digest": "0222b48312287458c726d80b6932591c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1228
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 34,
+   "maxVersion": 34,
+   "version": 34,
+   "size": 153,
+   "darkCount": 11630,
+   "chosenMask": 0,
+   "digest": "a6442a66b0a52e52ed24ae9edd9bacdf"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 958
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 34,
+   "maxVersion": 34,
+   "version": 34,
+   "size": 153,
+   "darkCount": 11714,
+   "chosenMask": 0,
+   "digest": "b7b700c05961b1432821e9a6c5f6867d"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2303
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 35,
+   "maxVersion": 35,
+   "version": 35,
+   "size": 157,
+   "darkCount": 12554,
+   "chosenMask": 0,
+   "digest": "e7892a1fdb0341bfbdf71ab9fad8e6e2"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1809
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 35,
+   "maxVersion": 35,
+   "version": 35,
+   "size": 157,
+   "darkCount": 12502,
+   "chosenMask": 0,
+   "digest": "77bab4290162a035fbfac683b18c2bd7"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1283
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 35,
+   "maxVersion": 35,
+   "version": 35,
+   "size": 157,
+   "darkCount": 12347,
+   "chosenMask": 1,
+   "digest": "08defb23d53226eb6ffc5bf53f79cbaa"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 983
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 35,
+   "maxVersion": 35,
+   "version": 35,
+   "size": 157,
+   "darkCount": 12602,
+   "chosenMask": 0,
+   "digest": "0465dfa1211ea125b88f0831b7df38bd"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2431
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 36,
+   "maxVersion": 36,
+   "version": 36,
+   "size": 161,
+   "darkCount": 13122,
+   "chosenMask": 0,
+   "digest": "b57f4a060c713551cd5afc7f07fdd4d0"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1911
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 36,
+   "maxVersion": 36,
+   "version": 36,
+   "size": 161,
+   "darkCount": 13236,
+   "chosenMask": 0,
+   "digest": "e287e451cdcf64cd92e4b6c4339de6d2"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1351
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 36,
+   "maxVersion": 36,
+   "version": 36,
+   "size": 161,
+   "darkCount": 13199,
+   "chosenMask": 1,
+   "digest": "cbb19ad47b56d27d0ad63e360b827a37"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1051
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 36,
+   "maxVersion": 36,
+   "version": 36,
+   "size": 161,
+   "darkCount": 13152,
+   "chosenMask": 0,
+   "digest": "3ebbec9c7bd55559be893ef32d6b71ce"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2563
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 37,
+   "maxVersion": 37,
+   "version": 37,
+   "size": 165,
+   "darkCount": 13648,
+   "chosenMask": 0,
+   "digest": "891cdf477470b8dc03212e1743a06035"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1989
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 37,
+   "maxVersion": 37,
+   "version": 37,
+   "size": 165,
+   "darkCount": 14002,
+   "chosenMask": 0,
+   "digest": "4b6d54508919ce0212c242bd02e84a36"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1423
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 37,
+   "maxVersion": 37,
+   "version": 37,
+   "size": 165,
+   "darkCount": 13569,
+   "chosenMask": 1,
+   "digest": "f9ad85ec40906a5d9bb4dcfb3d6f12a1"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1093
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 37,
+   "maxVersion": 37,
+   "version": 37,
+   "size": 165,
+   "darkCount": 14026,
+   "chosenMask": 0,
+   "digest": "6453abffb48023d4113f4bcdeca81d70"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2699
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 38,
+   "maxVersion": 38,
+   "version": 38,
+   "size": 169,
+   "darkCount": 14434,
+   "chosenMask": 0,
+   "digest": "18d864f071f88754dffc554d6b5bcbe1"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2099
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 38,
+   "maxVersion": 38,
+   "version": 38,
+   "size": 169,
+   "darkCount": 14646,
+   "chosenMask": 0,
+   "digest": "a5c0edfdc4b3a4efc65dfd6aae978ee6"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1499
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 38,
+   "maxVersion": 38,
+   "version": 38,
+   "size": 169,
+   "darkCount": 14601,
+   "chosenMask": 1,
+   "digest": "0217e4bffbe7dae2fd4413bfc0169e4c"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1139
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 38,
+   "maxVersion": 38,
+   "version": 38,
+   "size": 169,
+   "darkCount": 14708,
+   "chosenMask": 0,
+   "digest": "3908a79a958b89bba07dcd34581d1225"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2809
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 39,
+   "maxVersion": 39,
+   "version": 39,
+   "size": 173,
+   "darkCount": 15150,
+   "chosenMask": 0,
+   "digest": "5cba7960fd70447e2358cd0388da8a9a"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2213
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 39,
+   "maxVersion": 39,
+   "version": 39,
+   "size": 173,
+   "darkCount": 14830,
+   "chosenMask": 0,
+   "digest": "48bf9b945bdb07736ff559091505c3c9"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1579
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 39,
+   "maxVersion": 39,
+   "version": 39,
+   "size": 173,
+   "darkCount": 15516,
+   "chosenMask": 0,
+   "digest": "e793fd358ebb532676f628d3bebd45fb"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1219
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 39,
+   "maxVersion": 39,
+   "version": 39,
+   "size": 173,
+   "darkCount": 15390,
+   "chosenMask": 0,
+   "digest": "74fba4790a6ed22c6390a17655ba180b"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2953
+   },
+   "ecLevel": "L",
+   "mask": null,
+   "minVersion": 40,
+   "maxVersion": 40,
+   "version": 40,
+   "size": 177,
+   "darkCount": 15826,
+   "chosenMask": 0,
+   "digest": "6037e240bddc4bb659b5a48759a84066"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 2331
+   },
+   "ecLevel": "M",
+   "mask": null,
+   "minVersion": 40,
+   "maxVersion": 40,
+   "version": 40,
+   "size": 177,
+   "darkCount": 16012,
+   "chosenMask": 0,
+   "digest": "79ef7968653c904d9db3658878739f56"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1663
+   },
+   "ecLevel": "Q",
+   "mask": null,
+   "minVersion": 40,
+   "maxVersion": 40,
+   "version": 40,
+   "size": 177,
+   "darkCount": 15828,
+   "chosenMask": 0,
+   "digest": "6a2c4933250f28f2e6386ce4f2735765"
+  },
+  {
+   "repeat": {
+    "char": "x",
+    "count": 1273
+   },
+   "ecLevel": "H",
+   "mask": null,
+   "minVersion": 40,
+   "maxVersion": 40,
+   "version": 40,
+   "size": 177,
+   "darkCount": 16098,
+   "chosenMask": 0,
+   "digest": "a6ac6bf3b1648459dfa293af0d3c12ee"
+  }
+ ]
+}
