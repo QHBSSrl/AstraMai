@@ -35,6 +35,7 @@ export interface Guard {
     limitPerMinute: number;
     tokenRequired: boolean;
     tokenCount: number;
+    authMode: string;
   };
 }
 
@@ -62,7 +63,9 @@ export function createGuard(config: ServerConfig): Guard {
       if (OPEN_PATHS.has(pathname)) return { ok: true, status: 200, message: '' };
 
       // ── 令牌 ────────────────────────────────────────────────────────
-      if (tokens.length > 0) {
+      // AUTH_MODE=open 时不校验：公开分发的 App 里令牌解出来就有，
+      // 当成门禁只是自欺欺人，真正的约束是下面的两道限流。
+      if (config.authMode !== 'open' && tokens.length > 0) {
         const provided = extractToken(req);
         if (!provided || !tokens.includes(provided)) {
           return {
@@ -100,8 +103,9 @@ export function createGuard(config: ServerConfig): Guard {
       return {
         trackedClients: windows.size,
         limitPerMinute: limit,
-        tokenRequired: tokens.length > 0,
+        tokenRequired: config.authMode !== 'open' && tokens.length > 0,
         tokenCount: tokens.length,
+        authMode: config.authMode,
       };
     },
   };

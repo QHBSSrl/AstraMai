@@ -22,7 +22,7 @@ import type { ServerResponse } from 'node:http';
 import { resolveMode, type ServerConfig } from './config.js';
 import { Router, readBody, sendJson, sendText, type RequestContext } from './http.js';
 import type { Guard } from './guard.js';
-import type { LxnsService } from './lxns-service.js';
+import type { GatewayService } from './gateway.js';
 
 const STATUS_BY_KIND: Record<LxnsErrorKind, number> = {
   'bad-request': 400,
@@ -43,6 +43,16 @@ function clientKeyOf(ctx: RequestContext, config: ServerConfig): string | undefi
   const value = Array.isArray(raw) ? raw[0] : raw;
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+/**
+ * 本次请求指定的数据源。
+ *
+ * 客户端可以带 `?source=` 指定用哪个源；不带就用默认源。
+ * 这样将来多源并存时，客户端不需要重新发版就能切换。
+ */
+function sourceOf(ctx: RequestContext, service: GatewayService): string {
+  return (ctx.query.get('source') ?? '').trim() || service.registry.defaultSourceId();
 }
 
 /**
@@ -81,8 +91,27 @@ function parseId(value: string | undefined, label: string): number {
   return parsed;
 }
 
+/**
+ * 从查询参数读玩家标识（v1 的写法）。
+ *
+ * 用查询参数而不是路径参数：好友码与 QQ 号共用一个入口，
+ * 将来加别的标识方式（比如 OAuth 返回的用户 id）不用新增路径，
+ * 客户端也不需要重新发版。
+ */
+function readPlayerParams(ctx: RequestContext): { friendCode?: number; qq?: number } {
+  const rawQq = (ctx.query.get('qq') ?? '').trim();
+  if (rawQq) return { qq: parseId(rawQq, 'QQ 号') };
+
+  const rawCode = (ctx.query.get('code') ?? ctx.query.get('friendCode') ?? '').trim();
+  if (rawCode) return { friendCode: parseId(rawCode, '好友码') };
+
+  throw new LxnsError('bad-request', '缺少玩家标识', {
+    friendly: '请用 ?code=<15 位好友码> 或 ?qq=<QQ 号> 指定要查询的玩家。',
+  });
+}
+
 export function createRouter(
-  service: LxnsService,
+  service: GatewayService,
   config: ServerConfig,
   guard: Guard,
 ): Router {
@@ -104,7 +133,7 @@ export function createRouter(
         hasServerKey: config.apiKey !== undefined,
         allowClientKey: config.allowClientKey,
         songCache: service.cacheStatus(),
-        upstreamBudget: service.upstreamStatus(),
+        upstreamBudget: service.registry.upstreamStatus(),
         accessControl: guard.stats(),
         upstream: 'https://maimai.lxns.net/api/v0',
         time: new Date().toISOString(),
@@ -123,14 +152,16 @@ export function createRouter(
         const clientKey = clientKeyOf(ctx, config);
         const forceMock = ctx.query.get('mock') === '1' || ctx.query.get('mock') === 'true';
 
-        const result = await service.getB50(
-          kind === 'qq'
-            ? { qq: value, clientKey, forceMock }
-            : { friendCode: value, clientKey, forceMock },
-        );
+        const result = await service.getB50({
+          ...(kind === 'qq' ? { qq: value } : { friendCode: value }),
+          sourceId: sourceOf(ctx, service),
+          clientKey,
+          forceMock,
+        });
 
         ok(ctx.res, {
-                    mode: result.mode,
+          mode: result.mode,
+          source: result.sourceId,
           usedServerKey: result.usedServerKey,
           librarySource: result.librarySource,
           elapsedMs: Date.now() - startedAt,
@@ -144,28 +175,19 @@ export function createRouter(
   router.get('/api/maimai/b50/:friendCode', b50Handler('friendCode'));
   router.get('/api/maimai/b50/qq/:qq', b50Handler('qq'));
 
-  // ── 原始透传：玩家信息 ────────────────────────────────────────────────
+  // ── 玩家信息 ──────────────────────────────────────────────────────────
   const playerHandler =
     (kind: 'friendCode' | 'qq') =>
     async (ctx: RequestContext): Promise<void> => {
       try {
         const raw = kind === 'qq' ? ctx.params.qq : ctx.params.friendCode;
         const value = parseId(raw, kind === 'qq' ? 'QQ 号' : '好友码');
-        const clientKey = clientKeyOf(ctx, config);
-        const developerKey = clientKey ?? config.apiKey;
-        const mode = resolveMode(config, developerKey !== undefined);
-
-        if (mode === 'mock') {
-          ok(ctx.res, {
-                        mode,
-            data: { note: 'Mock 模式不提供玩家信息接口，请使用 /api/maimai/b50/... 获取完整模拟数据。' },
-          });
-          return;
-        }
-
-        const client = new LxnsClient({ developerKey });
-        const player = kind === 'qq' ? await client.getPlayerByQq(value) : await client.getPlayer(value);
-        ok(ctx.res, { mode, data: player });
+        const result = await service.getPlayer({
+          ...(kind === 'qq' ? { qq: value } : { friendCode: value }),
+          sourceId: sourceOf(ctx, service),
+          clientKey: clientKeyOf(ctx, config),
+        });
+        ok(ctx.res, { mode: result.mode, source: result.sourceId, data: result.player });
       } catch (error) {
         fail(ctx.res, error, ctx.url.pathname);
       }
@@ -175,10 +197,10 @@ export function createRouter(
   router.get('/api/maimai/player/qq/:qq', playerHandler('qq'));
 
   // ── 曲库 ──────────────────────────────────────────────────────────────
-  router.get('/api/maimai/songs', async (ctx) => {
+  const songsHandler = async (ctx: RequestContext): Promise<void> => {
     try {
       const withNotes = ctx.query.get('notes') === '1' || ctx.query.get('notes') === 'true';
-      const library = await service.getLibrary(clientKeyOf(ctx, config));
+      const library = await service.getLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
       ok(ctx.res, {
                 source: library.source,
         fetchedAt: new Date(library.fetchedAt).toISOString(),
@@ -192,19 +214,25 @@ export function createRouter(
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }
-  });
+  };
 
-  router.get('/api/maimai/aliases', async (ctx) => {
+  router.get('/api/maimai/songs', songsHandler);
+  router.get('/api/v1/maimai/songs', songsHandler);
+
+  const aliasesHandler = async (ctx: RequestContext): Promise<void> => {
     try {
-      const library = await service.getLibrary(clientKeyOf(ctx, config));
+      const library = await service.getLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
       ok(ctx.res, { source: library.source, data: library.aliases });
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }
-  });
+  };
+
+  router.get('/api/maimai/aliases', aliasesHandler);
+  router.get('/api/v1/maimai/aliases', aliasesHandler);
 
   /** 曲目搜索：匹配曲名 / 艺术家 / 落雪别名。 */
-  router.get('/api/maimai/search', async (ctx) => {
+  const searchHandler = async (ctx: RequestContext): Promise<void> => {
     try {
       const keyword = (ctx.query.get('q') ?? '').trim();
       const limit = Math.min(Math.max(Number.parseInt(ctx.query.get('limit') ?? '30', 10) || 30, 1), 200);
@@ -213,7 +241,7 @@ export function createRouter(
         return;
       }
 
-      const library = await service.getLibrary(clientKeyOf(ctx, config));
+      const library = await service.getLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
       const needle = keyword.toLowerCase();
       const results: {
         id: number;
@@ -256,7 +284,10 @@ export function createRouter(
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }
-  });
+  };
+
+  router.get('/api/maimai/search', searchHandler);
+  router.get('/api/v1/maimai/search', searchHandler);
 
   // ── 单曲成绩 ──────────────────────────────────────────────────────────
   router.get('/api/maimai/player/:friendCode/song/:songId', async (ctx) => {
@@ -272,9 +303,83 @@ export function createRouter(
         friendCode,
         songId,
         ...(songType ? { songType } : {}),
+        sourceId: sourceOf(ctx, service),
         clientKey: clientKeyOf(ctx, config),
       });
       ok(ctx.res, { mode: result.mode, data: result.scores });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  // ── v1：对外协议 ──────────────────────────────────────────────────────
+  //
+  // `/api/maimai/*` 是历史路径，字段形态跟着落雪走，保留它是为了不破坏已有客户端。
+  // v1 是**我们自己的协议**：客户端只认这一套，背后接哪个源由服务端决定，
+  // 换源不需要客户端改代码。
+
+  /** 协议自述：告诉调用方这是什么、有哪些能力、怎么选源。 */
+  router.get('/api/v1', (ctx) => {
+    ok(ctx.res, {
+      data: {
+        name: 'AstraMai API',
+        version: 1,
+        description: '街机音游数据网关。客户端只认本协议，上游数据源由服务端决定。',
+        games: [...new Set(service.registry.list().flatMap((s) => s.games))],
+        defaultSource: service.registry.defaultSourceId(),
+        endpoints: [
+          { method: 'GET', path: '/api/v1', description: '本说明' },
+          { method: 'GET', path: '/api/v1/sources', description: '可用数据源及其状态' },
+          { method: 'GET', path: '/api/v1/maimai/b50', description: 'Best 50，参数 code 或 qq' },
+          { method: 'GET', path: '/api/v1/maimai/player', description: '玩家信息，参数 code 或 qq' },
+          { method: 'GET', path: '/api/v1/maimai/songs', description: '曲库，参数 notes=1 带谱面详情' },
+          { method: 'GET', path: '/api/v1/maimai/search', description: '曲目搜索，参数 q 与 limit' },
+        ],
+        /** 所有接口都接受 ?source=<id> 指定数据源，不传则用 defaultSource。 */
+        sourceParam: 'source',
+        /** 响应信封固定为 { ok, success, mode, source, data }。 */
+        envelope: { ok: 'boolean', success: 'boolean', mode: 'live|mock', source: '数据源 id', data: '业务数据' },
+      },
+    });
+  });
+
+  /** 数据源清单。不可用的源也会列出并说明原因，便于客户端给出提示。 */
+  router.get('/api/v1/sources', (ctx) => {
+    ok(ctx.res, { data: { sources: service.registry.list() } });
+  });
+
+  /** v1 的 B50：用查询参数而不是路径参数，好友码与 QQ 号共用一个入口。 */
+  router.get('/api/v1/maimai/b50', async (ctx) => {
+    const startedAt = Date.now();
+    try {
+      const { friendCode, qq } = readPlayerParams(ctx);
+      const result = await service.getB50({
+        ...(qq !== undefined ? { qq } : { friendCode }),
+        sourceId: sourceOf(ctx, service),
+        clientKey: clientKeyOf(ctx, config),
+        forceMock: ctx.query.get('mock') === '1' || ctx.query.get('mock') === 'true',
+      });
+      ok(ctx.res, {
+        mode: result.mode,
+        source: result.sourceId,
+        librarySource: result.librarySource,
+        elapsedMs: Date.now() - startedAt,
+        data: result.view,
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  router.get('/api/v1/maimai/player', async (ctx) => {
+    try {
+      const { friendCode, qq } = readPlayerParams(ctx);
+      const result = await service.getPlayer({
+        ...(qq !== undefined ? { qq } : { friendCode }),
+        sourceId: sourceOf(ctx, service),
+        clientKey: clientKeyOf(ctx, config),
+      });
+      ok(ctx.res, { mode: result.mode, source: result.sourceId, data: result.player });
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }

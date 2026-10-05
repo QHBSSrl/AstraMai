@@ -12,17 +12,35 @@ import { existsSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { assertDeploymentSafety, readConfig } from './config.js';
+import { GatewayService } from './gateway.js';
 import { createGuard } from './guard.js';
 import { sendJson, serveStatic } from './http.js';
-import { LxnsService } from './lxns-service.js';
 import { createRouter, notFound } from './routes.js';
+import { LxnsSource } from './sources/lxns.js';
+import { SourceRegistry } from './sources/registry.js';
 
 const config = readConfig();
 
-// 安全校验放在建服务之前：绑公网却不带令牌就别启动了
+// 安全校验放在建服务之前：绑公网却不带任何约束就别启动了
 assertDeploymentSafety(config);
 
-const service = new LxnsService(config);
+/**
+ * 数据源注册表。
+ *
+ * 目前只有落雪。接入别的查分站时在这里 register 一个实现 `DataSource` 的对象即可，
+ * 路由和客户端都不用改。
+ */
+const registry = new SourceRegistry(config.upstreamLimitPerMinute);
+registry.register(
+  new LxnsSource({
+    // 保留「客户端临时递交密钥」的能力（ALLOW_CLIENT_KEY，仅本地测试）
+    resolveKey: () => config.apiKey,
+    limiter: registry.limiterFor('lxns'),
+  }),
+  true,
+);
+
+const service = new GatewayService(config, registry);
 const guard = createGuard(config);
 const router = createRouter(service, config, guard);
 const hasWebDist = existsSync(config.webDist);
@@ -129,9 +147,11 @@ server.listen(config.port, config.host, () => {
   console.log(`  ├─ 页面填密钥 ${config.allowClientKey ? '允许（仅本地测试）' : '禁止'}`);
   console.log(
     `  ├─ 访问门禁   ${
-      config.apiTokens.length > 0
-        ? `已要求访问令牌（${config.apiTokens.length} 个）`
-        : '⚠ 未设访问令牌 —— 仅限本机使用，切勿直接暴露到公网'
+      config.authMode === 'open'
+        ? '公开（AUTH_MODE=open，不校验令牌）'
+        : config.apiTokens.length > 0
+          ? `已要求访问令牌（${config.apiTokens.length} 个）`
+          : '⚠ 未设访问令牌 —— 仅限本机使用，切勿直接暴露到公网'
     }`,
   );
   console.log(

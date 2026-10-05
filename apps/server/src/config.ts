@@ -60,6 +60,7 @@ function loadEnvManually(file: string): void {
 
 export type LxnsMode = 'live' | 'mock';
 export type LxnsModeConfig = 'auto' | 'live' | 'mock';
+export type AuthMode = 'open' | 'key';
 
 export interface ServerConfig {
   host: string;
@@ -82,10 +83,24 @@ export interface ServerConfig {
    */
   apiTokens: string[];
   /**
-   * 全局上游预算：每分钟最多向落雪发起多少次请求，与有多少客户端无关。
+   * 鉴权模式。
    *
-   * 存在的理由：令牌会随客户端分发出去，无法依赖它限制用量；
-   * 一旦有人写脚本刷，烧的是我们自己的开发者密钥配额（落雪会返回 429）。
+   *   `key` —— 需要访问令牌（默认，适合私有部署）
+   *   `open` —— 不校验令牌，**面向公开分发的 App**
+   *
+   * 为什么要 `open`：这个软件是开放给大家用的，令牌写进客户端包里就不再是秘密，
+   * 谁拿到 App 都能解出来。那种情况下把令牌当门禁只是自欺欺人，
+   * 真正的控制手段是限流（`RATE_LIMIT_PER_MINUTE` + `UPSTREAM_LIMIT_PER_MINUTE`）。
+   *
+   * ⚠️ `open` 模式下任何人都能用我们这台服务器查分，消耗的是我们的开发者密钥配额。
+   * 只在上游配额谈妥之后再用。
+   */
+  authMode: AuthMode;
+  /**
+   * 全局上游预算：每分钟最多向**每个**数据源发起多少次请求，与有多少客户端无关。
+   *
+   * 存在的理由：公开分发的 App 里的令牌拦不住用量；一旦有人写脚本刷，
+   * 烧的是我们自己的开发者密钥配额（上游会返回 429）。
    * 设为 0 表示不限。
    */
   upstreamLimitPerMinute: number;
@@ -123,19 +138,40 @@ export function parseTokenList(multi: string | undefined, single: string | undef
 /**
  * 部署安全校验。
  *
- * 这个服务端持有落雪开发者密钥，一旦对外可达却没有 `API_TOKEN`，
- * 等于把密钥开放给所有人。所以这里**直接让进程起不来**，
+ * 这个服务端持有开发者密钥，一旦对外可达却没有任何约束，
+ * 等于把密钥和配额开放给所有人。所以这里**直接让进程起不来**，
  * 而不是打一行警告了事——警告在 systemd/docker 的日志里没人看。
  */
 export function assertDeploymentSafety(config: ServerConfig): void {
   if (!config.isPublicBind) return;
 
+  // 公开模式：不校验令牌，但必须至少有一道限流兜底
+  if (config.authMode === 'open') {
+    if (config.rateLimitPerMinute <= 0 && config.upstreamLimitPerMinute <= 0) {
+      throw new Error(
+        [
+          `拒绝启动：AUTH_MODE=open 且两道限流都是关闭的（HOST=${config.host} 对外可达）。`,
+          '那意味着任何人都能无限次用我们的开发者密钥查分。',
+          '请至少设置 RATE_LIMIT_PER_MINUTE（按来源 IP）或 UPSTREAM_LIMIT_PER_MINUTE（全局上游预算）。',
+        ].join('\n'),
+      );
+    }
+    console.warn(
+      '[AstraMai] AUTH_MODE=open：不校验访问令牌，任何知道地址的人都能调用。' +
+        `当前靠限流兜底（每 IP ${config.rateLimitPerMinute} 次/分钟，` +
+        `上游预算 ${config.upstreamLimitPerMinute} 次/分钟）。` +
+        '请确认上游配额已经谈妥。',
+    );
+    return;
+  }
+
   if (config.apiTokens.length === 0) {
     throw new Error(
       [
         `拒绝启动：HOST=${config.host} 对外可达，但没有设置任何访问令牌。`,
-        '该服务端持有落雪开发者密钥，无令牌暴露到公网等于把密钥公开。',
+        '该服务端持有开发者密钥，无令牌暴露到公网等于把密钥公开。',
         '请设置 API_TOKENS（可用逗号分隔多个）或 API_TOKEN，然后重启。',
+        '如果这是要公开分发给大家用的服务，请显式设置 AUTH_MODE=open 并配好限流。',
         '（生成示例：node -e "console.log(require(\'crypto\').randomBytes(24).toString(\'base64url\'))"）',
       ].join('\n'),
     );
@@ -167,6 +203,7 @@ export function readConfig(): ServerConfig {
     apiKey: process.env.LXNS_API_KEY?.trim() || undefined,
     allowClientKey: (process.env.ALLOW_CLIENT_KEY ?? 'true').trim().toLowerCase() !== 'false',
     apiTokens: parseTokenList(process.env.API_TOKENS, process.env.API_TOKEN),
+    authMode: (process.env.AUTH_MODE ?? '').trim().toLowerCase() === 'open' ? 'open' : 'key',
     upstreamLimitPerMinute:
       Number.isFinite(upstreamLimit) && upstreamLimit >= 0 ? upstreamLimit : 150,
     rateLimitPerMinute: Number.isFinite(rateLimit) && rateLimit >= 0 ? rateLimit : 120,

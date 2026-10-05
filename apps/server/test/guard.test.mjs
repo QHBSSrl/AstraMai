@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createGuard } from '../dist/guard.js';
-import { parseTokenList } from '../dist/config.js';
+import { assertDeploymentSafety, parseTokenList } from '../dist/config.js';
 
 /** 造一个够用的假请求对象。 */
 function fakeRequest(headers = {}, remoteAddress = '10.0.0.1') {
@@ -20,7 +20,12 @@ function fakeRequest(headers = {}, remoteAddress = '10.0.0.1') {
 function configWith(overrides = {}) {
   return {
     apiTokens: [],
+    authMode: 'key',
     rateLimitPerMinute: 120,
+    upstreamLimitPerMinute: 150,
+    host: '127.0.0.1',
+    isPublicBind: false,
+    allowClientKey: false,
     ...overrides,
   };
 }
@@ -182,6 +187,7 @@ test('stats 如实反映门禁配置', () => {
     limitPerMinute: 120,
     tokenRequired: false,
     tokenCount: 0,
+    authMode: 'key',
   });
 
   const guarded = createGuard(configWith({ apiTokens: ['x', 'y'], rateLimitPerMinute: 10 }));
@@ -189,4 +195,90 @@ test('stats 如实反映门禁配置', () => {
   assert.equal(stats.tokenRequired, true);
   assert.equal(stats.tokenCount, 2);
   assert.equal(stats.limitPerMinute, 10);
+});
+
+// ── 公开模式 ────────────────────────────────────────────────────────────
+
+test('AUTH_MODE=open 时不校验令牌——令牌写进客户端包里就不是秘密了', () => {
+  const guard = createGuard(configWith({ authMode: 'open', apiTokens: ['secret'] }));
+  const path = '/api/maimai/b50/123';
+
+  // 不带令牌也放行
+  assert.equal(guard.check(fakeRequest(), path).ok, true);
+  // 带了错的令牌同样放行——公开模式下它根本不是门禁
+  assert.equal(guard.check(fakeRequest({ authorization: 'garbage' }), path).ok, true);
+  // 状态里如实反映
+  assert.equal(guard.stats().tokenRequired, false);
+  assert.equal(guard.stats().authMode, 'open');
+});
+
+test('AUTH_MODE=open 时限流仍然生效（这才是真正的约束）', () => {
+  const guard = createGuard(configWith({ authMode: 'open', rateLimitPerMinute: 2 }));
+  assert.equal(guard.check(fakeRequest(), '/api/x').ok, true);
+  assert.equal(guard.check(fakeRequest(), '/api/x').ok, true);
+  const blocked = guard.check(fakeRequest(), '/api/x');
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.status, 429);
+});
+
+// ── 部署安全校验 ────────────────────────────────────────────────────────
+
+test('绑回环时不做任何校验——本机怎么配都行', () => {
+  assert.doesNotThrow(() => assertDeploymentSafety(configWith({ isPublicBind: false })));
+});
+
+test('绑公网且 key 模式但没令牌 → 拒绝启动', () => {
+  assert.throws(
+    () => assertDeploymentSafety(configWith({ isPublicBind: true, host: '0.0.0.0', authMode: 'key' })),
+    /拒绝启动/,
+  );
+});
+
+test('绑公网且 key 模式有令牌 → 放行', () => {
+  assert.doesNotThrow(() =>
+    assertDeploymentSafety(
+      configWith({ isPublicBind: true, host: '0.0.0.0', authMode: 'key', apiTokens: ['x'] }),
+    ),
+  );
+});
+
+test('绑公网且 open 模式没有任何限流 → 拒绝启动', () => {
+  assert.throws(
+    () =>
+      assertDeploymentSafety(
+        configWith({
+          isPublicBind: true,
+          host: '0.0.0.0',
+          authMode: 'open',
+          rateLimitPerMinute: 0,
+          upstreamLimitPerMinute: 0,
+        }),
+      ),
+    /拒绝启动/,
+  );
+});
+
+test('绑公网且 open 模式有任一道限流 → 放行（公开分发就是要这个）', () => {
+  assert.doesNotThrow(() =>
+    assertDeploymentSafety(
+      configWith({
+        isPublicBind: true,
+        host: '0.0.0.0',
+        authMode: 'open',
+        rateLimitPerMinute: 0,
+        upstreamLimitPerMinute: 150,
+      }),
+    ),
+  );
+  assert.doesNotThrow(() =>
+    assertDeploymentSafety(
+      configWith({
+        isPublicBind: true,
+        host: '0.0.0.0',
+        authMode: 'open',
+        rateLimitPerMinute: 60,
+        upstreamLimitPerMinute: 0,
+      }),
+    ),
+  );
 });
