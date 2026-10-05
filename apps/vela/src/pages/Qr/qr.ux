@@ -2,10 +2,10 @@
   <div class="page">
     <text class="title">机台二维码</text>
 
-    <!-- 有内容：交给原生 qrcode 组件画，端上不需要自己出码 -->
-    <block if="{{ hasLink }}">
+    <!-- 有内容：交给原生 qrcode 组件画 -->
+    <block if="{{ hasCode }}">
       <div class="code-wrap">
-        <qrcode class="code" value="{{ link }}"></qrcode>
+        <qrcode class="code" value="{{ content }}"></qrcode>
       </div>
 
       <text class="validity {{ validityClass }}">{{ validityText }}</text>
@@ -13,7 +13,7 @@
 
       <div class="actions">
         <input class="btn" type="button" value="重新导入" onclick="focusInput" />
-        <input class="btn btn--ghost" type="button" value="清除" onclick="clearLink" />
+        <input class="btn btn--ghost" type="button" value="清除" onclick="clearInput" />
       </div>
     </block>
 
@@ -21,16 +21,17 @@
          真机上应当改由手机侧的配置下发，见 README。 -->
     <block else>
       <text class="hint">
-        把小程序的二维码链接粘贴到下面。手表的输入体验很差，正式版应当改由手机侧配置下发。
+        粘贴机台二维码的链接或那串短码。
+        手表输入体验很差，正式版应当改由手机侧配置下发。
       </text>
       <input
         class="input"
         type="text"
         value="{{ draft }}"
-        placeholder="https://wq.wahlap.net/qrcode/req/..."
+        placeholder="wq.wahlap.net/... 或 SGWC..."
         onchange="onDraftChange"
       />
-      <input class="btn" type="button" value="保存并生成" onclick="saveLink" />
+      <input class="btn" type="button" value="保存并生成" onclick="saveInput" />
       <text class="error" if="{{ errorText }}">{{ errorText }}</text>
     </block>
   </div>
@@ -51,14 +52,16 @@
   }
 
   .code-wrap {
-    padding: 12px;
+    padding: 14px;
     border-radius: 14px;
     background-color: #ffffff;
   }
 
+  /* 正确内容只有 33×33 左右，留足尺寸才能在手表上扫得出来。
+     静区不要照抄官方：官方 PNG 的静区只有 1px，规范要求 4 个模块。 */
   .code {
-    width: 300px;
-    height: 300px;
+    width: 340px;
+    height: 340px;
     color: #0a0e1a;
     background-color: #ffffff;
   }
@@ -67,6 +70,7 @@
     font-size: 20px;
     margin-top: 14px;
     color: #9bacd0;
+    text-align: center;
   }
 
   .validity--valid {
@@ -131,10 +135,15 @@
   import { describeValidity, parseWahlapQrPayload } from '../common/astramai-core.js'
   import { clearSetting, readSetting, warmUp, writeSetting } from '../common/store.js'
 
+  const STORAGE_KEY = 'qrInput'
+
   export default {
     private: {
-      link: '',
-      hasLink: false,
+      /** 用户原始粘贴的内容（链接或短码），用于展示与重新编辑。 */
+      rawInput: '',
+      /** 真正要喂给 qrcode 组件的内容。 */
+      content: '',
+      hasCode: false,
       draft: '',
       errorText: '',
       validityText: '',
@@ -143,7 +152,7 @@
     },
 
     onInit() {
-      warmUp(['qrLink']).then(() => this.load())
+      warmUp([STORAGE_KEY]).then(() => this.load())
     },
 
     onShow() {
@@ -159,14 +168,18 @@
     },
 
     load() {
-      const link = readSetting('qrLink', '')
-      this.link = link
-      this.draft = link
-      this.hasLink = Boolean(link)
+      const saved = readSetting(STORAGE_KEY, '')
+      this.rawInput = saved
+      this.draft = saved
+
+      const payload = saved ? parseWahlapQrPayload(saved) : null
+
+      // 关键：喂给组件的是还原出来的短内容，不是那几百字符的链接。
+      // 官方图像实测是 33×33 模块；拿链接去生成会变成 77×77，手表上看不清。
+      this.content = payload && payload.content ? payload.content : saved
+      this.hasCode = Boolean(this.content)
       this.refreshValidity()
 
-      // 只有机台二维码才需要每秒重算有效期
-      const payload = link ? parseWahlapQrPayload(link) : null
       if (payload && payload.expiresAt) this.startTimer()
       else this.stopTimer()
     },
@@ -184,15 +197,15 @@
     },
 
     refreshValidity() {
-      if (!this.link) {
+      if (!this.rawInput) {
         this.validityText = ''
         this.validityClass = ''
         return
       }
 
-      const payload = parseWahlapQrPayload(this.link)
+      const payload = parseWahlapQrPayload(this.rawInput)
       if (!payload || !payload.recognized) {
-        this.validityText = '这不是机台二维码，但仍可作为普通二维码使用'
+        this.validityText = '这不是机台二维码，但仍会按普通内容出码'
         this.validityClass = 'validity--unknown'
         return
       }
@@ -207,29 +220,30 @@
     },
 
     focusInput() {
-      // 回到输入态，方便替换链接
-      this.hasLink = false
+      this.hasCode = false
       this.stopTimer()
     },
 
-    saveLink() {
+    saveInput() {
       const value = (this.draft || '').trim()
       if (!value) {
         this.errorText = '内容不能为空'
         return
       }
-      if (!parseWahlapQrPayload(value)) {
-        this.errorText = '这看起来不是一个网址'
+
+      const payload = parseWahlapQrPayload(value)
+      if (!payload || !payload.content) {
+        this.errorText = '识别不出二维码内容，请粘贴小程序里的链接'
         return
       }
 
       this.errorText = ''
-      writeSetting('qrLink', value)
+      writeSetting(STORAGE_KEY, value)
       this.load()
     },
 
-    clearLink() {
-      clearSetting('qrLink')
+    clearInput() {
+      clearSetting(STORAGE_KEY)
       this.draft = ''
       this.errorText = ''
       this.load()

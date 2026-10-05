@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API 路由。
  *
  * 对浏览器只暴露三类接口：
@@ -21,6 +21,7 @@ import type { ServerResponse } from 'node:http';
 
 import { resolveMode, type ServerConfig } from './config.js';
 import { Router, readBody, sendJson, sendText, type RequestContext } from './http.js';
+import type { Guard } from './guard.js';
 import type { LxnsService } from './lxns-service.js';
 
 const STATUS_BY_KIND: Record<LxnsErrorKind, number> = {
@@ -80,7 +81,11 @@ function parseId(value: string | undefined, label: string): number {
   return parsed;
 }
 
-export function createRouter(service: LxnsService, config: ServerConfig): Router {
+export function createRouter(
+  service: LxnsService,
+  config: ServerConfig,
+  guard: Guard,
+): Router {
   const router = new Router();
 
   // ── 健康检查 ──────────────────────────────────────────────────────────
@@ -92,13 +97,14 @@ export function createRouter(service: LxnsService, config: ServerConfig): Router
       mode = 'unconfigured';
     }
     ok(ctx.res, {
-            data: {
+      data: {
         service: 'AstraMai server',
         mode,
         modeConfig: config.modeConfig,
         hasServerKey: config.apiKey !== undefined,
         allowClientKey: config.allowClientKey,
         songCache: service.cacheStatus(),
+        accessControl: guard.stats(),
         upstream: 'https://maimai.lxns.net/api/v0',
         time: new Date().toISOString(),
       },

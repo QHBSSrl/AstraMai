@@ -85,7 +85,7 @@
     },
 
     onInit() {
-      warmUp(['qrLink', 'serverBase']).then(() => this.refresh())
+      warmUp(['qrInput', 'serverBase']).then(() => this.refresh())
     },
 
     // 从二维码页返回时也要刷新状态
@@ -94,12 +94,12 @@
     },
 
     refresh() {
-      const link = readSetting('qrLink', '')
-      if (!link) {
+      const saved = readSetting('qrInput', '')
+      if (!saved) {
         this.qrSummary = '未导入'
       } else {
-        const payload = parseWahlapQrPayload(link)
-        if (!payload) {
+        const payload = parseWahlapQrPayload(saved)
+        if (!payload || !payload.content) {
           this.qrSummary = '内容无法识别'
         } else if (!payload.recognized) {
           this.qrSummary = '已导入（非机台二维码）'

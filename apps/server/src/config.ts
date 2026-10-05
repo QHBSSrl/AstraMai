@@ -70,6 +70,14 @@ export interface ServerConfig {
   apiKey: string | undefined;
   /** 是否允许浏览器临时递交密钥。 */
   allowClientKey: boolean;
+  /**
+   * 访问本服务的共享令牌。
+   * 配置后，除 /api/health 外的所有 /api/* 都要求带令牌——
+   * 一旦通过 frp 之类暴露到公网，**必须**配上，否则等于把你的落雪密钥开放给所有人。
+   */
+  apiToken: string | undefined;
+  /** 每个来源 IP 每分钟允许的请求数；0 表示不限流。 */
+  rateLimitPerMinute: number;
   songCacheTtlMs: number;
   repoRoot: string;
   /** 前端构建产物目录。 */
@@ -83,6 +91,7 @@ export function readConfig(): ServerConfig {
     modeRaw === 'live' || modeRaw === 'mock' ? modeRaw : 'auto';
 
   const ttlSeconds = Number.parseInt(process.env.SONG_CACHE_TTL ?? '', 10);
+  const rateLimit = Number.parseInt(process.env.RATE_LIMIT_PER_MINUTE ?? '', 10);
 
   return {
     host: process.env.HOST?.trim() || '127.0.0.1',
@@ -90,6 +99,8 @@ export function readConfig(): ServerConfig {
     modeConfig,
     apiKey: process.env.LXNS_API_KEY?.trim() || undefined,
     allowClientKey: (process.env.ALLOW_CLIENT_KEY ?? 'true').trim().toLowerCase() !== 'false',
+    apiToken: process.env.API_TOKEN?.trim() || undefined,
+    rateLimitPerMinute: Number.isFinite(rateLimit) && rateLimit >= 0 ? rateLimit : 120,
     songCacheTtlMs: (Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 21_600) * 1000,
     repoRoot: repoRoot(),
     webDist: resolve(repoRoot(), 'apps', 'web', 'dist'),

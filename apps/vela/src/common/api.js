@@ -24,17 +24,34 @@ export function getServerBase() {
   return readSetting('serverBase', DEFAULT_SERVER_BASE)
 }
 
+/**
+ * 读访问令牌。
+ *
+ * 服务端一旦设了 `API_TOKEN`（暴露到公网时必须设），
+ * 除健康检查外的接口都要求带上它。
+ */
+export function getApiToken() {
+  return readSetting('apiToken', '')
+}
+
 let cachedClient = null
 let cachedBase = null
+let cachedToken = null
 
-/** 取一个绑定到 `base` 的落雪客户端（服务端地址变了会自动重建）。 */
+/** 取一个绑定到 `base` 的客户端（服务端地址或令牌变了会自动重建）。 */
 export function getClient(base) {
   const target = base || getServerBase()
-  if (cachedClient && cachedBase === target) return cachedClient
+  const token = getApiToken()
+  if (cachedClient && cachedBase === target && cachedToken === token) return cachedClient
 
   const velaFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 })
-  cachedClient = new LxnsClient({ baseUrl: target, fetchImpl: velaFetch })
+  cachedClient = new LxnsClient({
+    baseUrl: target,
+    fetchImpl: velaFetch,
+    ...(token ? { extraHeaders: { 'x-api-key': token } } : {}),
+  })
   cachedBase = target
+  cachedToken = token
   return cachedClient
 }
 

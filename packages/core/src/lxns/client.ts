@@ -46,6 +46,14 @@ export interface LxnsClientOptions {
   fetchImpl?: FetchLike | undefined;
   /** 单次请求超时（毫秒），默认 15000。 */
   timeoutMs?: number | undefined;
+  /**
+   * 附加到每个请求的额外头。
+   *
+   * 用途：本工程的 Vela/Web 客户端其实是打**自建服务端**而不是落雪，
+   * 自建服务端有自己的访问令牌，用这个字段带上即可，
+   * 不必把访问令牌硬塞进语义上是「落雪开发者密钥」的 `developerKey`。
+   */
+  extraHeaders?: Record<string, string> | undefined;
 }
 
 /**
@@ -90,6 +98,7 @@ export class LxnsClient {
   private readonly userToken: string | undefined;
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
+  private readonly extraHeaders: Record<string, string>;
 
   constructor(options: LxnsClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? LXNS_API_BASE).replace(/\/+$/, '');
@@ -97,6 +106,7 @@ export class LxnsClient {
     this.userToken = options.userToken?.trim() || undefined;
     this.fetchImpl = options.fetchImpl ?? defaultFetch();
     this.timeoutMs = options.timeoutMs ?? 15_000;
+    this.extraHeaders = options.extraHeaders ?? {};
   }
 
   /** 是否已具备开发者密钥。 */
@@ -115,6 +125,9 @@ export class LxnsClient {
     const headers: Record<string, string> = { accept: 'application/json' };
     if (this.developerKey) headers.authorization = this.developerKey;
     if (this.userToken) headers['x-user-token'] = this.userToken;
+    for (const [key, value] of Object.entries(this.extraHeaders)) {
+      headers[key.toLowerCase()] = value;
+    }
 
     const controller = typeof AbortController === 'function' ? new AbortController() : undefined;
     const timer =

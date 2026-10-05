@@ -294,12 +294,14 @@ var LxnsClient = class {
     __publicField(this, "userToken");
     __publicField(this, "fetchImpl");
     __publicField(this, "timeoutMs");
-    var _a, _b, _c, _d, _e;
+    __publicField(this, "extraHeaders");
+    var _a, _b, _c, _d, _e, _f;
     this.baseUrl = ((_a = options.baseUrl) != null ? _a : LXNS_API_BASE).replace(/\/+$/, "");
     this.developerKey = ((_b = options.developerKey) == null ? void 0 : _b.trim()) || void 0;
     this.userToken = ((_c = options.userToken) == null ? void 0 : _c.trim()) || void 0;
     this.fetchImpl = (_d = options.fetchImpl) != null ? _d : defaultFetch();
     this.timeoutMs = (_e = options.timeoutMs) != null ? _e : 15e3;
+    this.extraHeaders = (_f = options.extraHeaders) != null ? _f : {};
   }
   /** 是否已具备开发者密钥。 */
   get hasDeveloperKey() {
@@ -318,6 +320,9 @@ var LxnsClient = class {
       headers.authorization = this.developerKey;
     if (this.userToken)
       headers["x-user-token"] = this.userToken;
+    for (const [key, value] of Object.entries(this.extraHeaders)) {
+      headers[key.toLowerCase()] = value;
+    }
     const controller = typeof AbortController === "function" ? new AbortController() : void 0;
     const timer = controller && this.timeoutMs > 0 ? setTimeout(() => controller.abort(), this.timeoutMs) : void 0;
     let response;
@@ -989,58 +994,96 @@ function projectRating(entry, targetAchievement) {
 }
 
 // packages/core/dist/maimai/qr-payload.js
+var WAHLAP_QR_CONTENT_PREFIX = "SGWC";
 var WAHLAP_HOST_PATTERN = /(^|\.)wahlap\.(net|com)$/i;
-var QR_PATH_PATTERN = /^\/qrcode\/req\/([A-Za-z0-9]+)\.html$/i;
-var FILE_NAME_PATTERN = /^([A-Z]{2,8})(\d{12})([0-9A-Fa-f]+)$/;
+var ID_PATTERN = /^([A-Z]{2,8})(\d{12})([0-9A-Fa-f]+)$/;
+var CONTENT_PATTERN = /^(SGWC)?([A-Z]{2,8}\d{12}[0-9A-Fa-f]+)$/;
+var HTML_PATH_PATTERN = /\/qrcode\/req\/([A-Za-z0-9]+)\.html$/i;
+var PNG_PATH_PATTERN = /\/qrcode\/img\/([A-Za-z0-9]+)\.png$/i;
 function parseWahlapQrPayload(input) {
-  var _a, _b, _c, _d, _e, _f;
+  var _a;
   const raw = input.trim();
-  if (!/^https?:\/\//i.test(raw))
+  if (raw.length === 0)
     return null;
+  if (/^https?:\/\//i.test(raw))
+    return fromUrl(raw);
+  const match = CONTENT_PATTERN.exec(raw.toUpperCase());
+  if (match) {
+    return build({
+      raw,
+      source: "content",
+      host: null,
+      id: (_a = match[2]) != null ? _a : null,
+      contentPrefix: WAHLAP_QR_CONTENT_PREFIX,
+      params: /* @__PURE__ */ new Map()
+    });
+  }
+  return null;
+}
+function wahlapQrContentOf(input) {
+  var _a, _b;
+  return (_b = (_a = parseWahlapQrPayload(input)) == null ? void 0 : _a.content) != null ? _b : null;
+}
+function fromUrl(raw) {
+  var _a, _b, _c, _d, _e;
   const match = /^https?:\/\/([^/?#]+)([^?#]*)(?:\?([^#]*))?/i.exec(raw);
   if (!match)
     return null;
   const host = (_a = match[1]) != null ? _a : "";
   const path = (_b = match[2]) != null ? _b : "";
-  const query = (_c = match[3]) != null ? _c : "";
-  const params = parseQuery(query);
-  const pathMatch = QR_PATH_PATTERN.exec(path);
-  const fileName = (_d = pathMatch == null ? void 0 : pathMatch[1]) != null ? _d : null;
-  const nameMatch = fileName ? FILE_NAME_PATTERN.exec(fileName) : null;
-  let generatedAt = null;
-  if (nameMatch == null ? void 0 : nameMatch[2]) {
-    generatedAt = parseCompactTimestamp(nameMatch[2]);
-  }
+  const params = parseQuery((_c = match[3]) != null ? _c : "");
+  const htmlMatch = HTML_PATH_PATTERN.exec(path);
+  const pngMatch = PNG_PATH_PATTERN.exec(path);
+  const fileName = (_e = (_d = htmlMatch == null ? void 0 : htmlMatch[1]) != null ? _d : pngMatch == null ? void 0 : pngMatch[1]) != null ? _e : null;
+  return build({
+    raw,
+    source: htmlMatch ? "html-url" : pngMatch ? "png-url" : "unknown-url",
+    host,
+    id: fileName,
+    contentPrefix: fileName ? WAHLAP_QR_CONTENT_PREFIX : null,
+    params
+  });
+}
+function build(input) {
+  var _a, _b, _c;
+  const { raw, source, host, id, contentPrefix, params } = input;
+  const idMatch = id ? ID_PATTERN.exec(id) : null;
+  const machinePrefix = (_a = idMatch == null ? void 0 : idMatch[1]) != null ? _a : null;
+  const stamp = (_b = idMatch == null ? void 0 : idMatch[2]) != null ? _b : null;
+  const token = (_c = idMatch == null ? void 0 : idMatch[3]) != null ? _c : null;
+  const generatedAt = stamp ? parseCompactTimestamp(stamp) : null;
   const expiresAt = parseUnixSeconds(params.get("l"));
-  const token = (_e = nameMatch == null ? void 0 : nameMatch[3]) != null ? _e : null;
-  const recognized = WAHLAP_HOST_PATTERN.test(host) && fileName !== null;
+  const recognized = idMatch !== null && (source === "content" || host !== null && WAHLAP_HOST_PATTERN.test(host));
   return {
     raw,
+    source,
+    recognized,
+    content: contentPrefix && id ? `${contentPrefix}${id}` : null,
+    id,
+    machinePrefix,
+    contentPrefix,
     host,
-    kind: recognized ? "login" : "unknown",
-    prefix: (_f = nameMatch == null ? void 0 : nameMatch[1]) != null ? _f : null,
     generatedAt,
     expiresAt,
     validForMs: generatedAt && expiresAt ? expiresAt.getTime() - generatedAt.getTime() : null,
     title: decodeHexParam(params.get("t")),
     description: decodeHexParam(params.get("d")),
-    tokenPreview: token ? `${token.slice(0, 6)}\u2026${token.slice(-4)}(${token.length})` : null,
-    recognized
+    tokenPreview: token ? `${token.slice(0, 6)}\u2026${token.slice(-4)}(${token.length})` : null
   };
 }
 function describeValidity(payload, now = /* @__PURE__ */ new Date()) {
   if (!payload.expiresAt) {
-    return { state: "unknown", remainingMs: null, text: "\u65E0\u6CD5\u5224\u65AD\u6709\u6548\u671F" };
+    return {
+      state: "unknown",
+      remainingMs: null,
+      text: payload.generatedAt ? "\u65E0\u6CD5\u5224\u65AD\u6709\u6548\u671F\uFF08\u7C98\u8D34\u5E26 l \u53C2\u6570\u7684 .html \u94FE\u63A5\u624D\u6709\u65F6\u6548\u4FE1\u606F\uFF09" : "\u65E0\u6CD5\u5224\u65AD\u6709\u6548\u671F"
+    };
   }
   const remainingMs = payload.expiresAt.getTime() - now.getTime();
   if (remainingMs <= 0) {
     return { state: "expired", remainingMs: 0, text: "\u4E8C\u7EF4\u7801\u5DF2\u8FC7\u671F\uFF0C\u8BF7\u5728\u5FAE\u4FE1\u5C0F\u7A0B\u5E8F\u91CC\u91CD\u65B0\u751F\u6210" };
   }
-  return {
-    state: "valid",
-    remainingMs,
-    text: `\u5269\u4F59\u6709\u6548\u65F6\u95F4 ${formatDuration(remainingMs)}`
-  };
+  return { state: "valid", remainingMs, text: `\u5269\u4F59\u6709\u6548\u65F6\u95F4 ${formatDuration(remainingMs)}` };
 }
 function formatDuration(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1e3));
@@ -2262,6 +2305,7 @@ export {
   SONG_TYPE_LABELS,
   TROPHY_COLOR_CSS,
   TROPHY_COLOR_LABELS,
+  WAHLAP_QR_CONTENT_PREFIX,
   alignmentPatternPositions,
   buildB50View,
   buildSongIndex,
@@ -2322,5 +2366,6 @@ export {
   unwrapEnvelope,
   utf8Decode,
   utf8Encode,
-  verifyScoreRating
+  verifyScoreRating,
+  wahlapQrContentOf
 };

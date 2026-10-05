@@ -12,13 +12,15 @@ import { existsSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { readConfig } from './config.js';
-import { serveStatic } from './http.js';
+import { createGuard } from './guard.js';
+import { sendJson, serveStatic } from './http.js';
 import { LxnsService } from './lxns-service.js';
 import { createRouter, notFound } from './routes.js';
 
 const config = readConfig();
 const service = new LxnsService(config);
-const router = createRouter(service, config);
+const guard = createGuard(config);
+const router = createRouter(service, config, guard);
 const hasWebDist = existsSync(config.webDist);
 
 /** 仅对本地来源放开 CORS；其他来源不下发 CORS 头，浏览器会自行拦截。 */
@@ -53,6 +55,23 @@ const server = createServer((req, res) => {
 
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
   const method = req.method ?? 'GET';
+
+  // 门禁放在路由之前，保证不会有哪条新路由漏掉检查
+  const access = guard.check(req, url.pathname);
+  if (!access.ok) {
+    sendJson(res, access.status, {
+      ok: false,
+      success: false,
+      message: access.message,
+      error: {
+        kind: access.status === 429 ? 'rate-limited' : 'unauthorized',
+        friendlyMessage: access.message,
+        status: access.status,
+        endpoint: url.pathname,
+      },
+    });
+    return;
+  }
 
   const matched = router.match(method, url.pathname);
   if (matched) {
@@ -104,6 +123,16 @@ server.listen(config.port, config.host, () => {
   console.log(`  ├─ 数据模式   ${describeMode()}`);
   console.log(`  ├─ 服务端密钥 ${config.apiKey ? '已配置（仅服务端持有）' : '未配置'}`);
   console.log(`  ├─ 页面填密钥 ${config.allowClientKey ? '允许（仅本地测试）' : '禁止'}`);
+  console.log(
+    `  ├─ 访问门禁   ${
+      config.apiToken
+        ? '已要求 API_TOKEN'
+        : '⚠ 未设 API_TOKEN —— 仅限本机使用，切勿直接暴露到公网'
+    }`,
+  );
+  console.log(
+    `  ├─ 限流       ${config.rateLimitPerMinute > 0 ? `${config.rateLimitPerMinute} 次/分钟/IP` : '已关闭'}`,
+  );
   console.log(`  ├─ 曲库缓存   ${Math.round(config.songCacheTtlMs / 1000)} 秒`);
   console.log(`  └─ 前端产物   ${hasWebDist ? config.webDist : '未构建（开发模式请另开 vite）'}`);
   console.log('');

@@ -15,6 +15,13 @@ const EC_LEVELS: { value: QrErrorCorrectionLevel; label: string; hint: string }[
   { value: 'H', label: 'H', hint: '约 30% 容错，码最大' },
 ];
 
+const SOURCE_LABELS: Record<string, string> = {
+  content: '二维码内容（84 字符短码）',
+  'html-url': '展示页链接 .html（带时效与文案）',
+  'png-url': '图片链接 .png',
+  'unknown-url': '无法识别的链接',
+};
+
 /**
  * 二维码工作台。
  *
@@ -27,20 +34,30 @@ export function QrStudio() {
   const [moduleSize, setModuleSize] = useState(6);
   const [now, setNow] = useState(() => new Date());
   const [copied, setCopied] = useState(false);
+  const [copiedContent, setCopiedContent] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const trimmed = text.trim();
   const payload = useMemo(() => (trimmed ? parseWahlapQrPayload(trimmed) : null), [trimmed]);
 
+  /**
+   * 真正要拿去生成二维码的内容。
+   *
+   * 关键：机台二维码的**内容**是那串 84 字符的短码（`SGWC…`），
+   * 不是几百字符的展示页 URL。拿 URL 去生成虽然也能扫出东西，
+   * 但会得到一张 77×77 的码，在手表上根本看不清。
+   */
+  const qrContent = payload?.content ?? trimmed;
+
   const encoded = useMemo(() => {
-    if (!trimmed) return { qr: null, error: null as string | null };
+    if (!qrContent) return { qr: null, error: null as string | null };
     try {
-      return { qr: encodeQr(trimmed, { ecLevel }), error: null };
+      return { qr: encodeQr(qrContent, { ecLevel }), error: null };
     } catch (error) {
       return { qr: null, error: error instanceof Error ? error.message : String(error) };
     }
-  }, [trimmed, ecLevel]);
+  }, [qrContent, ecLevel]);
 
   // 有效期倒计时：只在确实是机台二维码时才需要
   useEffect(() => {
@@ -115,6 +132,16 @@ export function QrStudio() {
       setCopied(false);
     }
   }, [trimmed]);
+
+  const copyContent = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(qrContent);
+      setCopiedContent(true);
+      setTimeout(() => setCopiedContent(false), 1800);
+    } catch {
+      setCopiedContent(false);
+    }
+  }, [qrContent]);
 
   return (
     <>
@@ -212,6 +239,22 @@ export function QrStudio() {
             <section className="card qr-analysis">
               <h3 className="card__title">载荷解析</h3>
 
+              {payload.content ? (
+                <div className="qr-content">
+                  <div className="qr-content__head">
+                    <span className="qr-content__label">二维码内容（喂给手表的就是这串）</span>
+                    <button className="btn btn--ghost btn--sm" type="button" onClick={() => void copyContent()}>
+                      {copiedContent ? '已复制' : '复制'}
+                    </button>
+                  </div>
+                  <code className="qr-content__value">{payload.content}</code>
+                  <div className="qr-content__meta">
+                    共 {payload.content.length} 字符 · 版本 {encoded.qr?.version} ·{' '}
+                    {encoded.qr?.size} × {encoded.qr?.size} 模块
+                  </div>
+                </div>
+              ) : null}
+
               {validity ? (
                 <div className={`qr-validity qr-validity--${validity.state}`}>
                   <strong>{validity.text}</strong>
@@ -227,26 +270,30 @@ export function QrStudio() {
               {payload.description ? <p className="qr-analysis__desc">{payload.description}</p> : null}
 
               <dl className="qr-facts">
+                <dt>输入形态</dt>
+                <dd>{SOURCE_LABELS[payload.source]}</dd>
                 <dt>主机</dt>
-                <dd>{payload.host}</dd>
+                <dd>{payload.host ?? '—'}</dd>
                 <dt>识别为</dt>
-                <dd>{payload.recognized ? `华立机台二维码（${payload.prefix ?? '未知'}）` : '未识别的二维码'}</dd>
+                <dd>
+                  {payload.recognized
+                    ? `华立机台二维码（${payload.machinePrefix ?? '未知'}）`
+                    : '未识别的二维码，将按普通文本出码'}
+                </dd>
                 <dt>生成时间</dt>
                 <dd>{payload.generatedAt ? payload.generatedAt.toLocaleString('zh-CN') : '—'}</dd>
                 <dt>过期时间</dt>
-                <dd>{payload.expiresAt ? payload.expiresAt.toLocaleString('zh-CN') : '—'}</dd>
+                <dd>{payload.expiresAt ? payload.expiresAt.toLocaleString('zh-CN') : '—（该形态不带时效字段）'}</dd>
                 <dt>有效时长</dt>
-                <dd>
-                  {payload.validForMs !== null
-                    ? `${Math.round(payload.validForMs / 60000)} 分钟`
-                    : '—'}
-                </dd>
+                <dd>{payload.validForMs !== null ? `${Math.round(payload.validForMs / 60000)} 分钟` : '—'}</dd>
                 <dt>令牌摘要</dt>
                 <dd className="score-row__meta">{payload.tokenPreview ?? '—'}</dd>
               </dl>
 
               <p className="qr-analysis__note">
-                令牌只显示截断摘要。完整令牌是登入凭据，本页不会把它写进任何持久化位置。
+                只有 <code>.html</code> 形态（带 <code>l</code> 参数）才有时效信息；
+                <code>.png</code> 与裸内容只能解析出生成时刻。
+                令牌只显示截断摘要，本页不会把它写进任何持久化位置。
               </p>
             </section>
           ) : null}
