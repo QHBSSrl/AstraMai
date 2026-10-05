@@ -1,8 +1,9 @@
-import type { RatingSelfCheck } from '@astramai/core';
-import { formatAchievement, formatFixed } from '@astramai/core';
+import type { B50Stats, RatingSelfCheck } from '@astramai/core';
+import { formatAchievement, formatFixed, formatInt } from '@astramai/core';
 
 interface SelfCheckPanelProps {
   selfCheck: RatingSelfCheck;
+  stats: B50Stats;
 }
 
 /**
@@ -12,8 +13,10 @@ interface SelfCheckPanelProps {
  * 与其相信注释，不如每次查询都用落雪返回的 dx_rating 逐条对拍。
  * 真实密钥下跑一次就能拿到数百条的统计结论。
  */
-export function SelfCheckPanel({ selfCheck }: SelfCheckPanelProps) {
+export function SelfCheckPanel({ selfCheck, stats }: SelfCheckPanelProps) {
   const { checked, matched, mismatched, missingApiRating, matchedWithoutApBonus, includesApBonus } = selfCheck;
+
+  const subtotalOk = stats.computedStandardDelta === 0 && stats.computedDxDelta === 0;
 
   if (checked === 0) {
     return (
@@ -73,6 +76,17 @@ export function SelfCheckPanel({ selfCheck }: SelfCheckPanelProps) {
           <div className="stat__label">忽略 AP 加分后一致</div>
           <div className="stat__value">{matchedWithoutApBonus}</div>
           <div className="stat__sub">用来判断接口是否已含加分</div>
+        </div>
+        <div className="stat">
+          <div className="stat__label">小计对拍</div>
+          <div className="stat__value" style={{ color: subtotalOk ? '#a7f3d0' : '#fecaca' }}>
+            {subtotalOk ? 'B35 / B15 均一致' : '有偏差'}
+          </div>
+          <div className="stat__sub">
+            旧曲 {formatInt(stats.computedStandardTotal)}/{formatInt(stats.standardTotal)}
+            {' · '}
+            新曲 {formatInt(stats.computedDxTotal)}/{formatInt(stats.dxTotal)}
+          </div>
         </div>
       </div>
 

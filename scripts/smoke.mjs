@@ -83,6 +83,21 @@ if (!b50.json?.ok) {
     view.stats.total === view.stats.standardTotal + view.stats.dxTotal,
     `${view.stats.standardTotal} + ${view.stats.dxTotal}`,
   );
+  check(
+    'B35 小计本地公式与官方一致',
+    view.stats.computedStandardDelta === 0,
+    `本地 ${view.stats.computedStandardTotal} vs 官方 ${view.stats.standardTotal}`,
+  );
+  check(
+    'B15 小计本地公式与官方一致',
+    view.stats.computedDxDelta === 0,
+    `本地 ${view.stats.computedDxTotal} vs 官方 ${view.stats.dxTotal}`,
+  );
+  check(
+    'B35 / B15 条数分别为 35 / 15',
+    view.stats.standardCount === 35 && view.stats.dxCount === 15,
+    `actual ${view.stats.standardCount} / ${view.stats.dxCount}`,
+  );
   check('理论值总分 > 当前总分', view.stats.theoreticalMaxTotal > view.stats.total);
   check('生成时间存在', typeof view.generatedAt === 'string');
 }

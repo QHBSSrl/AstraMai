@@ -281,7 +281,7 @@ export function App() {
 
           <PlayerCard view={view} />
           <StatsPanel stats={view.stats} />
-          <SelfCheckPanel selfCheck={view.selfCheck} />
+          <SelfCheckPanel selfCheck={view.selfCheck} stats={view.stats} />
 
           {view.warnings.length > 0 ? (
             <section className="card warnings">

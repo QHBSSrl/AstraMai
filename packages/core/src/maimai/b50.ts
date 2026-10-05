@@ -188,6 +188,10 @@ export interface B50Stats {
 
   /** 本地公式与官方合计的差值。 */
   computedDelta: number;
+  /** 旧曲小计的差值（本地 - 官方）。 */
+  computedStandardDelta: number;
+  /** 新曲小计的差值（本地 - 官方）。 */
+  computedDxDelta: number;
 
   chartCount: number;
   /** 旧曲（standard）条目数。 */
@@ -282,7 +286,7 @@ export function buildB50View(input: BuildB50Input): B50View {
   const dxSelections = buildEntries(bests.dx_selections ?? [], index, warnings);
 
   const main = [...standard, ...dx];
-  const stats = computeStats(main, bests);
+  const stats = computeStats(standard, dx, bests);
   const selfCheck = computeSelfCheck(main);
 
   const playerView: PlayerView = {
@@ -415,18 +419,25 @@ function sumNotes(list: (MaimaiNotes | undefined)[]): MaimaiNotes | null {
   );
 }
 
-function computeStats(entries: B50Entry[], bests: MaimaiBests): B50Stats {
+/**
+ * 汇总统计。
+ *
+ * ⚠️ 关键口径：落雪的 `standard` / `dx` 两个列表是按**曲子版本**划分的
+ * （旧曲 Best 35 / 新曲 Best 15），列表内部同时包含标准谱面与 DX 谱面。
+ * 因此小计必须按「来自哪个列表」拆，而不能按 `score.type` 拆——
+ * 实测一份真实 B50 的 B35 里有 26 条是 DX 谱面。
+ */
+function computeStats(standard: B50Entry[], dx: B50Entry[], bests: MaimaiBests): B50Stats {
+  const entries = [...standard, ...dx];
   const withLevel = entries.filter((e) => e.levelValue !== null);
 
   const sum = (list: number[]) => list.reduce((a, b) => a + b, 0);
   const avg = (list: number[]) => (list.length === 0 ? 0 : sum(list) / list.length);
+  const ratingsOf = (list: B50Entry[]) =>
+    list.filter((e) => e.computedRating !== null).map((e) => e.computedRating as number);
 
-  const computedStandardTotal = sum(
-    entries.filter((e) => e.type !== 'dx' && e.computedRating !== null).map((e) => e.computedRating as number),
-  );
-  const computedDxTotal = sum(
-    entries.filter((e) => e.type === 'dx' && e.computedRating !== null).map((e) => e.computedRating as number),
-  );
+  const computedStandardTotal = sum(ratingsOf(standard));
+  const computedDxTotal = sum(ratingsOf(dx));
 
   const standardTotal = bests.standard_total ?? 0;
   const dxTotal = bests.dx_total ?? 0;
@@ -465,9 +476,11 @@ function computeStats(entries: B50Entry[], bests: MaimaiBests): B50Stats {
     computedStandardTotal,
     computedDxTotal,
     computedDelta: computedTotal - total,
+    computedStandardDelta: computedStandardTotal - standardTotal,
+    computedDxDelta: computedDxTotal - dxTotal,
     chartCount: entries.length,
-    standardCount: entries.filter((e) => e.type !== 'dx').length,
-    dxCount: entries.filter((e) => e.type === 'dx').length,
+    standardCount: standard.length,
+    dxCount: dx.length,
     averageLevelValue: avg(levelValues),
     maxLevelValue: levelValues.length ? Math.max(...levelValues) : 0,
     averageAchievement: avg(achievements),

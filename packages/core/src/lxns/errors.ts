@@ -48,7 +48,7 @@ const FRIENDLY_MESSAGES: Record<LxnsErrorKind, string> = {
   forbidden: '密钥权限不足：该密钥未被授予「读取玩家成绩」等所需权限。',
   'not-found': '查不到这个好友码对应的玩家，可能尚未在落雪同步过数据。',
   'rate-limited': '请求太频繁，被落雪限流了，请稍等几秒再试。',
-  'bad-request': '请求参数不对，请检查好友码是否填写正确。',
+  'bad-request': '请求参数不对。好友码应为 15 位数字（游戏内「好友」界面可见），QQ 号请填纯数字。',
   server: '落雪服务端出错了，请稍后再试。',
   network: '连不上落雪服务器，请检查本机网络或代理设置。',
   timeout: '请求落雪超时，请稍后重试。',
