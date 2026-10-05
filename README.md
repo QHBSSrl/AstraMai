@@ -123,6 +123,22 @@ Mock 模式的数据也是按同一套公式生成的，所以自检在离线状
 
 ---
 
+## 界面
+
+B50 总览：玩家名片、B35/B15 构成、统计、定数分布、公式自检，以及逐条成绩列表。
+
+![B50 总览](docs/screenshots/b50-overview.png)
+
+单曲详情：物量、定数、Rating 拆解（含命中的系数档与 AP 加分）、与落雪的对拍结果。
+
+![成绩详情](docs/screenshots/score-detail.png)
+
+窄屏（Vela 端尺寸参考）：列表改为卡片式堆叠，详情改为底部抽屉。
+
+<img src="docs/screenshots/narrow-layout.png" alt="窄屏布局" width="380" />
+
+---
+
 ## 与 Vela 端的关系
 
 `packages/core` 刻意做到：
