@@ -22,10 +22,10 @@
       "name": "system.vibrator"
     },
     {
-      "name": "system.device"
+      "name": "system.router"
     },
     {
-      "name": "system.router"
+      "name": "system.device"
     }
   ],
   "config": {
@@ -55,5 +55,10 @@
         "path": "/search"
       }
     }
-  }
+  },
+  "permissions": [
+    {
+      "name": "hapjs.permission.DEVICE_INFO"
+    }
+  ]
 }

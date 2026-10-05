@@ -231,6 +231,29 @@ ADB="$USERPROFILE/.vela/sdk/tools/adb/win/adb.exe"
 漏声明时构建会直接失败并报 `missing feature`，可以用 `aiot build --complete-feature`
 让工具链算出完整列表，再把结果固化进源码（它只写进 RPK，不会改源码）。
 
+### ⚠️ features 之外还必须声明 permissions
+
+**这是踩过的坑。** `--complete-feature` 只会补 `features`，**不会补 `permissions`**，
+而官方 manifest 文档的权限表写明部分接口是「feature + permission 双声明」：
+
+| 权限名 | 对应 feature | 相关 API |
+| --- | --- | --- |
+| `hapjs.permission.LOCATION` | `system.geolocation` | getLocation / subscribe |
+| `hapjs.permission.DEVICE_INFO` | **`system.device`** | getSerial / getDeviceId |
+
+InputMethod 组件里调用了 `device.getInfo()`，所以 `system.device` 是必需的 feature；
+但**只声明 feature 而不声明权限，`device` 在运行时不可用**，
+表现为 `TypeError: not a function`——这正是页面渲染不出来的原因之一。
+
+正确的 manifest 片段：
+
+```json
+"features": [{ "name": "system.device" }],
+"permissions": [{ "name": "hapjs.permission.DEVICE_INFO" }]
+```
+
+`scripts/patch-vela-manifest.mjs` 负责维护这段配置。
+
 ### 事件语义（容易踩坑）
 
 组件会同时发 `keyDown` 和 `complete`：
