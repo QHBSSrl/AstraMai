@@ -1,0 +1,13 @@
+# 统一换行符，避免 Windows 上出现整文件 diff
+* text=auto eol=lf
+
+# 二进制文件不做换行转换
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.woff2 binary
+
+# 锁文件与快照在 diff 里折叠
+package-lock.json -diff linguist-generated
+dist/** linguist-generated

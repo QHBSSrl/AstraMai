@@ -1,0 +1,28 @@
+{
+  "name": "astramai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AstraMai —— 面向小米 Vela 端的街机音游工具（落雪查分器对接）基础工程与 Web 测试站",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "build": "npm run build -w @astramai/core && npm run build -w @astramai/server && npm run build -w @astramai/web",
+    "build:core": "npm run build -w @astramai/core",
+    "dev": "npm run build:core && node scripts/dev.mjs",
+    "dev:server": "npm run dev -w @astramai/server",
+    "dev:web": "npm run dev -w @astramai/web",
+    "dev:core": "npm run dev -w @astramai/core",
+    "start": "node apps/server/dist/index.js",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "clean": "node scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.3"
+  }
+}
