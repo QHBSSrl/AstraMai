@@ -1,29 +1,36 @@
-/**
- * 应用入口。
- *
- * `onError` 不是装饰——没有它的时候，页面脚本初始化失败会**静默变成黑屏**，
- * IDE 控制台里一句有用的报错都没有。加上它之后，同样的问题会直接打出来。
- *
- * 见 https://iot.mi.com/vela/quickapp/zh/guide/framework/ux.html
- */
+<script>
+  /**
+   * 应用入口。
+   *
+   * ⚠️ 这里必须有 <script> 标签。
+   *
+   * 踩过的坑：曾经把本文件写成裸的 ES module（直接 `export default {...}`，
+   * 没有 <script> 包裹）。构建照样成功，但整段脚本被静默丢弃，
+   * 编译产物里 `$app_script$` 是空函数，随后 `$app_exports$.default.style`
+   * 抛 `TypeError: cannot read property 'style' of undefined`，
+   * 运行时直接 `Abort App` —— 表现就是**纯黑屏，且控制台没有任何应用日志**。
+   *
+   * `onError` 不是装饰：没有它的时候，应用初始化失败是静默的。
+   */
+  export default {
+    onCreate() {
+      console.log('[AstraMai] app onCreate');
+    },
 
-export default {
-  onCreate() {
-    console.log('[AstraMai] app onCreate');
-  },
+    onError(error) {
+      // 不同版本传进来的东西形状不一样，尽量把能拿到的都打出来
+      try {
+        const message = error && (error.message || error.stack) ? error.message : String(error);
+        console.error('[AstraMai] app onError:', message);
+        if (error && error.stack) console.error(error.stack);
+        if (error && error.name) console.error('name =', error.name);
+      } catch (loggingError) {
+        console.error('[AstraMai] app onError（打印失败）:', loggingError);
+      }
+    },
 
-  onError(error) {
-    // 尽量把能拿到的信息都打出来：不同版本传进来的东西形状不一样
-    try {
-      console.error('[AstraMai] app onError:', error && (error.message || error.stack) ? error.message : String(error));
-      if (error && error.stack) console.error(error.stack);
-      if (error && error.name) console.error('name =', error.name);
-    } catch (loggingError) {
-      console.error('[AstraMai] app onError（打印失败）:', loggingError);
-    }
-  },
-
-  onDestroy() {
-    console.log('[AstraMai] app onDestroy');
-  },
-};
+    onDestroy() {
+      console.log('[AstraMai] app onDestroy');
+    },
+  };
+</script>

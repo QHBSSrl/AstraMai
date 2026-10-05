@@ -124,6 +124,90 @@ apps/vela/
 验证方式：解开 RPK 检查编译产物里 `@app-module/system.*` 的 require 是否落在函数体内，
 而不是模块顶层。
 
+## 调试笔记：黑屏的两个根因（都已修复）
+
+模拟器里出现**纯黑屏、控制台没有任何应用日志**时，按下面的顺序排查。
+这两个坑都实际踩过，而且**构建全程不报错**，只有在模拟器上看日志才能发现。
+
+### 根因一：`app.ux` 必须有 `<script>` 标签
+
+曾经把 `app.ux` 写成了裸的 ES module（直接 `export default {...}`，没有 `<script>` 包裹）。
+构建照样成功，但**整段脚本被静默丢弃**——编译产物里 `$app_script$` 是个空函数：
+
+```js
+var $app_script$ = function __scriptModule__(module, exports, $app_require$1) {
+    "use strict";
+    "";                                          // ← 内容没了
+};
+$app_exports$.default.style = $app_style$;        // ← default 是 undefined，这里炸
+```
+
+运行时表现为 `TypeError: cannot read property 'style' of undefined` →
+`init custom app inst error` → `Abort App...` → 黑屏。
+
+**判断方法**：解开 RPK 看 `app.js`，如果你写的 `onCreate`/`onError` 字符串不在里面，
+就是漏了 `<script>`。
+
+### 根因二：`package.json` 里不能有 `"type": "module"`
+
+**这条最隐蔽。**
+
+`src/common/*.js` 由工具链的 Babel 转成 CommonJS（生成裸 `exports.xxx = ...`），
+但 rspack 会根据 `package.json` 的 `"type"` 字段决定模块类型。
+一旦写了 `"type": "module"`，rspack 把所有 `.js` 当 ESM 包装：
+
+```js
+"./src/common/astramai-core.js" (__unused_rspack___webpack_module__, __webpack_exports__, __webpack_require__) {
+    Object.defineProperty(exports, "__esModule", { value: true });   // ← 裸 exports，未定义
+```
+
+参数名是 `__webpack_exports__`，函数体却用 `exports` → `ReferenceError: 'exports' is not defined`
+→ 页面加载失败 → 黑屏。
+
+副作用：手写成 CommonJS 的文件也一样挂（rspack 按 ESM 包装 → `module` 未定义）。
+
+**所以 `apps/vela/package.json` 一定不要加 `"type": "module"`。**
+代价是 Node 里 `.js` 默认按 CJS 加载，因此 `npm test` 用了
+`node --experimental-default-type=module --test` 来保住对 ESM 源码的单元测试。
+
+### 在模拟器上看应用日志
+
+调试时最缺的是「应用到底报了什么」。模拟器是 **NuttX（NSH）**，不是 Android：
+没有 `screencap`，`ps`/`grep` 也不同。但 **`dmesg` 里能看到 `[AIOTJS]` 的运行时输出**：
+
+```bash
+ADB="$USERPROFILE/.vela/sdk/tools/adb/win/adb.exe"
+
+# 推送并解包（unzip -o 不会删除旧文件，先清理）
+"$ADB" shell "rm -rf /data/quickapp/app/com.astranexus.astramai"
+"$ADB" push dist/com.astranexus.astramai.debug.0.1.0.rpk /data/quickapp/app/com.astranexus.astramai.rpk
+"$ADB" shell "unzip -o /data/quickapp/app/com.astranexus.astramai.rpk -d /data/quickapp/app/com.astranexus.astramai"
+
+# 注意工作目录：相对路径 app/... 是相对 /data/quickapp 的
+"$ADB" shell "cd /data/quickapp; vapp app/com.astranexus.astramai"
+
+# 读日志（dmesg 缓冲很小，要尽快读）
+"$ADB" shell "dmesg"
+```
+
+正常启动时应当看到：
+
+```
+[AIOTJS] [printFrmTraceInfo] PageLoad 1 / PageInit 1 / PageCreate 1
+```
+
+`PageCreate` 出现且**没有** `Abort App` 就说明页面起来了。
+应用自己的 `console.log` 走的是 CDP 调试通道（`--jsdebugger`），
+**不会**出现在 dmesg 里——所以 `console.log` 只在 IDE 的调试控制台可见。
+
+### 两个工具链的坑（非本项目问题，但会浪费时间）
+
+1. **`aiot build` 失败时退出码依然是 0。** 自动化脚本必须检查输出里的 `❌` / `build error`，
+   否则会一路推着旧包，还以为是新代码没生效。
+2. **`package.json` 带 BOM 会导致构建失败**，报错是
+   `Unexpected token '', "..." is not valid JSON`。
+   在 Windows 上用 PowerShell 的 `Set-Content -Encoding utf8` 改这个文件很容易写进 BOM。
+
 ## 还没验证的部分
 
 | 项 | 说明 |

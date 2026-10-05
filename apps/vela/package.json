@@ -2,13 +2,12 @@
   "name": "astramai-vela",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "AstraMai · 小米手表（Vela JS 应用）端",
   "scripts": {
     "start": "aiot start",
     "build": "aiot build",
     "release": "aiot release",
-    "test": "node --test",
+    "test": "node --experimental-default-type=module --test",
     "bundle:core": "node ../../scripts/bundle-core.mjs"
   },
   "devDependencies": {
