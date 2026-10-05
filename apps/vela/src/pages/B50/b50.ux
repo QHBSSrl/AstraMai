@@ -1,18 +1,34 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+
 <template>
-  <div class="page">
-    <div class="bar">
-      <input
-        class="input"
-        type="text"
-        value="{{ friendCode }}"
-        placeholder="好友码"
-        onchange="onCodeChange"
-      />
-      <input class="btn" type="button" value="{{ loading ? '查询中' : '查询' }}" onclick="query" />
+  <div class="b50-page">
+    <!-- ── 查询目标 ─────────────────────────────────────────────── -->
+    <div class="kinds">
+      <div class="kind {{ kind === 'friendCode' ? 'kind--on' : '' }}" @click="setKind('friendCode')">
+        <text class="kind__text">好友码</text>
+      </div>
+      <div class="kind {{ kind === 'qq' ? 'kind--on' : '' }}" @click="setKind('qq')">
+        <text class="kind__text">QQ 号</text>
+      </div>
+    </div>
+
+    <div class="target">
+      <text class="target__value">{{ displayValue }}</text>
+      <text class="target__hint">{{ hint }}</text>
+    </div>
+
+    <div class="actions">
+      <div class="action {{ canSubmit ? '' : 'action--disabled' }}" @click="query">
+        <text class="action__text">查询</text>
+      </div>
+      <div class="action action--ghost" @click="toggleKeyboard">
+        <text class="action__text">{{ keyboardHidden ? '输入' : '收起' }}</text>
+      </div>
     </div>
 
     <text class="error" if="{{ errorText }}">{{ errorText }}</text>
 
+    <!-- ── 结果 ─────────────────────────────────────────────────── -->
     <block if="{{ hasResult }}">
       <div class="summary">
         <div class="summary__main">
@@ -42,47 +58,116 @@
       </list>
     </block>
 
-    <text class="hint" else>输入好友码查询 Best 50。数据由自建服务端聚合后返回。</text>
+    <!--
+      完整输入法。好友码是纯数字，用它的「123」数字键盘即可；
+      这样全应用只有一套输入组件，不必为不同输入各写一个键盘。
+    -->
+    <input-method
+      hide="{{ keyboardHidden }}"
+      keyboardtype="QWERTY"
+      screentype="rect"
+      vibratemode="short"
+      maxlength="5"
+      @complete="onComplete"
+      @delete="onDelete"
+    ></input-method>
   </div>
 </template>
 
 <style>
-  .page {
+  .b50-page {
     flex-direction: column;
-    padding: 16px 16px 0 16px;
+    padding: 14px;
     background-color: #070b16;
   }
 
-  .bar {
+  .kinds {
     flex-direction: row;
-    align-items: center;
+    justify-content: center;
   }
 
-  .input {
-    flex: 1;
-    height: 60px;
-    padding: 0 14px;
-    border-radius: 12px;
-    background-color: #0d1424;
+  .kind {
+    padding: 10px 26px;
+    margin: 0 6px;
+    border-radius: 24px;
+    background-color: #141d30;
+  }
+
+  .kind--on {
+    background-color: #1c2740;
+  }
+
+  .kind__text {
+    font-size: 22px;
+    color: #9bacd0;
+  }
+
+  .kind--on .kind__text {
     color: #e8eefc;
-    font-size: 20px;
   }
 
-  .btn {
-    height: 60px;
-    padding: 0 22px;
-    margin-left: 10px;
-    border-radius: 30px;
+  .target {
+    flex-direction: column;
+    align-items: center;
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 14px;
+    background-color: #141d30;
+  }
+
+  .target__value {
+    font-size: 32px;
+    color: #e8eefc;
+  }
+
+  .target__hint {
+    font-size: 17px;
+    color: #6d7fa3;
+    margin-top: 4px;
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .action {
+    height: 68px;
+    padding: 0 34px;
+    margin: 0 6px;
+    border-radius: 34px;
     background-color: #ff5f9e;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action--ghost {
+    background-color: #1c2740;
+  }
+
+  .action--disabled {
+    background-color: #2a2f42;
+  }
+
+  .action__text {
+    font-size: 26px;
     color: #1a0710;
-    font-size: 20px;
-    text-align: center;
+  }
+
+  .action--ghost .action__text {
+    color: #e8eefc;
+  }
+
+  .action--disabled .action__text {
+    color: #6d7fa3;
   }
 
   .error {
     font-size: 18px;
     color: #f87171;
-    margin-top: 10px;
+    margin-top: 8px;
+    text-align: center;
   }
 
   .summary {
@@ -132,7 +217,6 @@
     flex-direction: row;
     align-items: center;
     padding: 12px 8px;
-    border-bottom: 1px solid #1c2740;
   }
 
   .row__rank {
@@ -172,26 +256,33 @@
     font-size: 15px;
     color: #9bacd0;
   }
-
-  .hint {
-    font-size: 18px;
-    color: #6d7fa3;
-    margin-top: 24px;
-    text-align: center;
-  }
 </style>
 
 <script>
-  import { fetchB50 } from '../../common/api.js'
-  import { readSetting, warmUp, writeSetting } from '../../common/store.js'
+  import { fetchB50, fetchB50ByQq } from '../../common/api.js';
+  import { readSetting, warmUp, writeSetting } from '../../common/store.js';
+  import {
+    appendDigit,
+    backspace,
+    describeInput,
+    isReadyToSubmit,
+    normalizeDigits,
+  } from '../../common/validate.js';
 
-  const TOP_N = 20
+  const TOP_N = 20;
 
   export default {
     private: {
-      friendCode: '',
-      loading: false,
+      kind: 'friendCode',
+      code: '',
+      keyboardHidden: false,
+
+      hint: '',
+      canSubmit: false,
       errorText: '',
+      saving: '',
+      displayValue: '输入好友码',
+
       hasResult: false,
       ratingText: '',
       tierText: '',
@@ -203,55 +294,123 @@
     },
 
     onInit() {
-      console.log('[AstraMai] B50 onInit')
-      warmUp(['friendCode'])
-        .then(() => {
-          this.friendCode = readSetting('friendCode', '')
-          if (this.friendCode) this.query()
-        })
-        .catch((error) => console.error('[AstraMai] B50 初始化失败：', error))
+      console.log('[AstraMai] B50 onInit');
+      warmUp(['queryKind', 'queryValue', 'friendCode'])
+        .then(() => this.restore())
+        .catch((error) => console.error('[AstraMai] B50 初始化失败：', error));
     },
 
-    onCodeChange(event) {
-      this.friendCode = event.value
+    /**
+     * 恢复上次保存的查询目标。
+     *
+     * 手表上输入 15 位数字很费劲，所以「存下来、下次直接用」不是锦上添花，
+     * 而是这个页面能不能用的前提。
+     */
+    restore() {
+      const savedKind = readSetting('queryKind', 'friendCode');
+      this.kind = savedKind === 'qq' ? 'qq' : 'friendCode';
+
+      // 兼容早期只存 friendCode 的版本
+      const saved =
+        normalizeDigits(readSetting('queryValue', '')) ||
+        normalizeDigits(readSetting('friendCode', ''));
+
+      this.code = saved;
+      this.refreshInputState();
+
+      if (saved) {
+        this.keyboardHidden = true;
+        this.query();
+      }
+    },
+
+    setKind(kind) {
+      if (this.kind === kind) return;
+      this.kind = kind;
+      // 两种方式的长度上限不同，切换时清空，避免留下不合法的残留
+      this.code = '';
+      this.errorText = '';
+      this.hasResult = false;
+      this.keyboardHidden = false;
+      this.refreshInputState();
+    },
+
+    toggleKeyboard() {
+      this.keyboardHidden = !this.keyboardHidden;
+    },
+
+    refreshInputState() {
+      const described = describeInput(this.kind, this.code);
+      this.hint = described.text + (this.saving ? ` · ${this.saving}` : '');
+      this.canSubmit = isReadyToSubmit(this.kind, this.code);
+      this.displayValue = this.code
+        ? this.code
+        : this.kind === 'qq'
+          ? '输入 QQ 号'
+          : '输入好友码';
+    },
+
+    /** 只监听 complete：keyDown 会在拼音模式下把字母也报上来，两个都听会重复输入。 */
+    onComplete(evt) {
+      const content = evt && evt.detail ? evt.detail.content : '';
+      const before = this.code;
+      this.code = appendDigit(this.kind, this.code, content);
+      if (this.code === before && normalizeDigits(content) === '' ) {
+        // 输入了非数字字符，提示一下而不是静默吞掉
+        this.hint = this.kind === 'qq' ? 'QQ 号只能是数字' : '好友码只能是数字';
+        return;
+      }
+      this.refreshInputState();
+    },
+
+    onDelete() {
+      this.code = backspace(this.code);
+      this.refreshInputState();
     },
 
     query() {
-      const code = (this.friendCode || '').trim()
-      if (!/^\d{15}$/.test(code)) {
-        this.errorText = '好友码应为 15 位数字'
-        return
+      const code = normalizeDigits(this.code);
+      if (!isReadyToSubmit(this.kind, code)) {
+        this.errorText = this.kind === 'qq' ? 'QQ 号应为 5–11 位数字' : '好友码应为 15 位数字';
+        this.keyboardHidden = false;
+        return;
       }
 
-      this.errorText = ''
-      this.loading = true
-      writeSetting('friendCode', code)
+      this.errorText = '';
+      this.keyboardHidden = true;
 
-      fetchB50(code)
-        .then((view) => this.apply(view))
+      // 落盘：下次打开直接可用
+      writeSetting('queryKind', this.kind);
+      writeSetting('queryValue', code);
+      if (this.kind === 'friendCode') writeSetting('friendCode', code);
+
+      const request = this.kind === 'qq' ? fetchB50ByQq(code) : fetchB50(code);
+
+      request
+        .then((view) => {
+          this.apply(view);
+          this.saving = '';
+          this.refreshInputState();
+        })
         .catch((error) => {
-          this.errorText = error && error.message ? error.message : '查询失败'
-          this.hasResult = false
-        })
-        .then(() => {
-          this.loading = false
-        })
+          this.errorText = error && error.message ? error.message : '查询失败';
+          this.hasResult = false;
+          this.keyboardHidden = false;
+        });
     },
 
     apply(view) {
-      const stats = view.stats
-      const player = view.player
+      const stats = view.stats;
+      const player = view.player;
 
-      this.ratingText = String(player.rating)
-      this.tierText = player.tier ? player.tier.label : ''
-      this.b35Text = String(stats.standardTotal)
-      this.b15Text = String(stats.dxTotal)
-      this.avgLevelText = stats.averageLevelValue.toFixed(2)
-      this.selfCheckText =
-        stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta
+      this.ratingText = String(player.rating);
+      this.tierText = player.tier ? player.tier.label : '';
+      this.b35Text = String(stats.standardTotal);
+      this.b15Text = String(stats.dxTotal);
+      this.avgLevelText = stats.averageLevelValue.toFixed(2);
+      this.selfCheckText = stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta;
 
-      // 手表一屏放不下 50 条，先只取前 N 条并压平字段——
-      // 列表项只用到这几个值，减少跨端数据量
+      // 手表一屏放不下 50 条，先取前 N 条并压平字段
       this.entries = view.standard
         .concat(view.dx)
         .sort((a, b) => (b.rating || 0) - (a.rating || 0))
@@ -262,9 +421,9 @@
           levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
           rating: entry.rating === null ? '--' : String(entry.rating),
           achievements: entry.achievements.toFixed(4) + '%',
-        }))
+        }));
 
-      this.hasResult = true
+      this.hasResult = true;
     },
-  }
+  };
 </script>

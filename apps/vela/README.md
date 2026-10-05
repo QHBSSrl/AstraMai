@@ -208,6 +208,112 @@ ADB="$USERPROFILE/.vela/sdk/tools/adb/win/adb.exe"
    `Unexpected token '', "..." is not valid JSON`。
    在 Windows 上用 PowerShell 的 `Set-Content -Encoding utf8` 改这个文件很容易写进 BOM。
 
+## 输入法组件
+
+**Vela 手表没有系统输入法**——`<input>` 获得焦点后不会弹出任何键盘，
+所以文本输入必须由端上自绘。
+
+我们使用第三方组件 [NEORUAA/Vela_input_method](https://github.com/NEORUAA/Vela_input_method)（MIT），
+支持中文拼音、英文、日文罗马字。**日文是刚需**：maimai 曲名大量是日文，
+没有它曲目搜索做不了。
+
+- 代码位置：`src/components/InputMethod/`（91 个文件，约 297 KB）
+- 来源与上游 commit 记录在 `src/components/InputMethod/NOTICE.md`
+- 更新方式：`node scripts/vendor-input-method.mjs`（会重新抓取并刷新 NOTICE）
+- **本地不修改该组件**，保持与上游一致，便于整体更新
+
+在宿主 `manifest.json` 的 `features` 里需要声明（组件会用到的接口）：
+
+```json
+["system.fetch", "system.storage", "system.file", "system.vibrator", "system.device", "system.router"]
+```
+
+漏声明时构建会直接失败并报 `missing feature`，可以用 `aiot build --complete-feature`
+让工具链算出完整列表，再把结果固化进源码（它只写进 RPK，不会改源码）。
+
+### 事件语义（容易踩坑）
+
+组件会同时发 `keyDown` 和 `complete`：
+
+- `keyDown`：**每次按键**都发原始字符（拼音/罗马字模式下是「正在输入的字母」）
+- `complete`：**真正提交文本**时发（选词确定后）
+
+**只能监听 `complete`**，两个都监听会重复输入。
+（上游自己的示例代码里也把 `keyDown` 注释掉了。）
+删除用 `delete` 事件。
+
+## 在模拟器上截图（调 UI 必备）
+
+IDE 的预览窗口是隐藏的，模拟器又是 NuttX（没有 Android 的 `screencap`），
+所以「界面到底渲染成什么样」一度只能靠猜。实际上 `/dev/fb0` 是可读的：
+
+```bash
+node scripts/vela-screencap.mjs [输出.png]
+```
+
+实测参数（**用像素值反推确认的，不是猜的**）：
+
+- 分辨率 **432 × 514**，与 REDMI Watch 5 一致
+- 格式 **RGB565 小端**（2 字节/像素）
+  - 验算：页面底色 `#070b16` → `0x0042` → 小端字节 `42 00`，与实测字节吻合
+  - 验算：卡片色 `#141d30` → `0x10E6` → `E6 10`，与实测字节吻合
+- framebuffer 总大小是单帧的 2 倍（888192 = 432×514×2×2），只取第一帧
+
+配套的 `scripts/vela-deploy.mjs` 一条命令完成「构建 → 部署 → 启动 → 读日志」。
+两个脚本都支持 `VELA_ADB` / `VELA_DEVICE` 环境变量。
+
+### 从模拟器读应用日志
+
+模拟器是 **NuttX（NSH）**，不是 Android：没有 `screencap`，`ps`/`grep` 也不同。
+但应用日志可以从内核日志里读出来：
+
+```bash
+"$ADB" shell "dmesg"
+```
+
+- 应用自己的 `console.log` 会以 **`[quickapp]`** 前缀出现（例如 `[quickapp] [AstraMai] B50 onInit`）
+- 框架的输出带 **`[AIOTJS]`** 前缀，报错和 `PageLoad/PageInit/PageCreate` 统计都在这里
+- **dmesg 缓冲很小**，且开机后 modem/RIL 会刷大量日志，
+  所以要启动后立刻高频轮询抓取（见 `scripts/vela-deploy.mjs`）
+
+正常的启动应当是：
+
+```
+[quickapp] [AstraMai] app onCreate
+[AIOTJS] PageLoad 1 / PageInit 1 / PageCreate 1
+```
+
+出现 `Abort App` 就是页面没起来。
+
+## 已知问题：导入自定义组件的页面不渲染内容
+
+**未解决。** 症状与已确认的证据：
+
+导入 `InputMethod` 的页面（B50、Search）**内容完全不渲染**，
+去掉组件后不再报框架错误，但页面依然没有内容。
+
+编译产物里能看到**页面根节点被写入了组件的内联样式**：
+
+```js
+// pages/B50/b50.js —— 这是【页面】的模板
+app_template$ = function(vm) {
+  return aiot.__ce__("div", {
+    __opts__: {
+      classList: ["page"],
+      // ↓↓ 这段来自 InputMethod 组件的根节点，引用了组件才有的 prop
+      style: () => $translateStyle$("flex-direction: column; height: " + (_vm_.hide ? "0px" : "auto") + ...)
+```
+
+`hide` 是组件的 prop，不是页面的。**页面根节点与组件根节点（都是 `<div class="page">`）
+被编译器混在了一起。** 已排除的可能：
+
+- 改页面根类名（`page` → `b50-page`）——无效
+- 移除组件——不再报框架错误，但页面仍无内容（说明还有第二个原因）
+- ViewModel 里用 getter —— 已改为普通字段，无效
+
+下一步方向：确认 `<import>` 的正确放置位置（顶层 vs `<template>` 内）、
+换成一个最小自定义组件复现、或不用自定义组件而把键盘直接内联进页面。
+
 ## 还没验证的部分
 
 | 项 | 说明 |

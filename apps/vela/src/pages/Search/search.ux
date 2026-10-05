@@ -1,0 +1,223 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+
+<template>
+  <div class="search-page">
+    <div class="query">
+      <text class="query__text">{{ keyword ? keyword : '输入曲名 / 别名 / 艺术家' }}</text>
+      <text class="query__hint">{{ statusText }}</text>
+    </div>
+
+    <div class="actions">
+      <div class="action {{ keyword ? '' : 'action--disabled' }}" @click="runSearch">
+        <text class="action__text">搜索</text>
+      </div>
+      <div class="action action--ghost" @click="clearAll">
+        <text class="action__text">清空</text>
+      </div>
+      <div class="action action--ghost" @click="toggleKeyboard">
+        <text class="action__text">{{ keyboardHidden ? '输入' : '收起' }}</text>
+      </div>
+    </div>
+
+    <list class="list" if="{{ results.length > 0 }}">
+      <list-item class="row" type="item" for="{{ results }}">
+        <div class="row__main">
+          <text class="row__title">{{ $item.title }}</text>
+          <text class="row__sub">{{ $item.sub }}</text>
+        </div>
+        <text class="row__badge">{{ $item.badge }}</text>
+      </list-item>
+    </list>
+
+    <!--
+      完整输入法：支持中文拼音、英文、日文罗马字。
+      日文是刚需——maimai 的曲名大量是日文，没有它就搜不了歌。
+    -->
+    <input-method
+      hide="{{ keyboardHidden }}"
+      keyboardtype="QWERTY"
+      screentype="rect"
+      vibratemode="short"
+      maxlength="5"
+      @complete="onComplete"
+      @delete="onDelete"
+    ></input-method>
+  </div>
+</template>
+
+<style>
+  .search-page {
+    flex-direction: column;
+    padding: 14px;
+    background-color: #070b16;
+  }
+
+  .query {
+    flex-direction: column;
+    align-items: center;
+    padding: 14px;
+    border-radius: 14px;
+    background-color: #141d30;
+  }
+
+  .query__text {
+    font-size: 28px;
+    color: #e8eefc;
+    text-align: center;
+  }
+
+  .query__hint {
+    font-size: 16px;
+    color: #6d7fa3;
+    margin-top: 6px;
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .action {
+    height: 64px;
+    padding: 0 26px;
+    margin: 0 5px;
+    border-radius: 32px;
+    background-color: #ff5f9e;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action--ghost {
+    background-color: #1c2740;
+  }
+
+  .action--disabled {
+    background-color: #2a2f42;
+  }
+
+  .action__text {
+    font-size: 24px;
+    color: #1a0710;
+  }
+
+  .action--ghost .action__text {
+    color: #e8eefc;
+  }
+
+  .action--disabled .action__text {
+    color: #6d7fa3;
+  }
+
+  .list {
+    flex: 1;
+    margin-top: 12px;
+  }
+
+  .row {
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 8px;
+    border-bottom: 1px solid #1c2740;
+  }
+
+  .row__main {
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .row__title {
+    font-size: 21px;
+    color: #e8eefc;
+  }
+
+  .row__sub {
+    font-size: 16px;
+    color: #6d7fa3;
+  }
+
+  .row__badge {
+    font-size: 16px;
+    color: #9bacd0;
+    margin-left: 8px;
+  }
+</style>
+
+<script>
+  import { searchSongs } from '../../common/api.js';
+
+  /** 命中维度的展示名。 */
+  const MATCH_LABEL = {
+    title: '曲名',
+    alias: '别名',
+    artist: '艺术家',
+  };
+
+  export default {
+    private: {
+      keyword: '',
+      keyboardHidden: false,
+      statusText: '支持日文曲名、中文别名与罗马音',
+      results: [],
+    },
+
+    onInit() {
+      console.log('[AstraMai] Search onInit');
+    },
+
+    /**
+     * 只监听 complete。
+     *
+     * keyDown 在拼音 / 罗马字模式下会把「正在输入的字母」也报上来，
+     * 两个都监听会导致重复输入；complete 才是真正提交的文本。
+     */
+    onComplete(evt) {
+      const content = evt && evt.detail ? evt.detail.content : '';
+      if (!content) return;
+      this.keyword += content;
+      this.statusText = `${this.keyword.length} 字 · 点「搜索」`;
+    },
+
+    onDelete() {
+      this.keyword = this.keyword.slice(0, -1);
+      this.statusText = this.keyword ? `${this.keyword.length} 字 · 点「搜索」` : '支持日文曲名、中文别名与罗马音';
+    },
+
+    clearAll() {
+      this.keyword = '';
+      this.results = [];
+      this.statusText = '支持日文曲名、中文别名与罗马音';
+    },
+
+    toggleKeyboard() {
+      this.keyboardHidden = !this.keyboardHidden;
+    },
+
+    runSearch() {
+      const keyword = this.keyword.trim();
+      if (!keyword) return;
+
+      this.keyboardHidden = true;
+      this.statusText = '搜索中…';
+
+      searchSongs(keyword, 30)
+        .then((payload) => {
+          const list = payload && payload.results ? payload.results : [];
+          this.results = list.map((item) => ({
+            title: item.title,
+            sub: item.aliases && item.aliases.length > 0 ? item.aliases.slice(0, 3).join(' / ') : item.artist,
+            badge: MATCH_LABEL[item.matchedBy] || '',
+          }));
+          this.statusText =
+            list.length === 0
+              ? `没有匹配「${keyword}」的曲目`
+              : `${list.length} 条结果（数据来源：落雪曲库）`;
+        })
+        .catch((error) => {
+          this.results = [];
+          this.statusText = error && error.message ? error.message : '搜索失败';
+          this.keyboardHidden = false;
+        });
+    },
+  };
+</script>

@@ -5,11 +5,28 @@
   "versionName": "0.1.0",
   "versionCode": 1,
   "minAPILevel": 2,
-  "deviceTypeList": ["watch"],
+  "deviceTypeList": [
+    "watch"
+  ],
   "features": [
-    { "name": "system.fetch" },
-    { "name": "system.storage" },
-    { "name": "system.router" }
+    {
+      "name": "system.fetch"
+    },
+    {
+      "name": "system.storage"
+    },
+    {
+      "name": "system.file"
+    },
+    {
+      "name": "system.vibrator"
+    },
+    {
+      "name": "system.device"
+    },
+    {
+      "name": "system.router"
+    }
   ],
   "config": {
     "designWidth": 466,
@@ -32,6 +49,10 @@
       "pages/B50": {
         "component": "b50",
         "path": "/b50"
+      },
+      "pages/Search": {
+        "component": "search",
+        "path": "/search"
       }
     }
   }

@@ -66,6 +66,22 @@ export function fetchB50(friendCode) {
   return getClient().request(`/api/maimai/b50/${friendCode}`);
 }
 
+/** 按 QQ 号拉取 B50。 */
+export function fetchB50ByQq(qq) {
+  return getClient().request(`/api/maimai/b50/qq/${qq}`);
+}
+
+/**
+ * 曲目搜索。
+ *
+ * 服务端在曲名、艺术家和落雪别名三个维度上做匹配，
+ * 因此端上可以直接输入日文曲名、中文别名或罗马音。
+ */
+export function searchSongs(keyword, limit = 30) {
+  const query = encodeURIComponent(keyword);
+  return getClient().request(`/api/maimai/search?q=${query}&limit=${limit}`);
+}
+
 /** 服务端健康检查，用来判断地址填对没有。 */
 export function fetchHealth() {
   return getClient().request('/api/health');

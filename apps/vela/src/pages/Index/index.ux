@@ -4,12 +4,17 @@
     <text class="brand__sub">街机音游工具</text>
 
     <div class="menu">
-      <div class="entry" onclick="goB50">
+      <div class="entry" @click="go('b50')">
         <text class="entry__title">Best 50</text>
-        <text class="entry__sub">舞萌 DX 查分</text>
+        <text class="entry__sub">{{ targetSummary }}</text>
       </div>
 
-      <div class="entry" onclick="goQr">
+      <div class="entry" @click="go('search')">
+        <text class="entry__title">曲目搜索</text>
+        <text class="entry__sub">日文曲名 · 中文别名 · 罗马音</text>
+      </div>
+
+      <div class="entry" @click="go('qr')">
         <text class="entry__title">二维码</text>
         <text class="entry__sub">{{ qrSummary }}</text>
       </div>
@@ -23,7 +28,7 @@
   .page {
     flex-direction: column;
     align-items: center;
-    padding: 24px 20px;
+    padding: 22px 20px;
     background-color: #070b16;
   }
 
@@ -42,13 +47,13 @@
   .menu {
     flex-direction: column;
     width: 100%;
-    margin-top: 24px;
+    margin-top: 20px;
   }
 
   .entry {
     flex-direction: column;
-    padding: 18px 20px;
-    margin-bottom: 14px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
     border-radius: 16px;
     background-color: #141d30;
   }
@@ -59,15 +64,15 @@
   }
 
   .entry__sub {
-    font-size: 18px;
+    font-size: 17px;
     color: #9bacd0;
     margin-top: 4px;
   }
 
   .foot {
-    font-size: 16px;
+    font-size: 15px;
     color: #6d7fa3;
-    margin-top: 10px;
+    margin-top: 8px;
   }
 </style>
 
@@ -77,6 +82,7 @@
   import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js';
   import { getServerBase } from '../../common/config.js';
   import { readSetting, warmUp } from '../../common/store.js';
+  import { summarizeTarget } from '../../common/validate.js';
 
   /** router 也延迟取，避免平台模块不可用时整页初始化失败。 */
   let routerModule;
@@ -92,32 +98,39 @@
     return routerModule;
   }
 
-  function push(uri) {
-    const router = getRouter();
-    if (!router) return;
-    router.push({ uri });
-  }
+  const ROUTES = {
+    b50: '/b50',
+    search: '/search',
+    qr: '/qr',
+  };
 
   export default {
     private: {
       qrSummary: '未导入',
+      targetSummary: '未保存，点击输入',
       serverSummary: '',
     },
 
     onInit() {
       console.log('[AstraMai] Index onInit');
-      warmUp(['qrInput', 'serverBase'])
+      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode'])
         .then(() => this.refresh())
         .catch((error) => console.error('[AstraMai] Index 初始化失败：', error));
     },
 
-    // 从二维码页返回时也要刷新状态
+    // 从其它页面返回时刷新
     onShow() {
       this.refresh();
     },
 
     refresh() {
       try {
+        // 已保存的查分目标——展示出来让用户知道不用再输一遍
+        const kind = readSetting('queryKind', 'friendCode') === 'qq' ? 'qq' : 'friendCode';
+        const value =
+          readSetting('queryValue', '') || readSetting('friendCode', '');
+        this.targetSummary = summarizeTarget(kind, value) || '未保存，点击输入';
+
         const saved = readSetting('qrInput', '');
         if (!saved) {
           this.qrSummary = '未导入';
@@ -141,17 +154,13 @@
         this.serverSummary = '服务端 ' + getServerBase();
       } catch (error) {
         console.error('[AstraMai] Index refresh 失败：', error);
-        this.qrSummary = '读取失败';
-        this.serverSummary = '';
       }
     },
 
-    goB50() {
-      push('/b50');
-    },
-
-    goQr() {
-      push('/qr');
+    go(name) {
+      const router = getRouter();
+      if (!router) return;
+      router.push({ uri: ROUTES[name] });
     },
   };
 </script>
