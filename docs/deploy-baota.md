@@ -9,18 +9,43 @@
 | 地址 | `http://101.132.148.117:8787` |
 | 运行方式 | Docker 容器 `astramai`，`--restart unless-stopped`（服务器重启会自动拉起） |
 | 代码目录 | `/www/wwwroot/astramai` |
+| **鉴权** | **`AUTH_MODE=open` —— 不校验令牌，客户端不用配任何东西** |
 | 容器内存占用 | 约 **33–38 MB** |
 | 健康检查 | `curl http://101.132.148.117:8787/api/health` |
 
-### 怎么拿 API_TOKEN
+### 鉴权：当前是公开模式，客户端不用配任何令牌
 
-它只存在服务器的 `/www/wwwroot/astramai/.env` 里（权限 600）。想看：
+服务端现在跑在 **`AUTH_MODE=open`**：**不校验访问令牌**，
+所以网页、手表、第三方客户端直接用就行，不需要和服务端「配同一个令牌」。
+
+为什么这么做：这个 App 是要公开分发给大家用的，
+而**令牌写进客户端包里就不再是秘密**（谁拿到 App 都能解出来），
+把它当门禁只是自欺欺人。
+
+公开模式下真正的约束是两道限流，都已经开着：
+
+| 配置 | 当前值 | 作用 |
+| --- | --- | --- |
+| `RATE_LIMIT_PER_MINUTE` | 120 | 按来源 IP，防止单个客户端狂刷 |
+| `UPSTREAM_LIMIT_PER_MINUTE` | 150 | **全局**，每分钟最多打上游这么多次 |
+
+实测：连打 135 次 `/api/v1/sources` → 放行 117 次、返回 429 十八次。
+
+> ⚠️ 唯一的风险是**开发者密钥配额被大量用户消耗**。等上游配额谈妥之前，
+> 如果发现 429 变多（`/api/health` 里看 `upstreamBudget.lxns.usedThisMinute`），
+> 说明该去找落雪申请放宽了。
+
+`.env` 里仍然保留着 `API_TOKEN`，但 open 模式下它不生效。
+将来如果要收回成私有部署，把 `AUTH_MODE` 改回 `key` 重启即可，
+届时所有客户端都要配上那个令牌。
+
+### 怎么看当前状态
 
 ```bash
-grep '^API_TOKEN=' /www/wwwroot/astramai/.env
+curl -s http://101.132.148.117:8787/api/health
 ```
 
-客户端（网页版设置里）需要填这个值。
+`accessControl.authMode` 应当是 `open`、`tokenRequired` 是 `false`。
 
 ### 怎么更新
 
