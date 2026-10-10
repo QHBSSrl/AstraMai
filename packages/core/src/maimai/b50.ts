@@ -70,20 +70,38 @@ export function buildSongIndex(songList: MaimaiSongList, aliasList?: MaimaiAlias
 /**
  * 曲绘 URL。
  *
- * ⚠️ **必须带尺寸裁剪参数。**
+ * ⚠️ **必须带裁剪参数，并且用 JPG。**
  *
  * 原图是 400×400、347 KB，而列表里显示只有 68px。官方《启动时延优化》明确要求：
  *
  *   > 一般非必要不建议引入在线大图，引入的大图尺寸也不要超过屏幕尺寸，
  *   > 且大小不超过 200kb……或者在线图片里支持 resize 尺寸裁剪
  *
- * 落雪图床支持七牛的 imageView2 语法（实测过：换宽度体积跟着变，
- * 且 webp 比 png 再小约 7 倍）。所以一律带裁剪参数，别传原图。
+ * 落雪图床支持七牛的 imageView2 语法（实测过：换宽度体积跟着变、换图同样生效）。
+ *
+ * 格式只能用 **PNG 或 JPG**——Vela 的 image 组件不支持 webp（已跟用户确认过）。
+ * 两者实测对比（id=1209）：
+ *
+ *   96px   PNG 25.1 KB / JPG  3.8 KB
+ *   192px  PNG 93.9 KB / JPG 12.8 KB
+ *
+ * 曲绘是不透明的方图，没有透明通道需求，所以用 JPG：
+ * **原图 347 KB → 3.8 KB，缩小 91 倍。**
  *
  * @param size 目标宽度（px）。建议取显示尺寸的 1.5 倍左右，兼顾清晰度和体积。
  */
 export function jacketUrl(songId: number, size = 96): string {
-  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}`;
+  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}/format/jpg`;
+}
+
+/**
+ * 通用资源图 URL（头像 / 铭牌 / 边框等）。
+ *
+ * 和曲绘一样必须裁剪 + 用 JPG：原图都是几百 KB 的 PNG，
+ * 而手表上只显示几十像素。格式限制见 `jacketUrl` 的说明（不支持 webp）。
+ */
+export function assetImageUrl(path: string, size = 96): string {
+  return `${MAIMAI_ASSET_BASE}/${path}.png?imageView2/1/w/${size}/format/jpg`;
 }
 
 /** 音频 URL。 */
@@ -336,9 +354,9 @@ export function buildB50View(input: BuildB50Input): B50View {
     tier: ratingTier(player.rating ?? 0),
     trophyName: player.trophy?.name ?? null,
     trophyColor: player.trophy?.color ?? null,
-    iconUrl: player.icon?.id ? `${MAIMAI_ASSET_BASE}/icon/${player.icon.id}.png` : null,
-    plateUrl: player.name_plate?.id ? `${MAIMAI_ASSET_BASE}/plate/${player.name_plate.id}.png` : null,
-    frameUrl: player.frame?.id ? `${MAIMAI_ASSET_BASE}/frame/${player.frame.id}.png` : null,
+    iconUrl: player.icon?.id ? assetImageUrl(`icon/${player.icon.id}`, 96) : null,
+    plateUrl: player.name_plate?.id ? assetImageUrl(`plate/${player.name_plate.id}`, 192) : null,
+    frameUrl: player.frame?.id ? assetImageUrl(`frame/${player.frame.id}`, 96) : null,
     uploadTime: player.upload_time ?? null,
   };
 

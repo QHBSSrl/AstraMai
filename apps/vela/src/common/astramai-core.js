@@ -748,7 +748,10 @@ function buildSongIndex(songList, aliasList) {
   };
 }
 function jacketUrl(songId, size = 96) {
-  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}`;
+  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}/format/jpg`;
+}
+function assetImageUrl(path, size = 96) {
+  return `${MAIMAI_ASSET_BASE}/${path}.png?imageView2/1/w/${size}/format/jpg`;
 }
 function musicUrl(songId) {
   return `${MAIMAI_ASSET_BASE}/music/${songId}.mp3`;
@@ -796,9 +799,9 @@ function buildB50View(input) {
     tier: ratingTier((_l = player.rating) != null ? _l : 0),
     trophyName: (_n = (_m = player.trophy) == null ? void 0 : _m.name) != null ? _n : null,
     trophyColor: (_p = (_o = player.trophy) == null ? void 0 : _o.color) != null ? _p : null,
-    iconUrl: ((_q = player.icon) == null ? void 0 : _q.id) ? `${MAIMAI_ASSET_BASE}/icon/${player.icon.id}.png` : null,
-    plateUrl: ((_r = player.name_plate) == null ? void 0 : _r.id) ? `${MAIMAI_ASSET_BASE}/plate/${player.name_plate.id}.png` : null,
-    frameUrl: ((_s = player.frame) == null ? void 0 : _s.id) ? `${MAIMAI_ASSET_BASE}/frame/${player.frame.id}.png` : null,
+    iconUrl: ((_q = player.icon) == null ? void 0 : _q.id) ? assetImageUrl(`icon/${player.icon.id}`, 96) : null,
+    plateUrl: ((_r = player.name_plate) == null ? void 0 : _r.id) ? assetImageUrl(`plate/${player.name_plate.id}`, 192) : null,
+    frameUrl: ((_s = player.frame) == null ? void 0 : _s.id) ? assetImageUrl(`frame/${player.frame.id}`, 96) : null,
     uploadTime: (_t = player.upload_time) != null ? _t : null
   };
   return {
@@ -2321,6 +2324,7 @@ export {
   TROPHY_COLOR_LABELS,
   WAHLAP_QR_CONTENT_PREFIX,
   alignmentPatternPositions,
+  assetImageUrl,
   buildB50View,
   buildSongIndex,
   byteModeCharCountBits,
