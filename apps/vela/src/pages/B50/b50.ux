@@ -318,17 +318,14 @@
 </style>
 
 <script>
-  import { mark } from '../../common/diag.js';
-  import { fetchB50, fetchB50ByQq } from '../../common/api.js';
-  import { goBack } from '../../common/navigation.js';
-  import { readSetting, warmUp, writeSetting } from '../../common/store.js';
-  import {
-    appendDigit,
-    backspace,
-    describeInput,
-    isReadyToSubmit,
-    normalizeDigits,
-  } from '../../common/validate.js';
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { api, diag, navigation, store, validate } = global.AstraMai;
+  const { fetchB50, fetchB50ByQq } = api;
+  const { mark } = diag;
+  const { goBack } = navigation;
+  const { readSetting, warmUp, writeSetting } = store;
+  const { appendDigit, backspace, describeInput, isReadyToSubmit, normalizeDigits } = validate;
 
   const TOP_N = 20;
 

@@ -79,11 +79,14 @@
 <script>
   // 刻意**不** import api.js：首页不需要网络，
   // 而 api.js 会连上 @system.fetch，拖进来只会让首页多一个初始化失败的可能。
-  import { mark } from '../../common/diag.js';
-  import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js';
-  import { getServerBase } from '../../common/config.js';
-  import { readSetting, warmUp } from '../../common/store.js';
-  import { summarizeTarget } from '../../common/validate.js';
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { config, core, diag, store, validate } = global.AstraMai;
+  const { getServerBase } = config;
+  const { describeValidity, parseWahlapQrPayload } = core;
+  const { mark } = diag;
+  const { readSetting, warmUp } = store;
+  const { summarizeTarget } = validate;
 
   /** router 也延迟取，避免平台模块不可用时整页初始化失败。 */
   let routerModule;

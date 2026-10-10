@@ -224,10 +224,21 @@
 </style>
 
 <script>
-  import { mark } from '../../common/diag.js';
-  import { searchSongs } from '../../common/api.js';
-  import { goBack, push } from '../../common/navigation.js';
-  import { warmUp, writeSetting } from '../../common/store.js';
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { api, diag, navigation, store } = global.AstraMai;
+  const { searchSongs } = api;
+
+  /**
+   * 原始搜索结果。
+   *
+   * 刻意放在脚本作用域而不是 viewModel：这是纯数据、不需要响应式，
+   * 塞进 viewModel 只会白白多一层 observer 和数据代理
+   * （官方《内存优化》第 1 条）。
+   */
+  let rawResults = [];
+  const { goBack, push } = navigation;
+  const { warmUp, writeSetting } = store;
 
   /**
    * 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。
@@ -275,8 +286,6 @@
       keyboardHidden: true,
       statusText: '支持日文曲名、中文别名与罗马音',
       results: [],
-      /** 原始返回，详情页要用完整字段（物量、谱师、试听直链）。 */
-      rawResults: [],
     },
 
     onReady() {
@@ -300,7 +309,7 @@
      * 用下标而不是整个对象，避免把大对象塞进事件参数。
      */
     openSong(index) {
-      const song = this.rawResults[index];
+      const song = rawResults[index];
       if (!song) return;
       try {
         writeSetting(STORAGE_KEY, JSON.stringify(song));
@@ -355,7 +364,7 @@
         .then((payload) => {
           const list = payload && payload.results ? payload.results : [];
           // 详情页要用完整字段，所以原始结果单独留一份
-          this.rawResults = list;
+          rawResults = list;
           this.results = list.map((item) => {
             const charts = item.difficulties || [];
             return {
@@ -368,6 +377,10 @@
               jacketUrl: item.jacketUrl || '',
             };
           });
+
+          // 结果对象较多，主动回收一次（官方《内存优化》建议的手动触发点）
+          if (typeof global.runGC === 'function') global.runGC();
+
           this.statusText =
             list.length === 0
               ? `没有匹配「${keyword}」的曲目`

@@ -161,11 +161,13 @@
 </style>
 
 <script>
-  import { mark } from '../../common/diag.js';
-  import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js'
-  import { goBack } from '../../common/navigation.js'
-  import { clearSetting, readSetting, warmUp, writeSetting } from '../../common/store.js'
-
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { core, diag, navigation, store } = global.AstraMai;
+  const { describeValidity, parseWahlapQrPayload } = core;
+  const { mark } = diag;
+  const { goBack } = navigation;
+  const { clearSetting, readSetting, warmUp, writeSetting } = store;
   const STORAGE_KEY = 'qrInput'
 
   export default {

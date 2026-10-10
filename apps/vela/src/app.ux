@@ -1,13 +1,11 @@
 <script>
-  import { mark, reportError } from './common/diag.js';
-
   /**
    * 应用入口。
    *
    * ⚠️ 这里必须有 <script> 标签。
    *
    * 踩过的坑：曾经把本文件写成裸的 ES module（直接 `export default {...}`，
-   * 没有 <script> 包裹）。构建照样成功，但整段脚本被静默丢弃，
+   * 没有 `<script>` 包裹）。构建照样成功，但整段脚本被静默丢弃，
    * 编译产物里 `$app_script$` 是空函数，随后 `$app_exports$.default.style`
    * 抛 `TypeError: cannot read property 'style' of undefined`，
    * 运行时直接 `Abort App` —— 表现就是**纯黑屏，且控制台没有任何应用日志**。
@@ -16,10 +14,17 @@
    * 现在它还负责把错误**打回服务端**——真机拿不到日志，
    * 这是唯一能看到「到底报了什么」的通道。
    */
+
+  // 共享模块统一挂到 global（官方《内存优化》建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  import './common/global.js';
+
+  const { diag } = global.AstraMai;
+
   export default {
     onCreate() {
       console.log('[AstraMai] app onCreate');
-      mark('app:onCreate');
+      diag.mark('app:onCreate');
     },
 
     onError(error) {
@@ -33,12 +38,12 @@
         console.error('[AstraMai] app onError（打印失败）:', loggingError);
       }
       // 上报是 best-effort：真机上这是唯一能把错误带出来的途径
-      reportError('app:onError', error);
+      diag.reportError('app:onError', error);
     },
 
     onDestroy() {
       console.log('[AstraMai] app onDestroy');
-      mark('app:onDestroy');
+      diag.mark('app:onDestroy');
     },
   };
 </script>
