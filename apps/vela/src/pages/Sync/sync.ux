@@ -18,7 +18,11 @@
     <text class="status" style="color: {{ statusColor }}">{{ statusText }}</text>
 
     <div class="actions">
-      <div class="action" if="{{ !success }}" @click="restart">
+      <!-- 有自动轮询，但玩家从网页切回来时点一下能立刻拿到结果，不用等下一轮 -->
+      <div class="action" if="{{ !success && token }}" @click="refreshNow">
+        <text class="action__text">刷新</text>
+      </div>
+      <div class="action action--ghost" if="{{ !success }}" @click="restart">
         <text class="action__text">重新获取</text>
       </div>
       <div class="action action--ghost" @click="onBack">
@@ -94,14 +98,15 @@
   .actions {
     flex-direction: row;
     justify-content: center;
-    margin-top: 22px;
+    margin-top: 18px;
   }
 
+  /* 三个按钮要挤进 432px 宽的屏幕，所以收紧内边距和字号 */
   .action {
-    height: 60px;
-    padding: 0 28px;
-    margin: 0 5px;
-    border-radius: 30px;
+    height: 56px;
+    padding: 0 18px;
+    margin: 0 4px;
+    border-radius: 28px;
     background-color: #ff5f9e;
     align-items: center;
     justify-content: center;
@@ -112,7 +117,7 @@
   }
 
   .action__text {
-    font-size: 22px;
+    font-size: 20px;
     color: #1a0710;
   }
 
@@ -153,6 +158,11 @@
       statusColor: '#9bacd0',
       hint: '',
       success: false,
+      // 未声明的字段在 Vela 里行为不可靠，这几个必须显式列出来
+      // （qr.ux 的定时器句柄也是这么声明的）
+      timer: null,
+      deviceSecret: '',
+      expiresAt: 0,
     },
 
     onReady() {
@@ -221,6 +231,26 @@
         });
     },
 
+    /**
+     * 手动刷新：立刻查一次，不等下一轮自动轮询。
+     *
+     * 自动轮询本来就够用，但玩家从网页切回手表时点一下能马上看到结果，
+     * 不用盯着倒计时等——网页那边的提示文案也是让玩家回来点刷新。
+     */
+    refreshNow() {
+      if (this.success || !this.token) return;
+      this.updateCountdown();
+      if (Date.now() > this.expiresAt) {
+        this.statusText = '配对码已过期，请重新获取';
+        this.statusColor = '#f2a33c';
+        return;
+      }
+      this.statusText = '正在检查…';
+      this.statusColor = '#9bacd0';
+      // 直接调 tick 里的查询逻辑，避免两份实现走偏
+      this.pollOnce();
+    },
+
     startPolling() {
       this.stopPolling();
       this.timer = setInterval(() => this.tick(), POLL_MS);
@@ -233,7 +263,7 @@
       }
     },
 
-    /** 每秒更新倒计时 + 每轮查一次服务端。 */
+    /** 定时器每轮：更新倒计时 + 查一次。 */
     tick() {
       this.updateCountdown();
 
@@ -249,18 +279,36 @@
         return;
       }
 
+      this.pollOnce();
+    },
+
+    /** 真正发查询的那一处——定时器和手动刷新都走这里。 */
+    pollOnce() {
       pollPairing(this.token, this.deviceSecret)
         .then((data) => {
-          if (data.status === 'ready' && data.payload) this.receive(data.payload);
-          else if (data.status === 'expired') {
+          if (data.status === 'ready' && data.payload) {
+            this.receive(data.payload);
+            return;
+          }
+          if (data.status === 'expired') {
             this.stopPolling();
             this.statusText = '配对码已失效，请重新获取';
             this.statusColor = '#f2a33c';
+            return;
+          }
+          // 手动刷新时给个「还没到」的反馈，否则玩家会以为按钮没反应
+          if (this.statusText === '正在检查…') {
+            this.statusText = '网页还没提交，请稍候…';
+            this.statusColor = '#9bacd0';
           }
         })
         .catch((error) => {
           // 单次网络抖动不该打断整个流程，下一轮继续
           console.warn('[AstraMai] 轮询失败（将重试）：', error);
+          if (this.statusText === '正在检查…') {
+            this.statusText = '网络不太好，正在重试…';
+            this.statusColor = '#f2a33c';
+          }
         });
     },
 
