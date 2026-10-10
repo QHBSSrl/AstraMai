@@ -28,7 +28,7 @@
     </div>
 
     <!-- <list> 必须显式给高度（官方文档要求），否则高度为 0、一条都画不出来 -->
-    <list class="list" if="{{ results.length > 0 }}">
+    <list class="list" if="{{ results.length > 0 }}" onscrollbottom="onScrollBottom">
       <list-item class="row" type="item" for="{{ results }}">
         <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
         <div class="row__main">
@@ -162,7 +162,6 @@
   .row__cover {
     width: 68px;
     height: 68px;
-    border-radius: 8px;
     background-color: #1c2740;
   }
 
@@ -237,6 +236,16 @@
    * （官方《内存优化》第 1 条）。
    */
   let rawResults = [];
+
+  /**
+   * 每页条数。
+   * 官方《常用业务优化》：list 内容超过 10 条建议分页渲染。
+   */
+  const PAGE_SIZE = 10;
+
+  /** 已转换好的展示行（纯数据，同样不进 viewModel）。 */
+  let rowCache = [];
+  let shownCount = 0;
   const { goBack, push } = navigation;
   const { warmUp, writeSetting } = store;
 
@@ -294,7 +303,7 @@
 
     onInit() {
       mark('Search:onInit');
-      console.log('[AstraMai] Search onInit');
+      console.debug('[AstraMai] Search onInit');
       // 详情数据要写进本地存储，先把存储模块热起来
       warmUp([STORAGE_KEY]).catch((error) =>
         console.warn('[AstraMai] 存储预热失败：', error),
@@ -365,7 +374,10 @@
           const list = payload && payload.results ? payload.results : [];
           // 详情页要用完整字段，所以原始结果单独留一份
           rawResults = list;
-          this.results = list.map((item) => {
+
+          // 先转换成一页能用的行，其余等触底再取
+          // （官方《常用业务优化》：超过 10 条建议分页渲染）
+          rowCache = list.map((item) => {
             const charts = item.difficulties || [];
             return {
               title: item.title,
@@ -378,6 +390,11 @@
             };
           });
 
+          // 原地清空再追加，不整份重新赋值（官方《内存优化》第 2 条）
+          this.results.length = 0;
+          shownCount = 0;
+          this.appendPage();
+
           // 结果对象较多，主动回收一次（官方《内存优化》建议的手动触发点）
           if (typeof global.runGC === 'function') global.runGC();
 
@@ -387,10 +404,24 @@
               : `${list.length} 条结果 · 继续输入可缩小范围`;
         })
         .catch((error) => {
-          this.results = [];
+          this.results.length = 0;
+          rowCache = [];
+          shownCount = 0;
           this.statusText = error && error.message ? error.message : '搜索失败';
           this.keyboardHidden = false;
         });
+    },
+
+    /** 追加一页。触底时也会调这里。 */
+    appendPage() {
+      const next = rowCache.slice(shownCount, shownCount + PAGE_SIZE);
+      for (const item of next) this.results.push(item);
+      shownCount += next.length;
+    },
+
+    /** 触底加载下一页。 */
+    onScrollBottom() {
+      if (shownCount < rowCache.length) this.appendPage();
     },
   };
 </script>

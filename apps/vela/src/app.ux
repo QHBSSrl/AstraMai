@@ -23,7 +23,7 @@
 
   export default {
     onCreate() {
-      console.log('[AstraMai] app onCreate');
+      console.debug('[AstraMai] app onCreate');
       diag.mark('app:onCreate');
     },
 
@@ -42,7 +42,7 @@
     },
 
     onDestroy() {
-      console.log('[AstraMai] app onDestroy');
+      console.debug('[AstraMai] app onDestroy');
       diag.mark('app:onDestroy');
     },
   };

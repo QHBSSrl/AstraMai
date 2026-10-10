@@ -195,7 +195,7 @@
 
     onInit() {
       mark('Qr:onInit');
-      console.log('[AstraMai] Qr onInit')
+      console.debug('[AstraMai] Qr onInit')
       warmUp([STORAGE_KEY])
         .then(() => this.load())
         .catch((error) => console.error('[AstraMai] Qr 初始化失败：', error))

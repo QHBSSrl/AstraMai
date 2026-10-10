@@ -238,7 +238,7 @@
 
     onInit() {
       mark('Song:onInit');
-      console.log('[AstraMai] Song onInit');
+      console.debug('[AstraMai] Song onInit');
       this.audioReady = isAudioAvailable();
 
       warmUp([STORAGE_KEY])
@@ -271,7 +271,8 @@
         return;
       }
 
-      this.jacketUrl = song.jacketUrl || '';
+      // 详情页用大图；列表那份裁到 96px，放大会糊
+      this.jacketUrl = song.jacketUrlLarge || song.jacketUrl || '';
       this.title = song.title || '';
       this.aliasesText = (song.aliases || []).join(' / ') || song.artist || '';
       this.versionTitle = song.versionTitle || '未知';

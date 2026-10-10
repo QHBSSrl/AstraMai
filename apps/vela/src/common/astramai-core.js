@@ -747,8 +747,8 @@ function buildSongIndex(songList, aliasList) {
     genres: (_e = songList.genres) != null ? _e : []
   };
 }
-function jacketUrl(songId) {
-  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png`;
+function jacketUrl(songId, size = 96) {
+  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}`;
 }
 function musicUrl(songId) {
   return `${MAIMAI_ASSET_BASE}/music/${songId}.mp3`;

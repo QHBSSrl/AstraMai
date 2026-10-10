@@ -262,8 +262,10 @@ export function createRouter(
         artist: string;
         genre: string;
         bpm: number;
-        /** 封面图直链。手表上直接丢给 <image> 即可。 */
+        /** 封面图直链（列表尺寸，已裁剪）。手表上直接丢给 <image> 即可。 */
         jacketUrl: string;
+        /** 封面图直链（详情页大图尺寸，已裁剪）。 */
+        jacketUrlLarge: string;
         /** 试听音频直链（mp3）。 */
         musicUrl: string;
         version: number;
@@ -300,7 +302,8 @@ export function createRouter(
           artist: song.artist,
           genre: song.genre,
           bpm: song.bpm,
-          jacketUrl: jacketUrl(song.id),
+          jacketUrl: jacketUrl(song.id, 96),
+          jacketUrlLarge: jacketUrl(song.id, 192),
           musicUrl: musicUrl(song.id),
           version: song.version,
           versionTitle: versionTitleOf(versions, song.version),

@@ -56,7 +56,7 @@
       </div>
 
       <!-- <list> 必须显式给高度，否则高度为 0、成绩一条都画不出来 -->
-      <list class="list">
+      <list class="list" onscrollbottom="onScrollBottom">
         <list-item class="row" type="item" for="{{ entries }}">
           <text class="row__rank">{{ $idx + 1 }}</text>
           <!-- [实验] 封面已临时移除 -->
@@ -266,7 +266,6 @@
   .row__cover {
     width: 58px;
     height: 58px;
-    border-radius: 8px;
     margin-left: 6px;
     background-color: #1c2740;
   }
@@ -327,7 +326,19 @@
   const { readSetting, warmUp, writeSetting } = store;
   const { appendDigit, backspace, describeInput, isReadyToSubmit, normalizeDigits } = validate;
 
-  const TOP_N = 20;
+  /**
+   * 每页条数。
+   * 官方《常用业务优化》：list 内容超过 10 条建议分页渲染。
+   */
+  const PAGE_SIZE = 10;
+
+  /**
+   * 全部曲目成绩。放在脚本作用域而不是 viewModel：
+   * 它是纯数据、不需要响应式，塞进 viewModel 只会多一层 observer
+   * （官方《内存优化》第 1 条）。
+   */
+  let allEntries = [];
+  let shownCount = 0;
 
   /** 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。 */
   const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
@@ -365,7 +376,7 @@
 
     onInit() {
       mark('B50:onInit');
-      console.log('[AstraMai] B50 onInit');
+      console.debug('[AstraMai] B50 onInit');
       warmUp(['queryKind', 'queryValue', 'friendCode'])
         .then(() => this.restore())
         .catch((error) => console.error('[AstraMai] B50 初始化失败：', error));
@@ -481,11 +492,12 @@
       this.avgLevelText = stats.averageLevelValue.toFixed(2);
       this.selfCheckText = stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta;
 
-      // 手表一屏放不下 50 条，先取前 N 条并压平字段
-      this.entries = view.standard
+      // 官方《常用业务优化》：list 内容超过 10 条建议分页渲染，
+      // 切勿初始化渲染大量数据，会造成页面渲染卡顿。
+      // 所以先渲染一页，其余等触底再追加。
+      allEntries = view.standard
         .concat(view.dx)
         .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        .slice(0, TOP_N)
         .map((entry) => ({
           title: entry.title,
           difficulty: entry.difficultyShort,
@@ -494,13 +506,30 @@
           levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
           rating: entry.rating === null ? '--' : String(entry.rating),
           achievements: entry.achievements.toFixed(4) + '%',
-          // 封面直链，服务端组装 B50 视图时已经带上
+          // 封面直链（已裁剪到列表尺寸），服务端组装 B50 视图时已经带上
           jacketUrl: entry.jacketUrl || '',
           // 版本名由 core 的 versionTitleOf 解析（曲目里是细粒度版本号，版本表是千位步长）
           versionTitle: entry.songVersionTitle || '未知',
         }));
 
+      // 原地清空再追加，避免整份重新赋值开辟新内存（官方《内存优化》第 2 条）
+      this.entries.length = 0;
+      shownCount = 0;
+      this.appendPage();
+
       this.hasResult = true;
+    },
+
+    /** 追加一页。触底时也会调这里。 */
+    appendPage() {
+      const next = allEntries.slice(shownCount, shownCount + PAGE_SIZE);
+      for (const item of next) this.entries.push(item);
+      shownCount += next.length;
+    },
+
+    /** 触底加载下一页。 */
+    onScrollBottom() {
+      if (shownCount < allEntries.length) this.appendPage();
     },
   };
 </script>

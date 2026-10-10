@@ -121,7 +121,7 @@
 
     onInit() {
       mark('Index:onInit');
-      console.log('[AstraMai] Index onInit');
+      console.debug('[AstraMai] Index onInit');
       warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode'])
         .then(() => this.refresh())
         .catch((error) => console.error('[AstraMai] Index 初始化失败：', error));

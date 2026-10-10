@@ -67,9 +67,23 @@ export function buildSongIndex(songList: MaimaiSongList, aliasList?: MaimaiAlias
   };
 }
 
-/** 曲绘 URL。 */
-export function jacketUrl(songId: number): string {
-  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png`;
+/**
+ * 曲绘 URL。
+ *
+ * ⚠️ **必须带尺寸裁剪参数。**
+ *
+ * 原图是 400×400、347 KB，而列表里显示只有 68px。官方《启动时延优化》明确要求：
+ *
+ *   > 一般非必要不建议引入在线大图，引入的大图尺寸也不要超过屏幕尺寸，
+ *   > 且大小不超过 200kb……或者在线图片里支持 resize 尺寸裁剪
+ *
+ * 落雪图床支持七牛的 imageView2 语法（实测过：换宽度体积跟着变，
+ * 且 webp 比 png 再小约 7 倍）。所以一律带裁剪参数，别传原图。
+ *
+ * @param size 目标宽度（px）。建议取显示尺寸的 1.5 倍左右，兼顾清晰度和体积。
+ */
+export function jacketUrl(songId: number, size = 96): string {
+  return `${MAIMAI_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}`;
 }
 
 /** 音频 URL。 */
@@ -389,8 +403,7 @@ function buildEntry(score: MaimaiScore, index: SongIndex, warnings: Set<string>)
     bpm: song?.bpm ?? null,
     songVersion: song?.version ?? null,
     songVersionTitle: versionTitleOf(index.versions, song?.version),
-    jacketUrl: jacketUrl(score.id),
-    aliases: index.aliases.get(score.id) ?? [],
+    jacketUrl: jacketUrl(score.id),    aliases: index.aliases.get(score.id) ?? [],
     type: score.type,
     levelIndex: score.level_index,
     difficulty: difficultyName(score.level_index),
