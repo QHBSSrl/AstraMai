@@ -274,7 +274,7 @@
   export default {
     private: {
       keyword: '',
-      keyboardHidden: false,
+      keyboardHidden: true,
       statusText: '支持日文曲名、中文别名与罗马音',
       results: [],
       /** 原始返回，详情页要用完整字段（物量、谱师、试听直链）。 */

@@ -59,7 +59,7 @@
       <list class="list">
         <list-item class="row" type="item" for="{{ entries }}">
           <text class="row__rank">{{ $idx + 1 }}</text>
-          <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
+          <!-- [实验] 封面已临时移除 -->
           <div class="row__main">
             <text class="row__title">{{ $item.title }}</text>
             <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
@@ -338,7 +338,7 @@
     private: {
       kind: 'friendCode',
       code: '',
-      keyboardHidden: false,
+      keyboardHidden: true,
 
       hint: '',
       canSubmit: false,
