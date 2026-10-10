@@ -44,14 +44,19 @@
     <block if="{{ hasResult }}">
       <div class="summary">
         <div class="summary__main">
+          <!--
+            玩家名要显示。多号玩家（国服一个、日服一个）需要一眼确认
+            「我看的是谁的」，否则查出一堆成绩也不知道对不对。
+          -->
+          <text class="player" if="{{ playerName }}">{{ playerName }}</text>
           <text class="rating">{{ ratingText }}</text>
           <text class="tier">{{ tierText }}</text>
         </div>
         <div class="summary__side">
-          <text class="line">旧曲 B35　{{ b35Text }}</text>
-          <text class="line">新曲 B15　{{ b15Text }}</text>
-          <text class="line">平均定数　{{ avgLevelText }}</text>
-          <text class="line">公式对拍　{{ selfCheckText }}</text>
+          <text class="line">{{ statLine1 }}</text>
+          <text class="line">{{ statLine2 }}</text>
+          <text class="line">{{ statLine3 }}</text>
+          <text class="line">{{ statLine4 }}</text>
         </div>
       </div>
 
@@ -225,6 +230,14 @@
     width: 150px;
   }
 
+  /* 玩家名：可能是全角，给它单独一行并适当限宽 */
+  .player {
+    font-size: 20px;
+    color: #4fd6ff;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
   .rating {
     font-size: 40px;
     font-weight: bold;
@@ -360,6 +373,8 @@
       hasResult: false,
       ratingText: '',
       tierText: '',
+      /** 玩家名。多号玩家靠它确认「看的是谁的」。 */
+      playerName: '',
       statLine1: '',
       statLine2: '',
       statLine3: '',
@@ -510,6 +525,7 @@
 
       this.ratingText = String(player.rating);
       this.tierText = player.tier ? player.tier.label : '';
+      this.playerName = player.name || '';
       this.statLine1 = '旧曲 B35　' + stats.standardTotal;
       this.statLine2 = '新曲 B15　' + stats.dxTotal;
       this.statLine3 = '平均定数　' + stats.averageLevelValue.toFixed(2);
@@ -552,6 +568,8 @@
       this.ratingText = String(player.rating);
       // 中二没有「段位」这种概念，玩家等级才是名片上的东西
       this.tierText = player.level ? '等级 ' + player.level : '';
+      // 中二的玩家名可能是全角（游戏内输入法打出来的），原样显示不转换
+      this.playerName = player.name || '';
       this.statLine1 = 'Best 30　' + stats.bestsCount;
       this.statLine2 = 'Selection 10　' + stats.selectionsCount;
       this.statLine3 = 'Recent 10　' + stats.recentsCount;
