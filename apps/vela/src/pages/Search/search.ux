@@ -1,4 +1,3 @@
-
 <import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
 
 <template>
@@ -9,8 +8,8 @@
     </div>
 
     <div class="actions">
-      <div class="action action--ghost" @click="runSearch">
-        <text class="action__text">重搜</text>
+      <div class="action {{ keyword ? '' : 'action--disabled' }}" @click="runSearch">
+        <text class="action__text">搜索</text>
       </div>
       <div class="action action--ghost" @click="clearAll">
         <text class="action__text">清空</text>
@@ -20,11 +19,8 @@
       </div>
     </div>
 
-    <!--
-      <list> 必须显式给高度（官方文档明确要求），否则高度为 0、一条都画不出来。
-      输入法键盘占掉底部一大块，所以键盘开着时列表矮一些，收起后铺满。
-    -->
-    <list class="list" style="height: {{ keyboardHidden ? '320px' : '120px' }};" if="{{ results.length > 0 }}">
+    <!-- <list> 必须显式给高度（官方文档要求），否则高度为 0、一条都画不出来 -->
+    <list class="list" if="{{ results.length > 0 }}">
       <list-item class="row" type="item" for="{{ results }}">
         <div class="row__main">
           <text class="row__title">{{ $item.title }}</text>
@@ -116,6 +112,9 @@
 
   .list {
     width: 100%;
+    /* <list> 必须显式给高度，否则高度为 0，一条都画不出来。
+       这里用静态值而不是内联表达式——越简单越不容易在真机上出问题。 */
+    height: 180px;
     margin-top: 12px;
   }
 
@@ -164,10 +163,6 @@
       keyboardHidden: false,
       statusText: '支持日文曲名、中文别名与罗马音',
       results: [],
-      /** 防抖定时器句柄。 */
-      searchTimer: null,
-      /** 请求序号，用来丢弃乱序返回的旧结果。 */
-      searchSeq: 0,
     },
 
     onInit() {
@@ -184,48 +179,15 @@
       const content = evt && evt.detail ? evt.detail.content : '';
       if (!content) return;
       this.keyword += content;
-      this.scheduleSearch();
+      this.statusText = `${this.keyword.length} 字 · 点「搜索」`;
     },
 
     onDelete() {
       this.keyword = this.keyword.slice(0, -1);
-      this.scheduleSearch();
-    },
-
-    /**
-     * 边打边搜，不要求用户去点「搜索」。
-     *
-     * 之前是需要点按钮才搜，但输入法是**全屏键盘**、盖住了页面，
-     * 那个按钮根本点不到——用户打完字只看到输入框在变，以为坏了。
-     * 现在打字就触发，按钮只作为「立刻重搜」的兜底。
-     *
-     * 防抖 400ms：拼音 / 罗马字输入过程中会连续提交字符，
-     * 不防抖会每敲一个字就打一次接口。
-     */
-    scheduleSearch() {
-      if (this.searchTimer) clearTimeout(this.searchTimer);
-      const keyword = this.keyword.trim();
-
-      if (!keyword) {
-        this.results = [];
-        this.statusText = '支持日文曲名、中文别名与罗马音';
-        return;
-      }
-
-      this.statusText = '输入中…';
-      this.searchTimer = setTimeout(() => {
-        this.searchTimer = null;
-        this.runSearch();
-      }, 400);
+      this.statusText = this.keyword ? `${this.keyword.length} 字 · 点「搜索」` : '支持日文曲名、中文别名与罗马音';
     },
 
     clearAll() {
-      if (this.searchTimer) {
-        clearTimeout(this.searchTimer);
-        this.searchTimer = null;
-      }
-      // 让在途请求的结果作废
-      this.searchSeq += 1;
       this.keyword = '';
       this.results = [];
       this.statusText = '支持日文曲名、中文别名与罗马音';
@@ -239,16 +201,11 @@
       const keyword = this.keyword.trim();
       if (!keyword) return;
 
-      // 不收起键盘：用户是边打边看结果的，收起反而要多点一次
+      this.keyboardHidden = true;
       this.statusText = '搜索中…';
-
-      // 请求序号：拼音输入时请求可能乱序返回，只认最后一次
-      this.searchSeq += 1;
-      const seq = this.searchSeq;
 
       searchSongs(keyword, 30)
         .then((payload) => {
-          if (seq !== this.searchSeq) return;
           const list = payload && payload.results ? payload.results : [];
           this.results = list.map((item) => ({
             title: item.title,
@@ -261,9 +218,9 @@
               : `${list.length} 条结果 · 继续输入可缩小范围`;
         })
         .catch((error) => {
-          if (seq !== this.searchSeq) return;
           this.results = [];
           this.statusText = error && error.message ? error.message : '搜索失败';
+          this.keyboardHidden = false;
         });
     },
   };
