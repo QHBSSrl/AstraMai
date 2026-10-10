@@ -34,7 +34,21 @@
         <div class="row__main">
           <text class="row__title">{{ $item.title }}</text>
           <text class="row__sub">{{ $item.sub }}</text>
-          <text class="row__meta">{{ $item.meta }}</text>
+
+          <!--
+            定数逐难度列出，用游戏内的难度配色。
+            之前只显示定数最高的那条，而最高的永远是 MST / Re:M，
+            等于把 BASIC / ADV / EXP 全遮住了。
+            STD 与 DX 各一行——同一首歌两套谱面的定数经常不一样。
+          -->
+          <div class="row__set" if="{{ $item.stdCells.length > 0 }}">
+            <text class="set__label">STD</text>
+            <text class="set__cell" for="{{ cell in $item.stdCells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
+          </div>
+          <div class="row__set" if="{{ $item.dxCells.length > 0 }}">
+            <text class="set__label">DX</text>
+            <text class="set__cell" for="{{ cell in $item.dxCells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
+          </div>
         </div>
         <text class="row__badge">{{ $item.badge }}</text>
       </list-item>
@@ -124,15 +138,16 @@
   .list {
     width: 100%;
     /* <list> 必须显式给高度，否则高度为 0，一条都画不出来。
-       这里用静态值而不是内联表达式——越简单越不容易在真机上出问题。 */
-    height: 180px;
+       这里是三行内容（曲名 / 版本+别名 / STD+DX 定数），所以给得高一些。
+       搜索完成后键盘会自动收起，这块地方能整个用上。 */
+    height: 300px;
     margin-top: 12px;
   }
 
   .row {
     flex-direction: row;
     align-items: center;
-    height: 88px;
+    height: 108px;
     padding: 6px 8px;
   }
 
@@ -150,6 +165,25 @@
     margin-left: 10px;
   }
 
+  /* 一行定数：STD / DX + 各难度定数（颜色由数据带过来） */
+  .row__set {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 3px;
+  }
+
+  .set__label {
+    width: 34px;
+    font-size: 14px;
+    color: #6d7fa3;
+  }
+
+  .set__cell {
+    font-size: 18px;
+    margin-right: 8px;
+    font-weight: bold;
+  }
+
   .row__title {
     font-size: 21px;
     color: #e8eefc;
@@ -158,13 +192,6 @@
   .row__sub {
     font-size: 16px;
     color: #6d7fa3;
-  }
-
-  /* 版本 · 难度 定数 */
-  .row__meta {
-    font-size: 16px;
-    color: #f2a33c;
-    margin-top: 2px;
   }
 
   .row__badge {
@@ -189,30 +216,42 @@
   const DIFFICULTY_SHORT = ['BAS', 'ADV', 'EXP', 'MST', 'Re:M'];
 
   /**
-   * 挑出定数最高的那条谱面。
+   * 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。
    *
-   * 列表一行放不下所有难度，先给最高的那条——它是玩家最关心的。
-   * 将来若要展开看全部，服务端已经把每个难度都返回了。
+   * 用颜色而不是文字区分难度，是因为手表一行放不下「BASIC 7.0 ADVANCED 10.5 …」，
+   * 而定数本身才是玩家要看的数字，难度靠颜色一眼就能认出来。
    */
-  function topChart(item) {
-    let best = null;
-    for (const chart of item.difficulties || []) {
-      if (typeof chart.level_value !== 'number') continue;
-      if (!best || chart.level_value > best.level_value) best = chart;
-    }
-    return best;
+  const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
+
+  /** 定数展示：整数不带小数（5 而不是 5.0），小数保留一位。 */
+  function formatConstant(value) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
   }
 
-  /** 「版本 · 难度 定数」，两样都可能缺，缺了就少显示一段。 */
-  function buildMeta(item) {
+  /**
+   * 把一组谱面转成可直接渲染的单元格。
+   *
+   * 只保留有定数的谱面（上游偶尔缺），并按难度序号排序，
+   * 保证显示顺序恒为 BAS → Re:M。
+   */
+  function toCells(charts) {
+    return (charts || [])
+      .filter((chart) => typeof chart.level_value === 'number')
+      .sort((a, b) => a.difficulty - b.difficulty)
+      .map((chart) => ({
+        text: formatConstant(chart.level_value),
+        color: DIFFICULTY_COLOR[chart.difficulty] || '#9bacd0',
+      }));
+  }
+
+  /** 副标题：版本名 + 别名（没别名就用艺术家）。 */
+  function buildSub(item) {
     const parts = [];
     if (item.versionTitle) parts.push(item.versionTitle);
-    const best = topChart(item);
-    if (best) {
-      const label = DIFFICULTY_SHORT[best.difficulty] || `#${best.difficulty}`;
-      parts.push(`${label} ${best.level_value.toFixed(1)}`);
-    }
-    return parts.join(' · ');
+    parts.push(
+      item.aliases && item.aliases.length > 0 ? item.aliases.slice(0, 3).join(' / ') : item.artist,
+    );
+    return parts.filter(Boolean).join(' · ');
   }
 
   export default {
@@ -270,13 +309,17 @@
       searchSongs(keyword, 30)
         .then((payload) => {
           const list = payload && payload.results ? payload.results : [];
-          this.results = list.map((item) => ({
-            title: item.title,
-            sub: item.aliases && item.aliases.length > 0 ? item.aliases.slice(0, 3).join(' / ') : item.artist,
-            meta: buildMeta(item),
-            jacketUrl: item.jacketUrl || '',
-            badge: MATCH_LABEL[item.matchedBy] || '',
-          }));
+          this.results = list.map((item) => {
+            const charts = item.difficulties || [];
+            return {
+              title: item.title,
+              sub: buildSub(item),
+              stdCells: toCells(charts.filter((chart) => chart.type === 'standard')),
+              dxCells: toCells(charts.filter((chart) => chart.type === 'dx')),
+              jacketUrl: item.jacketUrl || '',
+              badge: MATCH_LABEL[item.matchedBy] || '',
+            };
+          });
           this.statusText =
             list.length === 0
               ? `没有匹配「${keyword}」的曲目`

@@ -62,7 +62,7 @@
           <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
           <div class="row__main">
             <text class="row__title">{{ $item.title }}</text>
-            <text class="row__sub">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
+            <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
           </div>
           <div class="row__right">
             <text class="row__rating">{{ $item.rating }}</text>
@@ -323,6 +323,9 @@
 
   const TOP_N = 20;
 
+  /** 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。 */
+  const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
+
   export default {
     private: {
       kind: 'friendCode',
@@ -475,6 +478,8 @@
         .map((entry) => ({
           title: entry.title,
           difficulty: entry.difficultyShort,
+          // 难度配色与游戏内一致：绿 / 黄 / 红 / 紫 / 白
+          diffColor: DIFFICULTY_COLOR[entry.levelIndex] || '#9bacd0',
           levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
           rating: entry.rating === null ? '--' : String(entry.rating),
           achievements: entry.achievements.toFixed(4) + '%',
