@@ -158,3 +158,89 @@ export async function queryB50(query: B50Query): Promise<ApiSuccess<B50View>> {
       : `/api/maimai/b50/${value}${suffix}`;
   return request<B50View>(path);
 }
+
+// ── 设备配对：把数据送到手表上 ──────────────────────────────────────────
+//
+// 为什么需要：手表上没有好用的输入法，让玩家在手表上敲好友码/QQ 号很难受。
+// 改成在这里填（键盘舒服），手表凭一个 8 位配对码去取。
+//
+// ⚠️ 这几个接口的错误响应和其它接口形状不同：格式类错误走 `bad()`，
+// 返回顶层 { ok:false, message }（没有 error 对象），所以不能复用上面的 request()。
+
+export interface PairState {
+  exists: boolean;
+  hasPin: boolean;
+  expiresAt: number | null;
+}
+
+export interface PairSubmitResult {
+  ok: boolean;
+  pinSet?: boolean;
+  message?: string;
+}
+
+/** 配对码的校验结果，供表单即时反馈。 */
+export function isWellFormedToken(token: string): boolean {
+  return /^\d{8}$/.test(token.trim());
+}
+
+async function pairRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: { accept: 'application/json', 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    });
+  } catch (error) {
+    throw new ApiError({
+      kind: 'network',
+      friendlyMessage: '连不上服务端，请检查网络。',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  const text = await response.text();
+  let parsed: { ok?: boolean; message?: string; data?: T } | null = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    throw new ApiError({
+      kind: 'malformed',
+      friendlyMessage: '服务端返回了无法解析的内容。',
+      detail: text.slice(0, 200),
+      status: response.status,
+    });
+  }
+
+  if (!parsed) {
+    throw new ApiError({ kind: 'malformed', friendlyMessage: '服务端返回了空内容。', status: response.status });
+  }
+
+  // 格式类错误：顶层 message，没有 data
+  if (parsed.ok === false && !parsed.data) {
+    throw new ApiError({
+      kind: 'bad-request',
+      friendlyMessage: parsed.message ?? '请求被拒绝。',
+      status: response.status,
+    });
+  }
+
+  return (parsed.data ?? (parsed as unknown)) as T;
+}
+
+/** 查这个配对码还活着没有、对应设备有没有开传输密码。 */
+export function getPairState(token: string): Promise<PairState> {
+  return pairRequest<PairState>(`/api/pair/state?token=${encodeURIComponent(token.trim())}`);
+}
+
+/**
+ * 把玩家数据提交上去，等手表来取。
+ *
+ * @param pin 可选的传输密码。首次填写即开启 2FA，之后必填。
+ */
+export function submitPair(token: string, payload: string, pin?: string): Promise<PairSubmitResult> {
+  return pairRequest<PairSubmitResult>('/api/pair/submit', {
+    method: 'POST',
+    body: JSON.stringify({ token: token.trim(), payload, ...(pin ? { pin } : {}) }),
+  });
+}

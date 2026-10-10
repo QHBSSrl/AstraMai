@@ -26,14 +26,15 @@ import { ScoreTable, entryKey } from './components/ScoreTable';
 import { SelfCheckPanel } from './components/SelfCheckPanel';
 import { SettingsDialog } from './components/SettingsDialog';
 import { StatsPanel } from './components/StatsPanel';
+import { SyncToWatch } from './components/SyncToWatch';
 
 /** 演示模式使用的固定好友码——Mock 模式下任何数字都能出数据。 */
 const DEMO_FRIEND_CODE = '888888888888888';
 
 type Tab = 'mix' | 'standard' | 'dx' | 'selections';
 
-/** 顶层页面。B50 查分与二维码工作台各自独立，互不干扰对方的状态。 */
-type Page = 'b50' | 'qr';
+/** 顶层页面。B50 查分、二维码工作台、同步到手表各自独立，互不干扰对方的状态。 */
+type Page = 'b50' | 'qr' | 'sync';
 
 interface Result {
   view: B50View;
@@ -119,6 +120,11 @@ export function App() {
 
     if (parts[0] === 'qr') {
       setPage('qr');
+      return;
+    }
+
+    if (parts[0] === 'sync') {
+      setPage('sync');
       return;
     }
 
@@ -260,9 +266,21 @@ export function App() {
         >
           二维码
         </button>
+        <button
+          type="button"
+          aria-current={page === 'sync' ? 'page' : undefined}
+          onClick={() => {
+            setPage('sync');
+            window.location.hash = '#/sync';
+          }}
+        >
+          同步到手表
+        </button>
       </nav>
 
-      {page === 'qr' ? (
+      {page === 'sync' ? (
+        <SyncToWatch />
+      ) : page === 'qr' ? (
         <QrStudio />
       ) : (
         <>
