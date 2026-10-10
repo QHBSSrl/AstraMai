@@ -305,3 +305,86 @@ body: {"token":"用户的48位token"}
 2. 服务端必须**缓存 + 限速**，两边文档都明确要求了（太鼓甚至写进了接入约束）
 3. **凭证不能进日志** —— 我们现有的 diag 上报通道要小心，别把请求体原样打回去
 
+---
+
+## 七、Rin 服（2026-10 调研）
+
+用户机厅用的是 Rin 服。查下来结论是**可行，但和前面所有源都不同**。
+
+### 它是什么
+
+Rin 服是 **AquaDX 架构**的街机私服，而且**门户前端开源**：
+
+- 前端：https://github.com/RinNET-OpenSource/RinNET_frontend （AGPL-3.0）
+- 门户：https://portal.naominet.live
+- 后端：`http://aqua.naominet.live`（门户用同源代理转发 `/api`）
+- 覆盖游戏：`chuni` / `mai2` / `ongeki`
+
+**前端开源这件事很关键**：接口调用代码是公开可读的，
+所以不用去猜、也不用去探他们的线上服务（对别人的服务器客气一点）。
+
+### 接口形态
+
+```
+鉴权    OAuth2（BEMANICN / Microsoft / GitHub / GitLab）→ JWT
+请求头  Authorization: <tokenType> <accessToken>   例如 BEMANICN eyJ...
+刷新    POST /api/auth/refresh  { refreshToken }
+        accessToken 是 JWT，带 exp；官方前端在过期前 30s 主动刷新
+```
+
+已确认的端点（从中二页面读出）：
+
+```
+GET    /api/auth/signin/oauth2/{type}          取授权跳转地址
+GET    /api/user/profiles                       各游戏资料汇总
+GET    /api/game/chuni/v2/profile?aimeId=       玩家资料
+GET    /api/game/chuni/v2/friend?aimeId=        对手列表
+POST   /api/game/chuni/v2/friend?friendId=&aimeId=
+DELETE /api/game/chuni/v2/friend?friendId=&aimeId=
+GET    /api/game/chuni/v2/toggleFavorite?friendId=&aimeId=
+```
+
+玩家标识是 **`aimeId`**（来自 `user.defaultCard.extId`），
+**不是好友码**。对外显示 ID 的算法是 `10_000_000 + defaultCard.id`。
+
+### 三个必须知道的事
+
+**1. 它没有落雪那种「一个开发者密钥查所有人」的公共 API。**
+
+你能查的默认是**你自己**（OAuth 登录后的 aimeId）。
+查别人要先通过 `friendId` 加为对手，而且对手模型只带
+`rivalName / playerRating / overPowerRate / level` 这些**摘要**，
+**没有完整成绩列表**。
+
+**2. 第三方接入需要服主配合。**
+
+OAuth 授权地址是给门户自己用的，**第三方应用要用得先确认
+redirect URI 能不能自定义、要不要在服务端注册客户端**。
+这一条得去问 RinNET 的人，不是我们这边能定的。
+
+**3. AGPL-3.0。**
+
+前端是 AGPL。**读接口定义做互操作没问题，但不能把它的代码抄进我们仓库**——
+那会把整个项目拖进 AGPL。我们的接入必须是自己写的客户端。
+
+### 对我们的意义
+
+Rin 的接入模型和 Phigros / 太鼓**是同一类**：用户授权 → 我们拿凭证 → 查他自己。
+所以：
+
+- **配对同步依然是正确的载体**（网页 OAuth 登录 → 凭证同步到手表）
+- 服务端要新增一类 Source：**带 OAuth 令牌的、按用户维度的**
+- 和落雪那种"全局密钥"的 Source 在缓存策略上完全不同
+  （落雪的曲库能全局缓存；Rin 的玩家数据是按账号的）
+
+### 下一步要问 RinNET 的
+
+- [ ] 第三方应用能不能用你们的 OAuth？需要注册吗？
+- [ ] 有没有面向第三方的 API 文档或开发者通道？
+- [ ] 查对手的完整成绩（不只是摘要）有没有接口？
+- [ ] 有没有速率限制的约定？
+
+> 注意：这是**别人的私服**，接入前先问一声是基本的礼貌，
+> 也避免我们做完了被挡回来。
+
+
