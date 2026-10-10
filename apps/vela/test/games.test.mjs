@@ -36,6 +36,20 @@ test('至少包含舞萌与中二', () => {
   assert.ok(ids.includes('chunithm'));
 });
 
+test('Phigros 处于「已撤下」状态，不在可选列表里', () => {
+  // 2026-10 撤下：接入后连着几轮没修干净（搜索恒 0 条、界面残留无用输入框、
+  // 成绩行显示加载失败的灰块），先移出用户可见范围。
+  //
+  // 这条测试是**故意的**：如果哪天有人把 Phigros 加回 GAMES 却没把功能做扎实，
+  // 这里会红，逼着做决定——而不是让它悄悄回到用户面前。
+  // 真要恢复时，连同这条断言一起改，并确认那几个问题都解决了。
+  const ids = GAMES.map((game) => game.id);
+  assert.ok(!ids.includes('phigros'), 'Phigros 不应出现在可选游戏列表里');
+
+  // 曾经存过 phigros 的用户会回退到默认游戏，而不是拿到 undefined 崩掉
+  assert.equal(gameById('phigros').id, DEFAULT_GAME_ID);
+});
+
 test('id 必须和服务端的路径前缀一致', () => {
   // 这两个 id 会直接拼进 /api/v1/<id>/... ，拼错就是 404。
   // 目前服务端只有这两个游戏（实测确认落雪只覆盖它们）。

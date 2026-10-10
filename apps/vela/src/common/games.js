@@ -26,14 +26,24 @@ export const GAMES = [
     short: '舞萌',
     features: ['b50', 'search', 'qr'],
   },
-  {
-    id: 'phigros',
-    label: 'Phigros',
-    short: 'phi',
-    // 和落雪那两个不同：Phigros 的玩家标识来自 TapTap 扫码，
-    // **必须先登录**才能查分，所以入口归到 b50/search，但页面会先检查有没有凭证
-    features: ['b50', 'search'],
-  },
+  // ── Phigros：暂时撤下（2026-10）─────────────────────────────────────
+  //
+  // 原因：接入后连着几轮都没修干净（搜索恒 0 条、界面上残留无用的输入框、
+  // 成绩行显示加载失败的灰块）。先撤出用户可见范围，别让人一直当测试。
+  //
+  // **代码都还在**，恢复只需要三步：
+  //   1. 把下面这段注释解开
+  //   2. manifest.json 里加回 pages/PhigrosLogin 路由
+  //      （component: 'phigros-login', path: '/phigros-login'）
+  //   3. 设置页加回「Phigros 登录」那一行（goPhigrosLogin）
+  // 服务端接口保留着，没动，不用管。
+  //
+  // {
+  //   id: 'phigros',
+  //   label: 'Phigros',
+  //   short: 'phi',
+  //   features: ['b50', 'search'],
+  // },
   {
     id: 'chunithm',
     label: '中二节奏',

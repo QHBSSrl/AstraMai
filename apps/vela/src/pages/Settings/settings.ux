@@ -25,17 +25,9 @@
         <text class="row__label">同步到手表</text>
         <text class="row__mark">›</text>
       </div>
-      <!--
-        Phigros 的凭证来自 TapTap 扫码，只能在这里登一次。
-        和其它源不同（落雪是服务端一把密钥，玩家不用登录），所以单列一项。
-      -->
-      <div class="row" @click="goPhigrosLogin">
-        <text class="row__label">Phigros 登录</text>
-        <text class="row__mark">{{ phigrosStatus }}</text>
-      </div>
+      <!-- Phigros 登录入口暂时撤下，见 common/games.js 的说明 -->
     </div>
     <text class="hint">「同步到手表」用于落雪那两个游戏：在网页上填好友码 / QQ 号，不用在手表上打字。</text>
-    <text class="hint">Phigros 需要先用 TapTap 扫码登录一次，之后就不用再扫。</text>
 
     <!-- 服务端 -->
     <text class="section">服务端</text>
