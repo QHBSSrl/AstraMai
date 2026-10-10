@@ -3,7 +3,11 @@
  *
  * 基础 URL 固定为 https://maimai.lxns.net/api/v0/
  * 见 https://maimai.lxns.net/docs/developer-guide#鉴权方式
+ *
+ * 舞萌 DX 与中二节奏**是同一个服务、同一把密钥**，只是路径前缀不同。
  */
+
+import type { ChunithmBestQuery } from './chunithm-types.js';
 
 /** 落雪 API 基础 URL。 */
 export const LXNS_API_BASE = 'https://maimai.lxns.net/api/v0';
@@ -73,4 +77,46 @@ export const maimaiEndpoints = {
   /** 玩家收藏品进度。 */
   playerCollection: (friendCode: number | string, type: string, id: number | string) =>
     `/maimai/player/${friendCode}/${type}/${id}`,
+} as const;
+
+/**
+ * 中二节奏接口路径。
+ *
+ * **和舞萌是同一个服务、同一把密钥**，只是路径前缀不同。
+ * 这也是「接中二 ≈ 加一个 Source」而不是「接一个新游戏」的原因。
+ *
+ * 实测确认（2026-10）：
+ *   /api/v0/chunithm/song/list      → 200
+ *   /api/v0/chunithm/song/list?notes → 200
+ *   /api/v0/chunithm/alias/list     → 200
+ *
+ * 差异点：
+ *   - 没有 `song_type`（中二不分 standard/dx）
+ *   - 成绩接口叫 `bests` 且一次返回 Best30 + Selection10 + Recent10
+ *   - 难度叫 ULTIMA 而不是 Re:MASTER
+ */
+export const chunithmEndpoints = {
+  player: (friendCode: number | string) => `/chunithm/player/${friendCode}`,
+  playerByQq: (qq: number | string) => `/chunithm/player/qq/${qq}`,
+  /** Best 30 + Selection 10 + Recent 10。 */
+  bests: (friendCode: number | string) => `/chunithm/player/${friendCode}/bests`,
+  /** 单曲最佳成绩。 */
+  best: (friendCode: number | string, query: ChunithmBestQuery) =>
+    // 显式挑字段而不是把接口对象直接传给 withQuery：
+    // TS 的 interface 没有索引签名，不可赋值给 Record<string, ...>。
+    withQuery(`/chunithm/player/${friendCode}/best`, {
+      song_id: query.song_id,
+      song_name: query.song_name,
+      level_index: query.level_index,
+    }),
+  /** 单曲全部难度成绩。 */
+  songScores: (friendCode: number | string, query: { song_id?: number; song_name?: string }) =>
+    withQuery(`/chunithm/player/${friendCode}/bests`, query),
+  /** Recent 10，按 play_time 排序。 */
+  recents: (friendCode: number | string) => `/chunithm/player/${friendCode}/recents`,
+  /** 曲目列表（公共接口，无需鉴权）。**没有 version 参数**。 */
+  songList: (query: { notes?: boolean | undefined } = {}) =>
+    withQuery('/chunithm/song/list', { notes: query.notes }),
+  /** 曲目别名列表（公共接口）。 */
+  aliasList: () => '/chunithm/alias/list',
 } as const;

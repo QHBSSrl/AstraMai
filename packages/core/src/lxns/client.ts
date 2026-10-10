@@ -5,8 +5,21 @@
  * 以便同一份代码在 Node、浏览器与 Vela QuickApp 中复用。
  */
 
-import { LXNS_API_BASE, maimaiEndpoints, type SongListQuery } from './endpoints.js';
+import {
+  LXNS_API_BASE,
+  chunithmEndpoints,
+  maimaiEndpoints,
+  type SongListQuery,
+} from './endpoints.js';
 import { LxnsError, kindFromStatus } from './errors.js';
+import type {
+  ChunithmAliasList,
+  ChunithmBestQuery,
+  ChunithmBests,
+  ChunithmPlayer,
+  ChunithmScore,
+  ChunithmSongList,
+} from './chunithm-types.js';
 import type {
   ApiEnvelope,
   MaimaiAliasList,
@@ -243,6 +256,59 @@ export class LxnsClient {
   /** 曲目别名列表（公共接口）。 */
   getAliasList(): Promise<MaimaiAliasList> {
     return this.request<MaimaiAliasList>(maimaiEndpoints.aliasList());
+  }
+
+  // ── 中二节奏 ──────────────────────────────────────────────────────────
+  //
+  // 和舞萌走同一个服务、同一把密钥，只是路径前缀不同，
+  // 所以全部复用上面的 `request()`——没有任何新的网络逻辑。
+
+  /** 玩家信息。 */
+  getChunithmPlayer(friendCode: number | string): Promise<ChunithmPlayer> {
+    return this.request<ChunithmPlayer>(chunithmEndpoints.player(friendCode));
+  }
+
+  /** 按 QQ 号取玩家信息。 */
+  getChunithmPlayerByQq(qq: number | string): Promise<ChunithmPlayer> {
+    return this.request<ChunithmPlayer>(chunithmEndpoints.playerByQq(qq));
+  }
+
+  /**
+   * Best 30 + Selection 10 + Recent 10。
+   *
+   * ⚠️ 舞萌那边是 `bests` 返回 B35+B15，中二是一次给三组。
+   * 字段形状一样，但**语义不同**，别直接套用舞萌的组装逻辑。
+   */
+  getChunithmBests(friendCode: number | string): Promise<ChunithmBests> {
+    return this.request<ChunithmBests>(chunithmEndpoints.bests(friendCode));
+  }
+
+  /** Recent 10，按 play_time 排序。 */
+  getChunithmRecents(friendCode: number | string): Promise<ChunithmScore[]> {
+    return this.request<ChunithmScore[]>(chunithmEndpoints.recents(friendCode));
+  }
+
+  /** 单曲最佳成绩。 */
+  getChunithmBest(friendCode: number | string, query: ChunithmBestQuery): Promise<ChunithmScore> {
+    return this.request<ChunithmScore>(chunithmEndpoints.best(friendCode, query));
+  }
+
+  /** 单曲全部难度成绩。 */
+  getChunithmSongScores(
+    friendCode: number | string,
+    query: { song_id?: number; song_name?: string },
+  ): Promise<ChunithmScore[]> {
+    return this.request<ChunithmScore[]>(chunithmEndpoints.songScores(friendCode, query));
+  }
+
+  /** 曲目列表（公共接口，无需鉴权）。 */
+  getChunithmSongList(query: { notes?: boolean } = {}): Promise<ChunithmSongList> {
+    return this.request<ChunithmSongList>(chunithmEndpoints.songList(query));
+  }
+
+  /** 曲目别名列表（公共接口）。 */
+  getChunithmAliasList(): Promise<ChunithmAliasList> {
+    return this.request<ChunithmAliasList>(chunithmEndpoints.aliasList());
   }
 }
 
