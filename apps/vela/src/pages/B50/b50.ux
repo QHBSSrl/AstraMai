@@ -11,29 +11,35 @@
       <div class="back" @click="onBack">
         <text class="back__text">‹ 返回</text>
       </div>
-      <text class="topbar__title">Best 50</text>
+      <text class="topbar__title">{{ pageTitle }}</text>
     </div>
 
-    <!-- ── 查询目标 ─────────────────────────────────────────────── -->
-    <div class="kinds">
-      <div class="kind {{ kind === 'friendCode' ? 'kind--on' : '' }}" @click="setKind('friendCode')">
-        <text class="kind__text">好友码</text>
+    <!--
+      查询目标。**Phigros 整块隐藏**——它靠 TapTap 扫码登录，查的是自己，
+      根本没有「输入一个码」这回事。留着只占地方，还会让人以为要输好友码。
+    -->
+    <block if="{{ gameId !== 'phigros' }}">
+      <div class="kinds">
+        <div class="kind {{ kind === 'friendCode' ? 'kind--on' : '' }}" @click="setKind('friendCode')">
+          <text class="kind__text">好友码</text>
+        </div>
+        <div class="kind {{ kind === 'qq' ? 'kind--on' : '' }}" @click="setKind('qq')">
+          <text class="kind__text">QQ 号</text>
+        </div>
       </div>
-      <div class="kind {{ kind === 'qq' ? 'kind--on' : '' }}" @click="setKind('qq')">
-        <text class="kind__text">QQ 号</text>
-      </div>
-    </div>
 
-    <div class="target">
-      <text class="target__value">{{ displayValue }}</text>
-      <text class="target__hint">{{ hint }}</text>
-    </div>
+      <div class="target">
+        <text class="target__value">{{ displayValue }}</text>
+        <text class="target__hint">{{ hint }}</text>
+      </div>
+    </block>
 
     <div class="actions">
-      <div class="action {{ canSubmit ? '' : 'action--disabled' }}" @click="query">
-        <text class="action__text">查询</text>
+      <div class="action {{ canSubmit || gameId === 'phigros' ? '' : 'action--disabled' }}" @click="query">
+        <text class="action__text">{{ gameId === 'phigros' ? '查询自己的成绩' : '查询' }}</text>
       </div>
-      <div class="action action--ghost" @click="toggleKeyboard">
+      <!-- 输入按钮对 Phigros 也没意义（没有要输入的码） -->
+      <div class="action action--ghost" if="{{ gameId !== 'phigros' }}" @click="toggleKeyboard">
         <text class="action__text">{{ keyboardHidden ? '输入' : '收起' }}</text>
       </div>
     </div>
@@ -64,7 +70,8 @@
       <list class="list" onscrollbottom="onScrollBottom">
         <list-item class="row" type="item" for="{{ entries }}">
           <text class="row__rank">{{ $idx + 1 }}</text>
-          <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
+          <!-- 没有图就不渲染：Phigros 平台不提供曲绘，渲染空的 <image> 会显示成灰块 -->
+          <image class="row__cover" if="{{ $item.jacketUrl }}" src="{{ $item.jacketUrl }}"></image>
           <div class="row__main">
             <text class="row__title">{{ $item.title }}</text>
             <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
@@ -387,6 +394,8 @@
       statLine4: '',
       /** 当前游戏 id。决定请求哪个接口、以及统计行怎么写。 */
       gameId: 'maimai',
+      /** 标题按游戏变：舞萌 Best 50 / 中二 B30 / Phigros RKS。 */
+      pageTitle: 'Best 50',
       entries: [],
     },
 
@@ -406,6 +415,11 @@
         .then(() => {
           // 当前游戏决定查哪个接口、统计行怎么写
           this.gameId = gameById(readCurrentGame(readSetting)).id;
+          // 标题跟着游戏变——写死「Best 50」对中二和 Phigros 都是错的
+          this.pageTitle =
+            this.gameId === 'chunithm' ? 'Best 30' : this.gameId === 'phigros' ? 'RKS / B30' : 'Best 50';
+          // Phigros 没有要输入的码，键盘一律收起（也省掉一个组件的初始化开销）
+          if (this.gameId === 'phigros') this.keyboardHidden = true;
           return this.restore();
         })
         .catch((error) => console.error('[AstraMai] B50 初始化失败：', error));

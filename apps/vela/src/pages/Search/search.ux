@@ -58,7 +58,7 @@
         </div>
 
         <!-- ▸ 进详情：试听 + 完整谱面（定数 / 物量 / 谱师） -->
-        <div class="row__more" @click="openSong($idx)">
+        <div class="row__more" if="{{ !$item.noDetail }}" @click="openSong($idx)">
           <text class="row__more-text">▸</text>
         </div>
       </list-item>
@@ -231,8 +231,8 @@
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
   const { api, core, games, navigation, store } = global.AstraMai;
-  const { searchChunithmSongs, searchSongs } = api;
-  const { chunithmDifficultyColor } = core;
+  const { searchChunithmSongs, searchPhigrosSongs, searchSongs } = api;
+  const { chunithmDifficultyColor, phigrosDifficultyColor } = core;
   const { gameById, readCurrentGame } = games;
 
   /**
@@ -385,7 +385,14 @@
       this.statusText = '搜索中…';
 
       const isChunithm = this.gameId === 'chunithm';
-      const search = isChunithm ? searchChunithmSongs : searchSongs;
+      const isPhigros = this.gameId === 'phigros';
+      // 三分支。之前只分了中二，**Phigros 会掉进舞萌分支**——
+      // 表现是「用 Phigros 曲名去查舞萌曲库」，永远 0 条且不报错。
+      const search = isChunithm
+        ? searchChunithmSongs
+        : isPhigros
+          ? searchPhigrosSongs
+          : searchSongs;
       search(keyword, 30)
         .then((payload) => {
           const list = payload && payload.results ? payload.results : [];
@@ -394,6 +401,38 @@
 
           // 先转换成一页能用的行，其余等触底再取
           // （官方《常用业务优化》：超过 10 条建议分页渲染）
+          // Phigros 的搜索结果形状和前两个都不一样：
+          // 没有 difficulties 数组，定数在 chartConstants 里（ez/hd/in/at）
+          if (isPhigros) {
+            rowCache = list.map((item) => {
+              const constants = item.chartConstants || {};
+              // 四档定数转成单元格。AT 很多歌没有（为 null），跳过而不是显示空白
+              const cells = [];
+              for (const [key, index] of [['ez', 0], ['hd', 1], ['in', 2], ['at', 3]]) {
+                const value = constants[key];
+                if (typeof value !== 'number') continue;
+                cells.push({
+                  text: formatConstant(value),
+                  color: phigrosDifficultyColor(['EZ', 'HD', 'IN', 'AT'][index]),
+                });
+              }
+              return {
+                title: item.name || item.id || '',
+                // Phigros 没有别名，副标题用曲师
+                sub: item.composer || '',
+                // 也没有版本；插画师是这个接口里唯一多出来的信息
+                versionTitle: item.illustrator ? '插画 ' + item.illustrator : '',
+                set1Label: '定数',
+                set1Cells: cells,
+                set2Label: '',
+                set2Cells: [],
+                // 平台不提供曲绘
+                jacketUrl: '',
+                // Phigros 不给详情页入口，理由见文件头
+                noDetail: true,
+              };
+            });
+          } else {
           rowCache = list.map((item) => {
             const charts = item.difficulties || [];
 
@@ -424,6 +463,7 @@
               jacketUrl: item.jacketUrl || '',
             };
           });
+          }
 
           // 原地清空再追加，不整份重新赋值（官方《内存优化》第 2 条）
           this.results.length = 0;
