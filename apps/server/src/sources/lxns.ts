@@ -9,6 +9,8 @@
 import {
   LxnsClient,
   type ChunithmAliasList,
+  type ChunithmBests,
+  type ChunithmPlayer,
   type MaimaiAliasList,
   type MaimaiBests,
   type MaimaiPlayer,
@@ -108,6 +110,21 @@ export class LxnsSource implements DataSource {
       client.getChunithmAliasList().catch(() => ({ aliases: [] }) as ChunithmAliasList),
     ]);
     return { songs, aliases };
+  }
+
+  /** 中二玩家信息。和舞萌共用同一把密钥、同一个客户端。 */
+  async getChunithmPlayer(query: PlayerQuery): Promise<ChunithmPlayer> {
+    this.options.limiter.spend(1, this.label);
+    const client = this.client();
+    return query.qq !== undefined
+      ? client.getChunithmPlayerByQq(query.qq)
+      : client.getChunithmPlayer(query.friendCode as number);
+  }
+
+  /** 中二成绩。上游一次给 B30 + Selection10 + Recent10。 */
+  async getChunithmBests(friendCode: number): Promise<ChunithmBests> {
+    this.options.limiter.spend(COST_PER_B50 - 1, this.label);
+    return this.client().getChunithmBests(friendCode);
   }
 }
 

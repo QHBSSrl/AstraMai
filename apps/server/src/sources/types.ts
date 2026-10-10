@@ -16,6 +16,8 @@
 
 import type {
   ChunithmAliasList,
+  ChunithmBests,
+  ChunithmPlayer,
   ChunithmSongList,
   MaimaiAliasList,
   MaimaiBests,
@@ -81,6 +83,12 @@ export interface DataSource {
    * 调用方用 `source.games.includes('chunithm')` 或方法存在性判断。
    */
   fetchChunithmLibrary?(): Promise<RawChunithmLibrary>;
+
+  /** 中二节奏玩家信息。只有支持中二的源才实现。 */
+  getChunithmPlayer?(query: PlayerQuery): Promise<ChunithmPlayer>;
+
+  /** 中二节奏成绩（B30 + Selection10 + Recent10）。 */
+  getChunithmBests?(friendCode: number): Promise<ChunithmBests>;
 }
 
 /** 判断一个查询是否可用该源处理，并在不可用时给出人能看懂的原因。 */

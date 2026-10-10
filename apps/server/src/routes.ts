@@ -457,6 +457,34 @@ export function createRouter(
 
   router.get('/api/v1/chunithm/search', chunithmSearchHandler);
 
+  /**
+   * 中二节奏成绩。
+   *
+   * 路径用 `bests` 而不是 `b50`：中二不是 B50 那个玩法，
+   * 它一次返回 **B30 + Selection10 + Recent10** 三组。
+   * 沿用 maimai 的命名会让客户端以为拿到的是同一种东西。
+   */
+  router.get('/api/v1/chunithm/bests', async (ctx) => {
+    const startedAt = Date.now();
+    try {
+      const { friendCode, qq } = readPlayerParams(ctx);
+      const result = await service.getChunithmBests({
+        ...(qq !== undefined ? { qq } : { friendCode }),
+        sourceId: sourceOf(ctx, service),
+        clientKey: clientKeyOf(ctx, config),
+        forceMock: ctx.query.get('mock') === '1' || ctx.query.get('mock') === 'true',
+      });
+      ok(ctx.res, {
+        mode: result.mode,
+        source: result.sourceId,
+        elapsedMs: Date.now() - startedAt,
+        data: result.view,
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
   // ── 单曲成绩 ──────────────────────────────────────────────────────────
   router.get('/api/maimai/player/:friendCode/song/:songId', async (ctx) => {
     try {
@@ -504,6 +532,7 @@ export function createRouter(
           { method: 'GET', path: '/api/v1/maimai/search', description: '曲目搜索，参数 q 与 limit' },
           { method: 'GET', path: '/api/v1/chunithm/songs', description: '中二节奏曲库，参数 notes=1 带物量' },
           { method: 'GET', path: '/api/v1/chunithm/search', description: '中二节奏曲目搜索，参数 q 与 limit' },
+          { method: 'GET', path: '/api/v1/chunithm/bests', description: '中二节奏 B30+Selection10+Recent10，参数 code 或 qq' },
         ],
         /** 所有接口都接受 ?source=<id> 指定数据源，不传则用 defaultSource。 */
         sourceParam: 'source',

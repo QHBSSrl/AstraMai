@@ -8,12 +8,14 @@
 import {
   LxnsError,
   buildB50View,
+  buildChunithmBestsView,
   buildSongIndex,
   createMockBests,
   createMockPlayer,
   createSyntheticSongList,
   type B50View,
   type ChunithmAliasList,
+  type ChunithmBestsView,
   type ChunithmSongList,
   type MaimaiAliasList,
   type MaimaiPlayer,
@@ -246,9 +248,51 @@ export class GatewayService {
     return { mode, view, librarySource: library.source, sourceId: source.id, usedServerKey };
   }
 
-  /** 玩家信息，不做 B50 聚合。 */
-  async getPlayer(input: {
+  /**
+   * 中二节奏成绩视图。
+   *
+   * 和舞萌那条路几乎一样，但**不做 Mock**：我们确实准备了一份舞萌的模拟数据，
+   * 中二没有。凭空编一份假的只会产生「看起来正常但全是假的」的结果。
+   */
+  async getChunithmBests(input: {
     friendCode?: number | undefined;
+    qq?: number | undefined;
+    sourceId?: string | undefined;
+    clientKey?: string | undefined;
+    forceMock?: boolean | undefined;
+  }): Promise<{
+    mode: LxnsMode;
+    view: ChunithmBestsView;
+    sourceId: string;
+    usedServerKey: boolean;
+  }> {
+    const source = this.registry.get(input.sourceId);
+    const { usedServerKey } = this.resolveKey(input.clientKey);
+    const mode = this.modeFor(input.clientKey, input.forceMock);
+
+    if (this.modeFor(input.clientKey, false) === 'mock' && input.forceMock) {
+      throw new LxnsError('bad-request', '中二节奏暂不提供模拟数据', {
+        friendly: '中二节奏还没有内置模拟数据，请用真实好友码查询。',
+      });
+    }
+
+    if (typeof source.getChunithmPlayer !== 'function' || typeof source.getChunithmBests !== 'function') {
+      throw new LxnsError('bad-request', `${source.label} 不支持中二节奏成绩查询`);
+    }
+
+    const library = await this.getChunithmLibrary(source.id, input.clientKey);
+    const player = await source.getChunithmPlayer({
+      friendCode: input.friendCode,
+      qq: input.qq,
+    });
+    const bests = await source.getChunithmBests(player.friend_code);
+    const view = buildChunithmBestsView({ player, bests, songs: library.songs });
+
+    return { mode, view, sourceId: source.id, usedServerKey };
+  }
+
+  /** 玩家信息，不做 B50 聚合。 */
+  async getPlayer(input: {    friendCode?: number | undefined;
     qq?: number | undefined;
     sourceId?: string | undefined;
     clientKey?: string | undefined;

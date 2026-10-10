@@ -6,8 +6,20 @@
  * 而不是散落在页面的事件处理里。
  */
 
-/** 好友码固定 15 位数字。 */
+/**
+ * 好友码长度。
+ *
+ * ⚠️ 这里从「固定 15 位」放宽成了区间，原因是**多游戏**：
+ * 舞萌好友码确定是 15 位（一直在用），但中二节奏的好友码长度
+ * 我没有实测过。如果写死 15 而中二不是，**整个查分功能会被客户端
+ * 自己挡在门外**，而且报错是「应为 15 位数字」，看不出真正原因。
+ *
+ * 放宽的代价只是「少了即时纠错」——真正的权威是服务端，
+ * 长度不对它会返回明确的错误信息。**宁可让服务端拒绝，也不要客户端误挡。**
+ */
 export const FRIEND_CODE_LENGTH = 15;
+export const FRIEND_CODE_MIN_LENGTH = 10;
+export const FRIEND_CODE_MAX_LENGTH = 20;
 /** QQ 号 5–11 位数字。 */
 export const QQ_MIN_LENGTH = 5;
 export const QQ_MAX_LENGTH = 11;
@@ -22,7 +34,12 @@ export function normalizeDigits(value) {
 
 /** 是否是可以提交的好友码。 */
 export function isFriendCode(value) {
-  return new RegExp(`^\\d{${FRIEND_CODE_LENGTH}}$`).test(value);
+  const text = String(value ?? '');
+  return (
+    /^\d+$/.test(text) &&
+    text.length >= FRIEND_CODE_MIN_LENGTH &&
+    text.length <= FRIEND_CODE_MAX_LENGTH
+  );
 }
 
 /** 是否是可以提交的 QQ 号。 */
@@ -32,7 +49,7 @@ export function isQq(value) {
 
 /** 该查询方式下的最大输入长度。 */
 export function maxLengthOf(kind) {
-  return kind === 'qq' ? QQ_MAX_LENGTH : FRIEND_CODE_LENGTH;
+  return kind === 'qq' ? QQ_MAX_LENGTH : FRIEND_CODE_MAX_LENGTH;
 }
 
 /** 该查询方式下，满足条件时的长度列表（用于键盘高亮「可以提交了」）。 */

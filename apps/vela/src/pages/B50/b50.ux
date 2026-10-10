@@ -59,7 +59,7 @@
       <list class="list" onscrollbottom="onScrollBottom">
         <list-item class="row" type="item" for="{{ entries }}">
           <text class="row__rank">{{ $idx + 1 }}</text>
-          <!-- [实验] 封面已临时移除 -->
+          <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
           <div class="row__main">
             <text class="row__title">{{ $item.title }}</text>
             <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
@@ -319,8 +319,10 @@
 <script>
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { api, diag, navigation, store, validate } = global.AstraMai;
-  const { fetchB50, fetchB50ByQq } = api;
+  const { api, core, diag, games, navigation, store, validate } = global.AstraMai;
+  const { fetchB50, fetchB50ByQq, fetchChunithmBests, fetchChunithmBestsByQq } = api;
+  const { chunithmDifficultyColor } = core;
+  const { gameById, readCurrentGame } = games;
   const { mark } = diag;
   const { goBack } = navigation;
   const { readSetting, warmUp, writeSetting } = store;
@@ -358,10 +360,12 @@
       hasResult: false,
       ratingText: '',
       tierText: '',
-      b35Text: '',
-      b15Text: '',
-      avgLevelText: '',
-      selfCheckText: '',
+      statLine1: '',
+      statLine2: '',
+      statLine3: '',
+      statLine4: '',
+      /** 当前游戏 id。决定请求哪个接口、以及统计行怎么写。 */
+      gameId: 'maimai',
       entries: [],
     },
 
@@ -377,8 +381,12 @@
     onInit() {
       mark('B50:onInit');
       console.debug('[AstraMai] B50 onInit');
-      warmUp(['queryKind', 'queryValue', 'friendCode'])
-        .then(() => this.restore())
+      warmUp(['queryKind', 'queryValue', 'friendCode', 'currentGame'])
+        .then(() => {
+          // 当前游戏决定查哪个接口、统计行怎么写
+          this.gameId = gameById(readCurrentGame(readSetting)).id;
+          return this.restore();
+        })
         .catch((error) => console.error('[AstraMai] B50 初始化失败：', error));
     },
 
@@ -466,8 +474,14 @@
       writeSetting('queryValue', code);
       if (this.kind === 'friendCode') writeSetting('friendCode', code);
 
-      const request = this.kind === 'qq' ? fetchB50ByQq(code) : fetchB50(code);
-
+      const request =
+        this.gameId === 'chunithm'
+          ? this.kind === 'qq'
+            ? fetchChunithmBestsByQq(code)
+            : fetchChunithmBests(code)
+          : this.kind === 'qq'
+            ? fetchB50ByQq(code)
+            : fetchB50(code);
       request
         .then((view) => {
           this.apply(view);
@@ -482,15 +496,24 @@
     },
 
     apply(view) {
+      if (this.gameId === 'chunithm') {
+        this.applyChunithm(view);
+        return;
+      }
+      this.applyMaimai(view);
+    },
+
+    /** 舞萌：B35 + B15 合成 B50。 */
+    applyMaimai(view) {
       const stats = view.stats;
       const player = view.player;
 
       this.ratingText = String(player.rating);
       this.tierText = player.tier ? player.tier.label : '';
-      this.b35Text = String(stats.standardTotal);
-      this.b15Text = String(stats.dxTotal);
-      this.avgLevelText = stats.averageLevelValue.toFixed(2);
-      this.selfCheckText = stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta;
+      this.statLine1 = '旧曲 B35　' + stats.standardTotal;
+      this.statLine2 = '新曲 B15　' + stats.dxTotal;
+      this.statLine3 = '平均定数　' + stats.averageLevelValue.toFixed(2);
+      this.statLine4 = '公式对拍　' + (stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta);
 
       // 官方《常用业务优化》：list 内容超过 10 条建议分页渲染，
       // 切勿初始化渲染大量数据，会造成页面渲染卡顿。
@@ -512,11 +535,55 @@
           versionTitle: entry.songVersionTitle || '未知',
         }));
 
+      this.finishApply();
+    },
+
+    /**
+     * 中二节奏：B30 + Selection10 + Recent10。
+     *
+     * **三组并列进同一个列表**，而不是像舞萌那样合成一个榜单：
+     * 它们的意义不同（Best / 选拔 / 最近），合成会让玩家看不出哪条是 Best。
+     * 排序按 Rating 降序，这样 Best 30 自然排在最前。
+     */
+    applyChunithm(view) {
+      const stats = view.stats;
+      const player = view.player;
+
+      this.ratingText = String(player.rating);
+      // 中二没有「段位」这种概念，玩家等级才是名片上的东西
+      this.tierText = player.level ? '等级 ' + player.level : '';
+      this.statLine1 = 'Best 30　' + stats.bestsCount;
+      this.statLine2 = 'Selection 10　' + stats.selectionsCount;
+      this.statLine3 = 'Recent 10　' + stats.recentsCount;
+      this.statLine4 = 'B30 Rating 合计　' + stats.bestsRatingSum;
+
+      allEntries = view.bests
+        .concat(view.selections)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .map((entry) => ({
+          title: entry.title,
+          difficulty: entry.difficultyShort,
+          // 中二是六档下标，WE 用金色单独标出（它是特殊谱面，不是第六档难度）
+          diffColor: chunithmDifficultyColor(entry.levelIndex),
+          levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
+          // 中二的 Rating 由接口直接给出（浮点），保留两位
+          rating: entry.rating ? entry.rating.toFixed(2) : '--',
+          // 中二看的是分数而不是达成率
+          achievements: String(entry.points),
+          jacketUrl: entry.jacketUrl || '',
+          // 中二视图没有逐条的版本名，显示难度全称更有用
+          versionTitle: entry.difficultyName + (entry.isWorldsEnd ? ' · 特殊谱面' : ''),
+        }));
+
+      this.finishApply();
+    },
+
+    /** 两个游戏共用的收尾：分页渲染 + 标记有结果。 */
+    finishApply() {
       // 原地清空再追加，避免整份重新赋值开辟新内存（官方《内存优化》第 2 条）
       this.entries.length = 0;
       shownCount = 0;
       this.appendPage();
-
       this.hasResult = true;
     },
 

@@ -11,6 +11,8 @@ import test from 'node:test';
 
 import {
   FRIEND_CODE_LENGTH,
+  FRIEND_CODE_MAX_LENGTH,
+  FRIEND_CODE_MIN_LENGTH,
   QQ_MAX_LENGTH,
   QQ_MIN_LENGTH,
   appendDigit,
@@ -33,12 +35,26 @@ test('normalizeDigits 只保留数字', () => {
   assert.equal(normalizeDigits('１２３'), ''); // 全角数字不认
 });
 
-test('好友码固定 15 位', () => {
+test('好友码长度是区间，不写死 15 位', () => {
+  // 舞萌好友码是 15 位，这个常量保留着给 UI 提示用；
+  // 但**校验本身是区间**——中二的好友码长度我没实测过，
+  // 写死 15 会把中二整个挡在门外。
   assert.equal(FRIEND_CODE_LENGTH, 15);
-  assert.equal(isFriendCode('1'.repeat(15)), true);
-  assert.equal(isFriendCode('1'.repeat(14)), false);
-  assert.equal(isFriendCode('1'.repeat(16)), false);
+  assert.equal(FRIEND_CODE_MIN_LENGTH, 10);
+  assert.equal(FRIEND_CODE_MAX_LENGTH, 20);
+
+  assert.equal(isFriendCode('1'.repeat(15)), true, '舞萌的 15 位必须通过');
+  assert.equal(isFriendCode('1'.repeat(FRIEND_CODE_MIN_LENGTH)), true);
+  assert.equal(isFriendCode('1'.repeat(FRIEND_CODE_MAX_LENGTH)), true);
+
+  // 区间外仍然拒绝——完全不管长度就等于把校验去掉了
+  assert.equal(isFriendCode('1'.repeat(FRIEND_CODE_MIN_LENGTH - 1)), false);
+  assert.equal(isFriendCode('1'.repeat(FRIEND_CODE_MAX_LENGTH + 1)), false);
+  // ⚠️ 这是放宽带来的**已知代价**：14 位（少输一位的舞萌码）现在会通过客户端校验，
+  // 要到服务端才被拒。换取的是「中二不会因为长度不同被客户端整个挡住」。
+  assert.equal(isFriendCode('1'.repeat(14)), true, '区间内的长度一律放行，由服务端做权威校验');
   assert.equal(isFriendCode(''), false);
+  assert.equal(isFriendCode('abc'), false);
 });
 
 test('QQ 号为 5–11 位', () => {
@@ -49,15 +65,16 @@ test('QQ 号为 5–11 位', () => {
 });
 
 test('长度上限随查询方式变化', () => {
-  assert.equal(maxLengthOf('friendCode'), 15);
+  assert.equal(maxLengthOf('friendCode'), FRIEND_CODE_MAX_LENGTH);
+  assert.equal(maxLengthOf('friendCode'), 20);
   assert.equal(maxLengthOf('qq'), 11);
 });
 
 test('appendDigit 超过上限时原样返回，不做静默截断', () => {
   let value = '';
-  for (let i = 0; i < 15; i += 1) value = appendDigit('friendCode', value, '1');
-  assert.equal(value.length, 15);
-  // 第 16 位应当被忽略，而不是把长度截回 15（那样用户会以为数字进去了）
+  for (let i = 0; i < FRIEND_CODE_MAX_LENGTH; i += 1) value = appendDigit('friendCode', value, '1');
+  assert.equal(value.length, FRIEND_CODE_MAX_LENGTH);
+  // 再输一位应当被忽略，而不是把长度截回去（那样用户会以为数字进去了）
   assert.equal(appendDigit('friendCode', value, '9'), value);
 
   // 「00」这类多字符输入也走同一条规则
@@ -78,14 +95,16 @@ test('backspace 删除最后一位，空串不报错', () => {
 
 test('describeInput 的四种状态', () => {
   assert.equal(describeInput('friendCode', '').state, 'idle');
+  // 放宽成区间后，10 位就算就绪——所以 '123'（3 位）仍是 partial
   assert.equal(describeInput('friendCode', '123').state, 'partial');
+  assert.equal(describeInput('friendCode', '1'.repeat(10)).state, 'ready');
   assert.equal(describeInput('friendCode', '1'.repeat(15)).state, 'ready');
   assert.equal(describeInput('friendCode', '1'.repeat(15)).text, '好友码已就绪，15 位');
 
-  // QQ 到 11 位仍未满足时可提交条件的边界：11 位是合法的，所以是 ready
+  // QQ 11 位合法
   assert.equal(describeInput('qq', '1'.repeat(11)).state, 'ready');
-  // 好友码填满 14 位还没到 15 位 → partial；填到 15 位仍不合法的情况不存在
-  assert.equal(describeInput('friendCode', '1'.repeat(14)).state, 'partial');
+  // 好友码 9 位（不足下界）→ partial
+  assert.equal(describeInput('friendCode', '1'.repeat(9)).state, 'partial');
 });
 
 test('describeInput 在填满但仍不合法时给出 invalid', () => {

@@ -1226,6 +1226,11 @@ function decodeHexParam(value) {
 }
 
 // packages/core/dist/chunithm/constants.js
+var CHUNITHM_NORMAL_DIFFICULTY_COUNT = 5;
+var CHUNITHM_WORLD_S_END_INDEX = 5;
+function isChunithmWorldsEnd(index) {
+  return index === CHUNITHM_WORLD_S_END_INDEX;
+}
 var CHUNITHM_DIFFICULTY_COUNT = 6;
 var CHUNITHM_DIFFICULTY_NAMES = [
   "BAS",
@@ -1234,6 +1239,14 @@ var CHUNITHM_DIFFICULTY_NAMES = [
   "MST",
   "ULT",
   "WE"
+];
+var CHUNITHM_DIFFICULTY_FULL_NAMES = [
+  "BASIC",
+  "ADVANCED",
+  "EXPERT",
+  "MASTER",
+  "ULTIMA",
+  "WORLD'S END"
 ];
 var CHUNITHM_DIFFICULTY_COLORS = [
   "#7ee081",
@@ -1254,9 +1267,16 @@ function chunithmDifficultyName(index) {
   var _a;
   return (_a = CHUNITHM_DIFFICULTY_NAMES[index]) != null ? _a : `#${index}`;
 }
+function chunithmDifficultyFullName(index) {
+  var _a;
+  return (_a = CHUNITHM_DIFFICULTY_FULL_NAMES[index]) != null ? _a : `\u672A\u77E5\u96BE\u5EA6 #${index}`;
+}
 function chunithmDifficultyColor(index) {
   var _a;
   return (_a = CHUNITHM_DIFFICULTY_COLORS[index]) != null ? _a : CHUNITHM_UNKNOWN_COLOR;
+}
+function isChunithmNormalDifficulty(index) {
+  return index >= 0 && index < CHUNITHM_NORMAL_DIFFICULTY_COUNT;
 }
 var CHUNITHM_CLEAR_LABELS = {
   clear: "CLEAR",
@@ -1290,6 +1310,104 @@ var CHUNITHM_RATING_IS_SERVER_SIDE = true;
 var CHUNITHM_ASSET_BASE = "https://assets2.lxns.net/chunithm";
 function chunithmJacketUrl(songId, size = 96) {
   return `${CHUNITHM_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}/format/jpg`;
+}
+
+// packages/core/dist/chunithm/bests.js
+function trimOrNull(value) {
+  if (value === null || value === void 0)
+    return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+function buildSongIndex2(songs) {
+  var _a;
+  const index = /* @__PURE__ */ new Map();
+  for (const song of (_a = songs == null ? void 0 : songs.songs) != null ? _a : [])
+    index.set(song.id, song);
+  return index;
+}
+function toChunithmScoreEntry(score, index) {
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+  const song = index.get(score.id);
+  const chart = (_a = song == null ? void 0 : song.difficulties) == null ? void 0 : _a.find((item) => item.difficulty === score.level_index);
+  const fullCombo = trimOrNull((_b = score.full_combo) != null ? _b : null);
+  const fullChain = trimOrNull((_c = score.full_chain) != null ? _c : null);
+  const rank = trimOrNull((_d = score.rank) != null ? _d : null);
+  return {
+    score,
+    songId: score.id,
+    title: (_f = (_e = song == null ? void 0 : song.title) != null ? _e : trimOrNull(score.song_name)) != null ? _f : `#${score.id}`,
+    artist: (_g = song == null ? void 0 : song.artist) != null ? _g : "",
+    genre: (_h = song == null ? void 0 : song.genre) != null ? _h : "",
+    jacketUrl: chunithmJacketUrl(score.id, 96),
+    levelIndex: score.level_index,
+    difficultyShort: chunithmDifficultyName(score.level_index),
+    difficultyName: chunithmDifficultyFullName(score.level_index),
+    // 曲库里有更准的标级，其次用成绩自带的
+    level: (_j = (_i = chart == null ? void 0 : chart.level) != null ? _i : trimOrNull(score.level)) != null ? _j : "",
+    levelValue: typeof (chart == null ? void 0 : chart.level_value) === "number" ? chart.level_value : null,
+    rating: typeof score.rating === "number" ? score.rating : 0,
+    points: score.score,
+    clearLabel: (_k = CHUNITHM_CLEAR_LABELS[score.clear]) != null ? _k : score.clear,
+    fullComboLabel: fullCombo ? (_l = CHUNITHM_FC_LABELS[fullCombo]) != null ? _l : fullCombo : null,
+    fullChainLabel: fullChain ? (_m = CHUNITHM_CHAIN_LABELS[fullChain]) != null ? _m : fullChain : null,
+    rankLabel: rank ? (_n = CHUNITHM_RANK_LABELS[rank]) != null ? _n : rank.toUpperCase() : null,
+    playTime: trimOrNull((_o = score.play_time) != null ? _o : null),
+    isWorldsEnd: isChunithmWorldsEnd(score.level_index)
+  };
+}
+function buildChunithmBestsView(input) {
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+  const index = buildSongIndex2(input.songs);
+  const bests = ((_a = input.bests.bests) != null ? _a : []).map((score) => toChunithmScoreEntry(score, index));
+  const selections = ((_b = input.bests.selections) != null ? _b : []).map((score) => toChunithmScoreEntry(score, index));
+  const recents = ((_c = input.bests.recents) != null ? _c : []).map((score) => toChunithmScoreEntry(score, index));
+  const all = [...bests, ...selections, ...recents];
+  const difficultiesPresent = [...new Set(all.map((entry) => entry.levelIndex))].sort((a, b) => a - b);
+  const worldsEndCount = all.filter((entry) => entry.isWorldsEnd).length;
+  const player = input.player;
+  return {
+    game: "chunithm",
+    player: {
+      name: (_d = player.name) != null ? _d : "",
+      // 上游的 level 是 string，原样带出去，别自作聪明转数字
+      level: String((_e = player.level) != null ? _e : ""),
+      rating: typeof player.rating === "number" ? player.rating : 0,
+      friendCode: typeof player.friend_code === "number" ? player.friend_code : null,
+      overPower: typeof player.over_power === "number" ? player.over_power : 0,
+      changeOverPower: typeof player.change_over_power === "number" ? player.change_over_power : 0,
+      iconUrl: trimOrNull(player.icon_url),
+      namePlateUrl: null,
+      trophyName: (_g = (_f = player.trophy) == null ? void 0 : _f.name) != null ? _g : null,
+      trophyColor: (_i = (_h = player.trophy) == null ? void 0 : _h.color) != null ? _i : null,
+      totalPlayCount: trimOrNull((_j = player.total_play_count) != null ? _j : null),
+      uploadTime: trimOrNull((_k = player.upload_time) != null ? _k : null)
+    },
+    bests,
+    selections,
+    recents,
+    stats: {
+      bestsCount: bests.length,
+      selectionsCount: selections.length,
+      recentsCount: recents.length,
+      bestsRatingSum: Number(bests.reduce((sum2, entry) => sum2 + entry.rating, 0).toFixed(2)),
+      difficultiesPresent,
+      worldsEndCount
+    },
+    // 只有曲库命中时才敢说定数是准的
+    libraryMatched: index.size > 0,
+    generatedAt: (_l = input.generatedAt) != null ? _l : (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+function normalDifficultiesPresent(view) {
+  return view.stats.difficultiesPresent.filter((item) => isChunithmNormalDifficulty(item));
+}
+function chunithmAliasMap(aliases) {
+  var _a;
+  const map = /* @__PURE__ */ new Map();
+  for (const item of aliases != null ? aliases : [])
+    map.set(item.song_id, (_a = item.aliases) != null ? _a : []);
+  return map;
 }
 
 // packages/core/dist/qr/tables.js
@@ -2434,11 +2552,14 @@ export {
   CHUNITHM_CLEAR_LABELS,
   CHUNITHM_DIFFICULTY_COLORS,
   CHUNITHM_DIFFICULTY_COUNT,
+  CHUNITHM_DIFFICULTY_FULL_NAMES,
   CHUNITHM_DIFFICULTY_NAMES,
   CHUNITHM_FC_LABELS,
+  CHUNITHM_NORMAL_DIFFICULTY_COUNT,
   CHUNITHM_RANK_LABELS,
   CHUNITHM_RATING_IS_SERVER_SIDE,
   CHUNITHM_UNKNOWN_COLOR,
+  CHUNITHM_WORLD_S_END_INDEX,
   DIFFICULTY_COLORS,
   DIFFICULTY_NAMES,
   DIFFICULTY_SHORT_NAMES,
@@ -2468,11 +2589,14 @@ export {
   alignmentPatternPositions,
   assetImageUrl,
   buildB50View,
+  buildChunithmBestsView,
   buildSongIndex,
   byteModeCharCountBits,
   bytesToHex,
   calculateDxRating,
+  chunithmAliasMap,
   chunithmDifficultyColor,
+  chunithmDifficultyFullName,
   chunithmDifficultyName,
   chunithmEndpoints,
   chunithmJacketUrl,
@@ -2503,6 +2627,8 @@ export {
   gfMultiply,
   hexToBytes,
   isAllPerfect,
+  isChunithmNormalDifficulty,
+  isChunithmWorldsEnd,
   jacketUrl,
   kindFromStatus,
   maimaiEndpoints,
@@ -2510,6 +2636,7 @@ export {
   maxRatingForLevel,
   minimumAchievementForRate,
   musicUrl,
+  normalDifficultiesPresent,
   normalizeAchievement,
   normalizeNotes,
   numDataCodewords,
@@ -2527,6 +2654,7 @@ export {
   rsGeneratorPolynomial,
   rsRemainder,
   serializeLxnsError,
+  toChunithmScoreEntry,
   truncate,
   unwrapEnvelope,
   utf8Decode,

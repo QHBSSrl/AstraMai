@@ -31,6 +31,7 @@ export * from './maimai/qr-payload.js';
 
 // ── 中二节奏领域逻辑 ────────────────────────────────────────────────────
 export * from './chunithm/constants.js';
+export * from './chunithm/bests.js';
 
 // ── 二维码（零依赖，Vela 端可直接复用）────────────────────────────────
 export * from './qr/index.js';

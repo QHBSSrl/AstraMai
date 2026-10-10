@@ -44,11 +44,19 @@ test('id 必须和服务端的路径前缀一致', () => {
   }
 });
 
-test('中二暂时不显示 Best 50（服务端还没接它的成绩接口）', () => {
+test('中二有查分入口（B30+Selection10+Recent10 已接）', () => {
   const chunithm = gameById('chunithm');
+  // 服务端 /api/v1/chunithm/bests 已上线，所以 b50 入口要开着。
+  // 这个入口名字沿用「b50」是因为它在 UI 上是同一块「看成绩」的地方，
+  // 但中二实际返回的是 B30 + Selection10 + Recent10，不是 B50。
+  assert.equal(gameHasFeature(chunithm, 'b50'), true);
   assert.equal(gameHasFeature(chunithm, 'search'), true);
-  // 显示一个点进去必然报错的入口，比不显示更糟
-  assert.equal(gameHasFeature(chunithm, 'b50'), false);
+});
+
+test('中二不显示二维码入口（机台二维码是舞萌的玩法）', () => {
+  // 舞萌的二维码是机台查分二维码，中二没有对应的东西。
+  // 显示了玩家点进去只会看到一个用不上的页面。
+  assert.equal(gameHasFeature(gameById('chunithm'), 'qr'), false);
 });
 
 test('舞萌保留全部入口', () => {

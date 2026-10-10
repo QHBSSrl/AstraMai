@@ -72,6 +72,22 @@ export function fetchB50ByQq(qq) {
 }
 
 /**
+ * 中二节奏成绩（B30 + Selection10 + Recent10）。
+ *
+ * ⚠️ 路径是 `bests` 而不是 `b50`：中二不是 B50 那个玩法，
+ * 视图结构也不同（bests/selections/recents 三组并列，而不是 B35+B15）。
+ * 复用舞萌的字段名会让调用方以为拿到的是同一种东西。
+ */
+export function fetchChunithmBests(friendCode) {
+  return getClient().request(`/api/v1/chunithm/bests?code=${friendCode}`);
+}
+
+/** 中二节奏成绩，按 QQ 号。 */
+export function fetchChunithmBestsByQq(qq) {
+  return getClient().request(`/api/v1/chunithm/bests?qq=${qq}`);
+}
+
+/**
  * 曲目搜索。
  *
  * 服务端在曲名、艺术家和落雪别名三个维度上做匹配，

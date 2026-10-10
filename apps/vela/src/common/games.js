@@ -30,8 +30,8 @@ export const GAMES = [
     id: 'chunithm',
     label: '中二节奏',
     short: '中二',
-    // 暂无 b50：服务端还没接中二成绩接口
-    features: ['search'],
+    // 查分已接（B30 + Selection10 + Recent10），见 /api/v1/chunithm/bests
+    features: ['b50', 'search'],
   },
 ];
 
