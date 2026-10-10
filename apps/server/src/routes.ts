@@ -17,6 +17,8 @@ import {
   versionTitleOf,
   normalizeNotes,
   musicUrl,
+  chunithmJacketUrl,
+  type ChunithmSong,
   type LxnsErrorKind,
   type MaimaiSong,
   type MaimaiSongDifficulty,
@@ -361,6 +363,100 @@ export function createRouter(
   router.get('/api/maimai/search', searchHandler);
   router.get('/api/v1/maimai/search', searchHandler);
 
+  // ── 中二节奏 ──────────────────────────────────────────────────────────
+  //
+  // 和舞萌共用同一个上游（落雪）、同一把密钥，所以这一整块基本是
+  // 照着上面的 maimai 版改路径与字段名。差异只在：
+  //   物量是 air/flick（舞萌是 touch/break）
+  //   难度有 6 档（舞萌 5 档）
+  //   没有 song_type（中二不分 standard/dx）
+
+  /** 压平一首中二曲目。字段名刻意和 compactSong 对齐，客户端可以共用渲染代码。 */
+  const compactChunithmSong = (song: ChunithmSong, withNotes: boolean) => ({
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    genre: song.genre,
+    bpm: song.bpm,
+    version: song.version,
+    jacketUrl: chunithmJacketUrl(song.id, 96),
+    jacketUrlLarge: chunithmJacketUrl(song.id, 192),
+    difficulties: song.difficulties.map((chart) => ({
+      difficulty: chart.difficulty,
+      level: chart.level,
+      level_value: chart.level_value,
+      note_designer: chart.note_designer,
+      version: chart.version,
+      // 物量字段是中二特有的 air/flick，不做成和舞萌同名——
+      // 硬凑成同名会让「这到底是不是同一个东西」变得说不清
+      ...(withNotes && chart.notes ? { notes: chart.notes } : {}),
+    })),
+  });
+
+  const chunithmSongsHandler = async (ctx: RequestContext): Promise<void> => {
+    try {
+      const withNotes = ctx.query.get('notes') === '1' || ctx.query.get('notes') === 'true';
+      const library = await service.getChunithmLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
+      ok(ctx.res, {
+        source: library.source,
+        fetchedAt: new Date(library.fetchedAt).toISOString(),
+        data: {
+          songs: library.songs.songs.map((song) => compactChunithmSong(song, withNotes)),
+          genres: library.songs.genres,
+          versions: library.songs.versions,
+          aliases: Object.fromEntries(
+            library.aliases.aliases.map((item) => [item.song_id, item.aliases]),
+          ),
+        },
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  };
+
+  router.get('/api/v1/chunithm/songs', chunithmSongsHandler);
+
+  /** 中二曲目搜索：匹配曲名 / 艺术家 / 别名。 */
+  const chunithmSearchHandler = async (ctx: RequestContext): Promise<void> => {
+    try {
+      const keyword = (ctx.query.get('q') ?? '').trim();
+      const limit = Math.min(Math.max(Number.parseInt(ctx.query.get('limit') ?? '30', 10) || 30, 1), 100);
+      if (!keyword) {
+        bad(ctx.res, 400, '缺少查询参数 q');
+        return;
+      }
+
+      const library = await service.getChunithmLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
+      const needle = keyword.toLowerCase();
+      const versionTitles = new Map(library.songs.versions.map((v) => [v.version, v.title]));
+
+      const results: Record<string, unknown>[] = [];
+      for (const song of library.songs.songs) {
+        const aliases =
+          library.aliases.aliases.find((item) => item.song_id === song.id)?.aliases ?? [];
+        let matchedBy: 'title' | 'artist' | 'alias' | null = null;
+        if (song.title.toLowerCase().includes(needle)) matchedBy = 'title';
+        else if (aliases.some((alias) => alias.toLowerCase().includes(needle))) matchedBy = 'alias';
+        else if (song.artist.toLowerCase().includes(needle)) matchedBy = 'artist';
+        if (!matchedBy) continue;
+
+        results.push({
+          ...compactChunithmSong(song, true),
+          versionTitle: versionTitles.get(song.version) ?? null,
+          aliases,
+          matchedBy,
+        });
+        if (results.length >= limit) break;
+      }
+
+      ok(ctx.res, { source: library.source, data: { keyword, count: results.length, results } });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  };
+
+  router.get('/api/v1/chunithm/search', chunithmSearchHandler);
+
   // ── 单曲成绩 ──────────────────────────────────────────────────────────
   router.get('/api/maimai/player/:friendCode/song/:songId', async (ctx) => {
     try {
@@ -406,6 +502,8 @@ export function createRouter(
           { method: 'GET', path: '/api/v1/maimai/player', description: '玩家信息，参数 code 或 qq' },
           { method: 'GET', path: '/api/v1/maimai/songs', description: '曲库，参数 notes=1 带谱面详情' },
           { method: 'GET', path: '/api/v1/maimai/search', description: '曲目搜索，参数 q 与 limit' },
+          { method: 'GET', path: '/api/v1/chunithm/songs', description: '中二节奏曲库，参数 notes=1 带物量' },
+          { method: 'GET', path: '/api/v1/chunithm/search', description: '中二节奏曲目搜索，参数 q 与 limit' },
         ],
         /** 所有接口都接受 ?source=<id> 指定数据源，不传则用 defaultSource。 */
         sourceParam: 'source',

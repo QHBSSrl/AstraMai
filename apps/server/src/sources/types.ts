@@ -14,7 +14,14 @@
  *      而不是让客户端拿到一个莫名其妙的错误。
  */
 
-import type { MaimaiAliasList, MaimaiBests, MaimaiPlayer, MaimaiSongList } from '@astramai/core';
+import type {
+  ChunithmAliasList,
+  ChunithmSongList,
+  MaimaiAliasList,
+  MaimaiBests,
+  MaimaiPlayer,
+  MaimaiSongList,
+} from '@astramai/core';
 
 /** 定位一个玩家。好友码与 QQ 号二选一。 */
 export interface PlayerQuery {
@@ -26,6 +33,12 @@ export interface PlayerQuery {
 export interface RawLibrary {
   songs: MaimaiSongList;
   aliases: MaimaiAliasList;
+}
+
+/** 中二节奏曲库原始数据。 */
+export interface RawChunithmLibrary {
+  songs: ChunithmSongList;
+  aliases: ChunithmAliasList;
 }
 
 /** 一个数据源对外的自述，用于 `/api/v1/sources` 和运行时的选择。 */
@@ -58,6 +71,16 @@ export interface DataSource {
 
   /** 取一次曲库。不要在这里做缓存。 */
   fetchLibrary(): Promise<RawLibrary>;
+
+  /**
+   * 取一次中二节奏曲库。
+   *
+   * 做成**可选方法**而不是接口必填项：目前只有落雪支持中二
+   * （实测确认落雪只覆盖舞萌与中二两个游戏），
+   * 强迫将来的每个源都实现一个它用不上的方法没有意义。
+   * 调用方用 `source.games.includes('chunithm')` 或方法存在性判断。
+   */
+  fetchChunithmLibrary?(): Promise<RawChunithmLibrary>;
 }
 
 /** 判断一个查询是否可用该源处理，并在不可用时给出人能看懂的原因。 */

@@ -13,6 +13,8 @@ import {
   createMockPlayer,
   createSyntheticSongList,
   type B50View,
+  type ChunithmAliasList,
+  type ChunithmSongList,
   type MaimaiAliasList,
   type MaimaiPlayer,
   type MaimaiSongList,
@@ -31,6 +33,19 @@ export interface SongLibrary {
   source: 'lxns' | 'synthetic';
 }
 
+/**
+ * 中二节奏曲库缓存。
+ *
+ * 和舞萌那份分开存：两个游戏的字段结构不同（物量是 air/flick、
+ * 难度有 6 档），共用一个缓存只会让两边都变复杂。
+ */
+export interface ChunithmLibrary {
+  songs: ChunithmSongList;
+  aliases: ChunithmAliasList;
+  fetchedAt: number;
+  source: 'lxns';
+}
+
 export interface B50Result {
   mode: LxnsMode;
   view: B50View;
@@ -42,6 +57,9 @@ export interface B50Result {
 export class GatewayService {
   private readonly libraryBySource = new Map<string, SongLibrary>();
   private readonly inflight = new Map<string, Promise<SongLibrary>>();
+  /** 中二曲库独立缓存，理由见 ChunithmLibrary 的注释。 */
+  private readonly chunithmBySource = new Map<string, ChunithmLibrary>();
+  private readonly chunithmInflight = new Map<string, Promise<ChunithmLibrary>>();
 
   constructor(
     private readonly config: ServerConfig,
@@ -129,6 +147,60 @@ export class GatewayService {
       ageMs: Date.now() - first.fetchedAt,
       songCount: first.songs.songs.length,
     };
+  }
+
+  /**
+   * 取中二节奏曲库，带 TTL 缓存与并发合并。
+   *
+   * ⚠️ **刻意不做合成数据兜底。**
+   *
+   * 舞萌那边有内置合成曲库可以退，是因为我们确实准备了一份。
+   * 中二这边没有——凭空编一份假的中二曲库只会产生
+   * 「看起来正常但全是假的」的结果，比直接报错危险得多。
+   * 所以这里失败就抛出去，宁可让客户端看到错误。
+   */
+  async getChunithmLibrary(
+    sourceId: string,
+    clientKey?: string | undefined,
+    force = false,
+  ): Promise<ChunithmLibrary> {
+    const now = Date.now();
+    const cached = this.chunithmBySource.get(sourceId);
+    if (!force && cached && now - cached.fetchedAt < this.config.songCacheTtlMs) return cached;
+
+    const running = this.chunithmInflight.get(sourceId);
+    if (running) return running;
+
+    const task = (async (): Promise<ChunithmLibrary> => {
+      try {
+        const source = this.registry.get(sourceId);
+        if (typeof source.fetchChunithmLibrary !== 'function') {
+          throw new LxnsError('bad-request', `${source.label} 不支持中二节奏`);
+        }
+        const raw = await source.fetchChunithmLibrary();
+        const library: ChunithmLibrary = {
+          songs: raw.songs,
+          aliases: raw.aliases,
+          fetchedAt: Date.now(),
+          source: 'lxns',
+        };
+        this.chunithmBySource.set(sourceId, library);
+        return library;
+      } catch (error) {
+        // 过期缓存也比失败好——这一点和舞萌那边一致
+        const stale = this.chunithmBySource.get(sourceId);
+        if (stale) {
+          console.warn('[AstraMai] 中二曲库拉取失败，沿用旧缓存：', describe(error));
+          return stale;
+        }
+        throw error;
+      } finally {
+        this.chunithmInflight.delete(sourceId);
+      }
+    })();
+
+    this.chunithmInflight.set(sourceId, task);
+    return task;
   }
 
   /** 主流程：取玩家 + Best 50，组装成可直接渲染的视图模型。 */

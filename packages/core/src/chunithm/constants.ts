@@ -112,3 +112,25 @@ export const CHUNITHM_RANK_LABELS: Record<string, string> = {
  * 这里只留个说明，免得后来人以为漏了什么。
  */
 export const CHUNITHM_RATING_IS_SERVER_SIDE = true;
+
+/** 中二节奏资源根。和舞萌是**不同的命名空间**（maimai 那边放 /maimai/）。 */
+export const CHUNITHM_ASSET_BASE = 'https://assets2.lxns.net/chunithm';
+
+/**
+ * 中二节奏曲绘 URL。
+ *
+ * ⚠️ 和舞萌一样必须带裁剪参数，理由完全相同：原图是 300×300、
+ * 30–115 KB，而列表里只显示几十像素。官方《启动时延优化》要求
+ * 「大图尺寸不要超过屏幕尺寸，且不超过 200 KB」。
+ *
+ * 实测（2026-10）：
+ *   原图             300×300   30.3 KB (id=3)
+ *   ?imageView2/1/w/96/format/jpg   3.2 KB
+ *
+ * 格式同样只能用 **PNG 或 JPG**——Vela 的 image 组件不支持 webp。
+ *
+ * @param size 目标宽度（px）。
+ */
+export function chunithmJacketUrl(songId: number, size = 96): string {
+  return `${CHUNITHM_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}/format/jpg`;
+}

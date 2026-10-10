@@ -183,6 +183,30 @@ var maimaiEndpoints = {
   /** 玩家收藏品进度。 */
   playerCollection: (friendCode, type, id) => `/maimai/player/${friendCode}/${type}/${id}`
 };
+var chunithmEndpoints = {
+  player: (friendCode) => `/chunithm/player/${friendCode}`,
+  playerByQq: (qq) => `/chunithm/player/qq/${qq}`,
+  /** Best 30 + Selection 10 + Recent 10。 */
+  bests: (friendCode) => `/chunithm/player/${friendCode}/bests`,
+  /** 单曲最佳成绩。 */
+  best: (friendCode, query) => (
+    // 显式挑字段而不是把接口对象直接传给 withQuery：
+    // TS 的 interface 没有索引签名，不可赋值给 Record<string, ...>。
+    withQuery(`/chunithm/player/${friendCode}/best`, {
+      song_id: query.song_id,
+      song_name: query.song_name,
+      level_index: query.level_index
+    })
+  ),
+  /** 单曲全部难度成绩。 */
+  songScores: (friendCode, query) => withQuery(`/chunithm/player/${friendCode}/bests`, query),
+  /** Recent 10，按 play_time 排序。 */
+  recents: (friendCode) => `/chunithm/player/${friendCode}/recents`,
+  /** 曲目列表（公共接口，无需鉴权）。**没有 version 参数**。 */
+  songList: (query = {}) => withQuery("/chunithm/song/list", { notes: query.notes }),
+  /** 曲目别名列表（公共接口）。 */
+  aliasList: () => "/chunithm/alias/list"
+};
 
 // packages/core/dist/lxns/errors.js
 var LxnsError = class extends Error {
@@ -415,6 +439,47 @@ var LxnsClient = class {
   /** 曲目别名列表（公共接口）。 */
   getAliasList() {
     return this.request(maimaiEndpoints.aliasList());
+  }
+  // ── 中二节奏 ──────────────────────────────────────────────────────────
+  //
+  // 和舞萌走同一个服务、同一把密钥，只是路径前缀不同，
+  // 所以全部复用上面的 `request()`——没有任何新的网络逻辑。
+  /** 玩家信息。 */
+  getChunithmPlayer(friendCode) {
+    return this.request(chunithmEndpoints.player(friendCode));
+  }
+  /** 按 QQ 号取玩家信息。 */
+  getChunithmPlayerByQq(qq) {
+    return this.request(chunithmEndpoints.playerByQq(qq));
+  }
+  /**
+   * Best 30 + Selection 10 + Recent 10。
+   *
+   * ⚠️ 舞萌那边是 `bests` 返回 B35+B15，中二是一次给三组。
+   * 字段形状一样，但**语义不同**，别直接套用舞萌的组装逻辑。
+   */
+  getChunithmBests(friendCode) {
+    return this.request(chunithmEndpoints.bests(friendCode));
+  }
+  /** Recent 10，按 play_time 排序。 */
+  getChunithmRecents(friendCode) {
+    return this.request(chunithmEndpoints.recents(friendCode));
+  }
+  /** 单曲最佳成绩。 */
+  getChunithmBest(friendCode, query) {
+    return this.request(chunithmEndpoints.best(friendCode, query));
+  }
+  /** 单曲全部难度成绩。 */
+  getChunithmSongScores(friendCode, query) {
+    return this.request(chunithmEndpoints.songScores(friendCode, query));
+  }
+  /** 曲目列表（公共接口，无需鉴权）。 */
+  getChunithmSongList(query = {}) {
+    return this.request(chunithmEndpoints.songList(query));
+  }
+  /** 曲目别名列表（公共接口）。 */
+  getChunithmAliasList() {
+    return this.request(chunithmEndpoints.aliasList());
   }
 };
 function isAbortError(error) {
@@ -1158,6 +1223,73 @@ function decodeHexParam(value) {
   if (!value || value.length % 2 !== 0)
     return null;
   return decodeHexUtf8(value);
+}
+
+// packages/core/dist/chunithm/constants.js
+var CHUNITHM_DIFFICULTY_COUNT = 6;
+var CHUNITHM_DIFFICULTY_NAMES = [
+  "BAS",
+  "ADV",
+  "EXP",
+  "MST",
+  "ULT",
+  "WE"
+];
+var CHUNITHM_DIFFICULTY_COLORS = [
+  "#7ee081",
+  // BASIC      绿
+  "#f5a623",
+  // ADVANCED   黄（偏橙，贴近游戏内）
+  "#f2564b",
+  // EXPERT     红
+  "#b06fe8",
+  // MASTER     紫
+  "#f2f2f2",
+  // ULTIMA     近白（官方黑，深色底上反显）
+  "#ffcf4d"
+  // WORLD'S END 金（特殊谱面，单色代表）
+];
+var CHUNITHM_UNKNOWN_COLOR = "#9bacd0";
+function chunithmDifficultyName(index) {
+  var _a;
+  return (_a = CHUNITHM_DIFFICULTY_NAMES[index]) != null ? _a : `#${index}`;
+}
+function chunithmDifficultyColor(index) {
+  var _a;
+  return (_a = CHUNITHM_DIFFICULTY_COLORS[index]) != null ? _a : CHUNITHM_UNKNOWN_COLOR;
+}
+var CHUNITHM_CLEAR_LABELS = {
+  clear: "CLEAR",
+  failed: "FAILED"
+};
+var CHUNITHM_FC_LABELS = {
+  alljustice: "AJ",
+  fullcombo: "FC"
+};
+var CHUNITHM_CHAIN_LABELS = {
+  fullchain: "\u94C2\u94FE",
+  fullchain2: "\u91D1\u94FE"
+};
+var CHUNITHM_RANK_LABELS = {
+  sssp: "SSS+",
+  sss: "SSS",
+  ssp: "SS+",
+  ss: "SS",
+  sp: "S+",
+  s: "S",
+  aaa: "AAA",
+  aa: "AA",
+  a: "A",
+  bbb: "BBB",
+  bb: "BB",
+  b: "B",
+  c: "C",
+  d: "D"
+};
+var CHUNITHM_RATING_IS_SERVER_SIDE = true;
+var CHUNITHM_ASSET_BASE = "https://assets2.lxns.net/chunithm";
+function chunithmJacketUrl(songId, size = 96) {
+  return `${CHUNITHM_ASSET_BASE}/jacket/${songId}.png?imageView2/1/w/${size}/format/jpg`;
 }
 
 // packages/core/dist/qr/tables.js
@@ -2297,6 +2429,16 @@ function createSyntheticSongList(count = 60) {
 export {
   ACHIEVEMENT_CAP,
   ACHIEVEMENT_MAX,
+  CHUNITHM_ASSET_BASE,
+  CHUNITHM_CHAIN_LABELS,
+  CHUNITHM_CLEAR_LABELS,
+  CHUNITHM_DIFFICULTY_COLORS,
+  CHUNITHM_DIFFICULTY_COUNT,
+  CHUNITHM_DIFFICULTY_NAMES,
+  CHUNITHM_FC_LABELS,
+  CHUNITHM_RANK_LABELS,
+  CHUNITHM_RATING_IS_SERVER_SIDE,
+  CHUNITHM_UNKNOWN_COLOR,
   DIFFICULTY_COLORS,
   DIFFICULTY_NAMES,
   DIFFICULTY_SHORT_NAMES,
@@ -2330,6 +2472,10 @@ export {
   byteModeCharCountBits,
   bytesToHex,
   calculateDxRating,
+  chunithmDifficultyColor,
+  chunithmDifficultyName,
+  chunithmEndpoints,
+  chunithmJacketUrl,
   createMockBests,
   createMockPlayer,
   createSyntheticSongList,

@@ -6,9 +6,21 @@
  * **客户端不需要任何改动**。
  */
 
-import { LxnsClient, type MaimaiAliasList, type MaimaiBests, type MaimaiPlayer } from '@astramai/core';
+import {
+  LxnsClient,
+  type ChunithmAliasList,
+  type MaimaiAliasList,
+  type MaimaiBests,
+  type MaimaiPlayer,
+} from '@astramai/core';
 
-import type { DataSource, PlayerQuery, RawLibrary, SourceDescriptor } from './types.js';
+import type {
+  DataSource,
+  PlayerQuery,
+  RawChunithmLibrary,
+  RawLibrary,
+  SourceDescriptor,
+} from './types.js';
 import type { UpstreamLimiter } from './upstream-limiter.js';
 
 /** 一次 B50 要打两次上游：取玩家、取 Best 50。都无法缓存（每个玩家不同）。 */
@@ -30,7 +42,11 @@ export interface LxnsSourceOptions {
 export class LxnsSource implements DataSource {
   readonly id = 'lxns';
   readonly label = '落雪查分器';
-  readonly games = ['maimai'] as const;
+  /**
+   * 落雪同时覆盖舞萌与中二节奏，**用的是同一把密钥、同一套路径前缀规则**。
+   * 这也是「接中二 ≈ 加一个 Source」的依据。
+   */
+  readonly games = ['maimai', 'chunithm'] as const;
 
   constructor(private readonly options: LxnsSourceOptions) {}
 
@@ -74,6 +90,22 @@ export class LxnsSource implements DataSource {
     const [songs, aliases] = await Promise.all([
       client.getSongList({ notes: true }),
       client.getAliasList().catch(() => ({ aliases: [] }) as MaimaiAliasList),
+    ]);
+    return { songs, aliases };
+  }
+
+  /**
+   * 中二节奏曲库。
+   *
+   * 和舞萌走同一个客户端、同一次限额预算——因为确实是同一个上游。
+   * 别名接口失败时降级成空列表：曲库本身能用，不该因为别名挂掉就整个失败。
+   */
+  async fetchChunithmLibrary(): Promise<RawChunithmLibrary> {
+    this.options.limiter.spend(COST_PER_LIBRARY, this.label);
+    const client = this.client();
+    const [songs, aliases] = await Promise.all([
+      client.getChunithmSongList({ notes: true }),
+      client.getChunithmAliasList().catch(() => ({ aliases: [] }) as ChunithmAliasList),
     ]);
     return { songs, aliases };
   }
