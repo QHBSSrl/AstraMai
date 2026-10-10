@@ -1,0 +1,338 @@
+<template>
+  <div class="sync-page">
+    <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
+    <text class="lead">{{ leadText }}</text>
+
+    <!-- 配对码：整页的主角，给到最大字号 -->
+    <div class="code-box" if="{{ token }}">
+      <text class="code">{{ tokenText }}</text>
+    </div>
+    <text class="countdown" if="{{ token }}">{{ countdownText }}</text>
+
+    <text class="status" style="color: {{ statusColor }}">{{ statusText }}</text>
+
+    <div class="actions">
+      <div class="action" if="{{ !success }}" @click="restart">
+        <text class="action__text">重新获取</text>
+      </div>
+      <div class="action action--ghost" @click="onBack">
+        <text class="action__text">{{ success ? '完成' : '返回' }}</text>
+      </div>
+    </div>
+
+    <text class="hint" if="{{ hint }}">{{ hint }}</text>
+  </div>
+</template>
+
+<style>
+  .sync-page {
+    flex-direction: column;
+    align-items: center;
+    padding: 14px;
+    background-color: #070b16;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: #1c2740;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: #e8eefc;
+  }
+
+  .lead {
+    font-size: 17px;
+    color: #9bacd0;
+    text-align: center;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .code-box {
+    margin-top: 18px;
+    padding: 14px 26px;
+    border-radius: 16px;
+    background-color: #16203a;
+  }
+
+  /* 配对码要一眼看清，字号给足、字距拉开 */
+  .code {
+    font-size: 46px;
+    color: #ffffff;
+    letter-spacing: 6px;
+  }
+
+  .countdown {
+    font-size: 16px;
+    color: #6d7fa3;
+    margin-top: 10px;
+  }
+
+  .status {
+    font-size: 19px;
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 22px;
+  }
+
+  .action {
+    height: 60px;
+    padding: 0 28px;
+    margin: 0 5px;
+    border-radius: 30px;
+    background-color: #ff5f9e;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action--ghost {
+    background-color: #1c2740;
+  }
+
+  .action__text {
+    font-size: 22px;
+    color: #1a0710;
+  }
+
+  .action--ghost .action__text {
+    color: #e8eefc;
+  }
+
+  .hint {
+    font-size: 15px;
+    color: #6d7fa3;
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+</style>
+
+<script>
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { api, diag, navigation, secret, store, syncPayload } = global.AstraMai;
+  const { consumePairing, pollPairing, startPairing } = api;
+  const { mark } = diag;
+  const { goBack } = navigation;
+  const { deviceSecretHash, getDeviceSecret, isCryptoAvailable } = secret;
+  const { readSetting, warmUp, writeSetting } = store;
+  const { describePayload, parseSyncPayload, storageWritesFor } = syncPayload;
+
+  /** 轮询间隔。太密费电，太疏玩家等得急。 */
+  const POLL_MS = 2000;
+
+  export default {
+    private: {
+      leadText: '正在获取配对码…',
+      token: '',
+      tokenText: '',
+      countdownText: '',
+      statusText: '',
+      statusColor: '#9bacd0',
+      hint: '',
+      success: false,
+    },
+
+    onReady() {
+      mark('Sync:onReady');
+    },
+
+    onInit() {
+      mark('Sync:onInit');
+      console.debug('[AstraMai] Sync onInit');
+
+      // 设备密钥要落盘，先把存储模块热起来
+      warmUp(['deviceSecret', 'queryKind', 'queryValue', 'friendCode', 'qrInput'])
+        .then(() => this.begin())
+        .catch((error) => {
+          console.error('[AstraMai] Sync 初始化失败：', error);
+          this.leadText = '初始化失败';
+          this.statusText = '存储不可用，无法配对';
+          this.statusColor = '#f2564b';
+        });
+    },
+
+    /** 离开页面就停轮询，否则会在后台一直发请求耗电。 */
+    onHide() {
+      this.stopPolling();
+    },
+
+    onDestroy() {
+      this.stopPolling();
+    },
+
+    begin() {
+      if (!isCryptoAvailable()) {
+        this.leadText = '这台设备不支持配对';
+        this.statusText = '缺少加密能力（@system.crypto），无法生成设备密钥';
+        this.statusColor = '#f2564b';
+        this.hint = '配对依赖设备密钥来保证别人猜中配对码也读不走你的数据。';
+        return;
+      }
+
+      this.deviceSecret = getDeviceSecret(readSetting, writeSetting);
+      const hash = deviceSecretHash(this.deviceSecret);
+      if (!hash) {
+        this.leadText = '无法生成设备密钥';
+        this.statusText = '摘要算法不可用，请重试';
+        this.statusColor = '#f2564b';
+        return;
+      }
+
+      startPairing(hash)
+        .then((data) => {
+          this.token = data.token;
+          this.expiresAt = data.expiresAt || Date.now() + 10 * 60 * 1000;
+          // 数字之间留空，手表小屏上更好认
+          this.tokenText = String(data.token).split('').join(' ');
+          this.leadText = '在网页「同步到手表」里填入这串数字';
+          this.statusText = '等待网页提交…';
+          this.statusColor = '#9bacd0';
+          this.updateCountdown();
+          this.startPolling();
+        })
+        .catch((error) => {
+          console.error('[AstraMai] 获取配对码失败：', error);
+          this.leadText = '获取配对码失败';
+          this.statusText = error && error.message ? error.message : '请检查网络后重试';
+          this.statusColor = '#f2564b';
+        });
+    },
+
+    startPolling() {
+      this.stopPolling();
+      this.timer = setInterval(() => this.tick(), POLL_MS);
+    },
+
+    stopPolling() {
+      if (this.timer) {
+        clearInterval(this.timer);
+        this.timer = null;
+      }
+    },
+
+    /** 每秒更新倒计时 + 每轮查一次服务端。 */
+    tick() {
+      this.updateCountdown();
+
+      if (this.success) {
+        this.stopPolling();
+        return;
+      }
+      if (!this.token) return;
+      if (Date.now() > this.expiresAt) {
+        this.stopPolling();
+        this.statusText = '配对码已过期，请重新获取';
+        this.statusColor = '#f2a33c';
+        return;
+      }
+
+      pollPairing(this.token, this.deviceSecret)
+        .then((data) => {
+          if (data.status === 'ready' && data.payload) this.receive(data.payload);
+          else if (data.status === 'expired') {
+            this.stopPolling();
+            this.statusText = '配对码已失效，请重新获取';
+            this.statusColor = '#f2a33c';
+          }
+        })
+        .catch((error) => {
+          // 单次网络抖动不该打断整个流程，下一轮继续
+          console.warn('[AstraMai] 轮询失败（将重试）：', error);
+        });
+    },
+
+    /** 收到数据：存下来 → 让服务端立刻删除 → 停止轮询。 */
+    receive(raw) {
+      const payload = parseSyncPayload(raw);
+      if (!payload) {
+        this.statusText = '收到的数据是空的';
+        this.statusColor = '#f2564b';
+        return;
+      }
+
+      // 映射逻辑单独抽在 common/sync-payload.js 里并做了测试——
+      // 键名写错的表现是「同步成功但查分还是空的」，在手表上极难排查
+      const writes = storageWritesFor(payload);
+      try {
+        for (const item of writes) writeSetting(item.key, item.value);
+      } catch (error) {
+        console.error('[AstraMai] 保存同步数据失败：', error);
+        this.statusText = '数据已收到但保存失败';
+        this.statusColor = '#f2564b';
+        return;
+      }
+
+      this.success = true;
+      this.stopPolling();
+      this.leadText = '已同步';
+      this.statusText = `已保存${describePayload(payload)}`;
+      this.statusColor = '#58d68d';
+      this.countdownText = '';
+      this.hint =
+        payload.kind === 'qr'
+          ? '回到首页即可用这个二维码查分。'
+          : '回到首页或 B50 页即可用它查分。';
+
+      // 玩家的明确诉求：取走之后要求服务端立刻删除
+      consumePairing(this.token, this.deviceSecret)
+        .then((removed) => {
+          if (!removed) console.warn('[AstraMai] 服务端未确认删除，数据最多 10 分钟后自动过期');
+        })
+        .catch((error) => {
+          console.warn('[AstraMai] 请求删除失败（不影响本地数据）：', error);
+        });
+    },
+
+    updateCountdown() {
+      if (!this.expiresAt) return;
+      const left = Math.max(0, Math.round((this.expiresAt - Date.now()) / 1000));
+      const minutes = Math.floor(left / 60);
+      const seconds = left % 60;
+      this.countdownText = left > 0
+        ? `${minutes} 分 ${String(seconds).padStart(2, '0')} 秒后过期`
+        : '已过期';
+    },
+
+    /** 换一个配对码重新开始。 */
+    restart() {
+      this.stopPolling();
+      this.token = '';
+      this.tokenText = '';
+      this.countdownText = '';
+      this.statusText = '';
+      this.hint = '';
+      this.success = false;
+      this.expiresAt = 0;
+      this.leadText = '正在获取配对码…';
+      this.begin();
+    },
+
+    onBack() {
+      this.stopPolling();
+      goBack('/');
+    },
+  };
+</script>

@@ -16,7 +16,7 @@
 /**
  * @param {object} velaFetch  `@system.fetch` 模块
  * @param {{ timeoutMs?: number }} [options]
- * @returns {(url: string, init?: { method?: string, headers?: Record<string,string> }) => Promise<{ ok: boolean, status: number, text: () => Promise<string> }>}
+ * @returns {(url: string, init?: { method?: string, headers?: Record<string,string>, body?: string }) => Promise<{ ok: boolean, status: number, text: () => Promise<string> }>}
  */
 export function createVelaFetch(velaFetch, options = {}) {
   const timeoutMs = options.timeoutMs ?? 15000
@@ -48,6 +48,9 @@ export function createVelaFetch(velaFetch, options = {}) {
           url,
           method: (init && init.method) || 'GET',
           header: (init && init.headers) || {},
+          // 请求体：只支持字符串（JSON 由调用方自己序列化好）。
+          // Vela 的 fetch 用 `data` 传 body，和 Web 的 fetch 叫法不同。
+          ...(init && typeof init.body === 'string' && init.body ? { data: init.body } : {}),
           // 不传 responseType：让 Vela 按 Content-Type 决定，
           // 我们在下面统一转成字符串交给 core 自己解析。
           success(response) {

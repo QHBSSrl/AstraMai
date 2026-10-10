@@ -225,7 +225,7 @@
 <script>
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { api, diag, navigation, store } = global.AstraMai;
+  const { api, navigation, store } = global.AstraMai;
   const { searchSongs } = api;
 
   /**

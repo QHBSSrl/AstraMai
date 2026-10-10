@@ -93,3 +93,72 @@ export function resetClient() {
   cachedBase = null;
   cachedToken = null;
 }
+
+// ── 设备配对 ────────────────────────────────────────────────────────────
+//
+// 走裸 fetch 而不是 LxnsClient：这几个接口的响应形状和落雪信封不同
+// （格式类错误是顶层 { ok:false, message }），用 core 的解析反而绕。
+
+let rawFetch = null;
+
+function getRawFetch() {
+  if (rawFetch) return rawFetch;
+  const systemFetch = getFetchModule();
+  if (!systemFetch) {
+    throw new Error('当前设备不提供 @system.fetch，无法发起网络请求');
+  }
+  rawFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 });
+  return rawFetch;
+}
+
+async function pairJson(path, init) {
+  const response = await getRawFetch()(`${getServerBase()}${path}`, {
+    method: (init && init.method) || 'GET',
+    headers: { 'Content-Type': 'application/json', ...((init && init.headers) || {}) },
+    ...(init && init.body ? { body: JSON.stringify(init.body) } : {}),
+  });
+
+  const text = await response.text();
+  let parsed = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch (error) {
+    throw new Error(`服务端返回了无法解析的内容（HTTP ${response.status}）`);
+  }
+  if (!parsed) throw new Error(`服务端返回了空内容（HTTP ${response.status}）`);
+  return parsed;
+}
+
+/**
+ * 发起配对，拿一个 8 位配对码。
+ * 只上送设备密钥的**哈希**——原文永远不出设备。
+ */
+export async function startPairing(deviceSecretHash) {
+  const payload = await pairJson('/api/pair/start', {
+    method: 'POST',
+    body: { deviceSecretHash },
+  });
+  const data = payload && payload.data ? payload.data : {};
+  if (!data.token) {
+    throw new Error((payload && payload.message) || '服务端没有返回配对码');
+  }
+  return data;
+}
+
+/** 轮询有没有数据。**必须带设备密钥原文**，否则服务端不会给。 */
+export async function pollPairing(token, deviceSecret) {
+  const payload = await pairJson(`/api/pair/poll?token=${encodeURIComponent(token)}`, {
+    headers: { 'X-Device-Secret': deviceSecret },
+  });
+  return (payload && payload.data) || { status: 'expired' };
+}
+
+/** 取走后要求服务端立刻删除暂存数据。 */
+export async function consumePairing(token, deviceSecret) {
+  const payload = await pairJson('/api/pair/consume', {
+    method: 'POST',
+    headers: { 'X-Device-Secret': deviceSecret },
+    body: { token, deviceSecret },
+  });
+  return Boolean(payload && payload.data && payload.data.removed);
+}

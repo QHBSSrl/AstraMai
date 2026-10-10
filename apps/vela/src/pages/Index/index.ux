@@ -9,6 +9,12 @@
         <text class="entry__sub">{{ targetSummary }}</text>
       </div>
 
+      <!-- 放在搜索上面：手表上打字很难受，能同步就少打一次字 -->
+      <div class="entry entry--accent" @click="go('sync')">
+        <text class="entry__title">同步到手表</text>
+        <text class="entry__sub">在网页上填好友码 / QQ 号，不用在手表上打字</text>
+      </div>
+
       <div class="entry" @click="go('search')">
         <text class="entry__title">曲目搜索</text>
         <text class="entry__sub">日文曲名 · 中文别名 · 罗马音</text>
@@ -58,6 +64,21 @@
     background-color: #141d30;
   }
 
+  /* 同步入口是「少打一次字」的主要路径，给它一点视觉权重 */
+  .entry--accent {
+    background-color: #1d2942;
+    border-left: 4px solid #ff5f9e;
+  }
+
+  /* 条目变多了，收紧一点间距免得超出一屏 */
+  .menu {
+    margin-top: 16px;
+  }
+
+  .entry__sub {
+    font-size: 16px;
+  }
+
   .entry__title {
     font-size: 28px;
     color: #e8eefc;
@@ -103,6 +124,7 @@
   }
 
   const ROUTES = {
+    sync: '/sync',
     b50: '/b50',
     search: '/search',
     qr: '/qr',

@@ -29,6 +29,9 @@
     },
     {
       "name": "system.audio"
+    },
+    {
+      "name": "system.crypto"
     }
   ],
   "config": {
@@ -60,6 +63,10 @@
       "pages/Song": {
         "component": "song",
         "path": "/song"
+      },
+      "pages/Sync": {
+        "component": "sync",
+        "path": "/sync"
       }
     }
   },
