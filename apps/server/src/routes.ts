@@ -31,6 +31,7 @@ import type { Guard } from './guard.js';
 import type { GatewayService } from './gateway.js';
 import type { DiagStore } from './diag.js';
 import { POLL_INTERVAL_MS, type PairingService } from './pairing.js';
+import type { PhigrosService } from './phigros.js';
 
 const STATUS_BY_KIND: Record<LxnsErrorKind, number> = {
   'bad-request': 400,
@@ -151,6 +152,7 @@ export function createRouter(
   guard: Guard,
   diag: DiagStore,
   pairing: PairingService,
+  phigros: PhigrosService,
 ): Router {
   const router = new Router();
 
@@ -456,6 +458,85 @@ export function createRouter(
   };
 
   router.get('/api/v1/chunithm/search', chunithmSearchHandler);
+
+  // ── Phigros ───────────────────────────────────────────────────────────
+  //
+  // 和落雪那套的根本区别：Phigros 的玩家标识是**一次 TapTap 扫码换来的
+  // sessionToken**，没有「按好友码查任何人」的公开入口。
+  // 所以这里没有 code/qq 参数，凭证走 `X-Phigros-Session` 请求头。
+  //
+  // ⚠️ 凭证**刻意不放在 URL 里**：URL 会进访问日志，
+  // 而平台的使用条款明确要求不要把 token 写进日志、埋点或错误上报。
+
+  function readPhigrosSession(ctx: RequestContext): string {
+    const value = ctx.req.headers['x-phigros-session'];
+    const single = Array.isArray(value) ? value[0] : value;
+    return typeof single === 'string' ? single.trim() : '';
+  }
+
+  /** 生成 TapTap 登录二维码。只回 qrId 与 verificationUrl，**不回 SVG 图**。 */
+  router.add('POST', '/api/v1/phigros/qr', async (ctx) => {
+    try {
+      const version = (ctx.query.get('version') ?? 'cn').toLowerCase() === 'global' ? 'global' : 'cn';
+      const qr = await phigros.createQr(version);
+      ok(ctx.res, { data: qr });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  /** 轮询扫码状态。登录成功后返回 sessionToken（客户端要存好）。 */
+  router.get('/api/v1/phigros/qr/:qrId', async (ctx) => {
+    try {
+      const qrId = (ctx.params.qrId ?? '').trim();
+      if (!qrId) {
+        bad(ctx.res, 400, '缺少 qrId');
+        return;
+      }
+      const result = await phigros.pollQr(qrId);
+      ok(ctx.res, { data: result });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  /** Phigros 成绩（RKS + B30）。凭证走请求头。 */
+  router.get('/api/v1/phigros/bests', async (ctx) => {
+    const startedAt = Date.now();
+    try {
+      const session = readPhigrosSession(ctx);
+      if (!session) {
+        bad(ctx.res, 401, '缺少 X-Phigros-Session（请在手表上用 TapTap 扫码登录）');
+        return;
+      }
+      const view = await phigros.getView(session);
+      ok(ctx.res, {
+        mode: 'live',
+        source: 'phigros',
+        elapsedMs: Date.now() - startedAt,
+        data: view,
+      });
+    } catch (error) {
+      // 错误里绝不能带上 session 本身
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  /** Phigros 曲目搜索。平台唯一的曲库入口，没有全量列表。 */
+  router.get('/api/v1/phigros/search', async (ctx) => {
+    try {
+      const keyword = (ctx.query.get('q') ?? '').trim();
+      if (!keyword) {
+        bad(ctx.res, 400, '缺少查询参数 q');
+        return;
+      }
+      const limit = Math.min(Math.max(Number.parseInt(ctx.query.get('limit') ?? '20', 10) || 20, 1), 50);
+      const data = await phigros.searchSongs(keyword, limit);
+      ok(ctx.res, { source: 'phigros', data });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
 
   /**
    * 中二节奏成绩。

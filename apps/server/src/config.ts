@@ -69,6 +69,13 @@ export interface ServerConfig {
   modeConfig: LxnsModeConfig;
   /** 服务端持有的开发者密钥。 */
   apiKey: string | undefined;
+  /**
+   * Phigros 开放平台密钥（`X-OpenApi-Token`）。
+   *
+   * 和落雪密钥并列而不是复用：**这是两个不同的平台**，
+   * 密钥不通用，配置也应该能分别开关。
+   */
+  phigrosApiKey: string | undefined;
   /** 是否允许浏览器临时递交密钥。 */
   allowClientKey: boolean;
   /**
@@ -201,6 +208,7 @@ export function readConfig(): ServerConfig {
     port: Number.parseInt(process.env.PORT ?? '8787', 10) || 8787,
     modeConfig,
     apiKey: process.env.LXNS_API_KEY?.trim() || undefined,
+  phigrosApiKey: process.env.PHIGROS_API_KEY?.trim() || undefined,
     allowClientKey: (process.env.ALLOW_CLIENT_KEY ?? 'true').trim().toLowerCase() !== 'false',
     apiTokens: parseTokenList(process.env.API_TOKENS, process.env.API_TOKEN),
     authMode: (process.env.AUTH_MODE ?? '').trim().toLowerCase() === 'open' ? 'open' : 'key',

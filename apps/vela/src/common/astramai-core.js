@@ -1410,6 +1410,224 @@ function chunithmAliasMap(aliases) {
   return map;
 }
 
+// packages/core/dist/phigros/client.js
+var PHIGROS_API_BASE = "https://r0semi.xtower.site/api/v1/open";
+function errorFromBody(body, status, path) {
+  var _a, _b;
+  const detail = body && typeof body === "object" && "detail" in body ? String((_a = body.detail) != null ? _a : "") : "";
+  const code = body && typeof body === "object" && "code" in body ? String((_b = body.code) != null ? _b : "") : "";
+  if (status === 401) {
+    return new LxnsError("unauthorized", detail || "\u5F00\u653E\u5E73\u53F0\u5BC6\u94A5\u65E0\u6548\u6216\u7F3A\u5931", { status, endpoint: path });
+  }
+  if (status === 403) {
+    return new LxnsError("forbidden", detail || `\u7F3A\u5C11 scope\uFF1A${code}`, { status, endpoint: path });
+  }
+  if (status === 404) {
+    return new LxnsError("not-found", detail || "\u8D44\u6E90\u4E0D\u5B58\u5728", { status, endpoint: path });
+  }
+  if (status === 422) {
+    return new LxnsError("bad-request", detail || "\u53C2\u6570\u6821\u9A8C\u5931\u8D25", { status, endpoint: path });
+  }
+  if (status === 429) {
+    return new LxnsError("rate-limited", detail || "\u5F00\u653E\u5E73\u53F0\u9650\u901F", { status, endpoint: path });
+  }
+  if (status >= 500) {
+    return new LxnsError("server", detail || `\u5F00\u653E\u5E73\u53F0\u8FD4\u56DE ${status}`, { status, endpoint: path });
+  }
+  return new LxnsError("bad-request", detail || `\u8BF7\u6C42\u5931\u8D25\uFF08HTTP ${status}\uFF09`, { status, endpoint: path });
+}
+var PhigrosClient = class {
+  constructor(options = {}) {
+    __publicField(this, "apiKey");
+    __publicField(this, "baseUrl");
+    __publicField(this, "fetchImpl");
+    __publicField(this, "timeoutMs");
+    var _a, _b, _c;
+    this.apiKey = options.apiKey;
+    this.baseUrl = ((_a = options.baseUrl) != null ? _a : PHIGROS_API_BASE).replace(/\/$/, "");
+    this.timeoutMs = (_b = options.timeoutMs) != null ? _b : 15e3;
+    const impl = (_c = options.fetchImpl) != null ? _c : globalThis.fetch;
+    if (typeof impl !== "function") {
+      throw new TypeError("PhigrosClient \u9700\u8981\u4E00\u4E2A fetch \u5B9E\u73B0");
+    }
+    this.fetchImpl = impl;
+  }
+  get hasApiKey() {
+    return this.apiKey !== void 0 && this.apiKey.length > 0;
+  }
+  /** 发一次请求并解包。失败一律抛 LxnsError。 */
+  async request(path, init = {}) {
+    var _a, _b;
+    const headers = { accept: "application/json" };
+    if (this.apiKey)
+      headers["X-OpenApi-Token"] = this.apiKey;
+    if (init.body !== void 0)
+      headers["Content-Type"] = "application/json";
+    Object.assign(headers, (_a = init.extraHeaders) != null ? _a : {});
+    let response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}${path}`, __spreadValues({
+        method: (_b = init.method) != null ? _b : "GET",
+        headers
+      }, init.body !== void 0 ? { body: JSON.stringify(init.body) } : {}));
+    } catch (error) {
+      if (error instanceof LxnsError)
+        throw error;
+      throw new LxnsError("network", `\u7F51\u7EDC\u8BF7\u6C42\u5931\u8D25\uFF1A${path}`, { endpoint: path, cause: error });
+    }
+    const text = await response.text();
+    let parsed = null;
+    try {
+      parsed = text.length > 0 ? JSON.parse(text) : null;
+    } catch (error) {
+      throw new LxnsError("malformed", `\u54CD\u5E94\u4E0D\u662F\u5408\u6CD5 JSON\uFF1A${path}`, {
+        status: response.status,
+        detail: text.slice(0, 200),
+        endpoint: path,
+        cause: error
+      });
+    }
+    if (!response.ok)
+      throw errorFromBody(parsed, response.status, path);
+    return parsed;
+  }
+  // ── TapTap 扫码登录 ────────────────────────────────────────────────
+  /**
+   * 生成 TapTap 登录二维码。
+   *
+   * ⚠️ 这一步**不需要玩家做什么**，是给玩家扫的。
+   * 手表上没有摄像头，所以扫码只能在网页端做。
+   */
+  createQrCode(taptapVersion = "cn") {
+    return this.request(`/auth/qrcode?taptapVersion=${taptapVersion}`, {
+      method: "POST"
+    });
+  }
+  /**
+   * 轮询扫码状态。
+   *
+   * 打开后用返回的 `retryAfter` 决定下次隔多久再问——
+   * **别用固定间隔猛轮询**，这是别人托管的服务。
+   */
+  pollQrStatus(qrId) {
+    return this.request(`/auth/qrcode/${encodeURIComponent(qrId)}/status`);
+  }
+  // ── 成绩 ───────────────────────────────────────────────────────────
+  /**
+   * 取玩家存档并解析成结构化成绩。
+   *
+   * @param sessionToken 玩家在 TapTap 扫码后拿到的凭证
+   */
+  getSave(sessionToken, taptapVersion = "cn") {
+    return this.request("/save?calculate_rks=true", {
+      method: "POST",
+      body: { sessionToken, taptapVersion }
+    });
+  }
+  // ── 曲库 ───────────────────────────────────────────────────────────
+  /** 曲目搜索。**这是这个平台唯一的曲库入口**，没有全量列表。 */
+  searchSongs(query, limit = 20) {
+    const params = `q=${encodeURIComponent(query)}&limit=${limit}`;
+    return this.request(`/songs/search?${params}`);
+  }
+};
+
+// packages/core/dist/phigros/bests.js
+var PHIGROS_DIFFICULTIES = ["EZ", "HD", "IN", "AT"];
+var PHIGROS_DIFFICULTY_COLORS = {
+  EZ: "#4fd6ff",
+  // 蓝
+  HD: "#7ee081",
+  // 绿
+  IN: "#f2564b",
+  // 红
+  AT: "#c9a227"
+  // 暗金（特殊谱面）
+};
+var PHIGROS_UNKNOWN_COLOR = "#9bacd0";
+function phigrosDifficultyColor(difficulty) {
+  var _a;
+  return (_a = PHIGROS_DIFFICULTY_COLORS[difficulty]) != null ? _a : PHIGROS_UNKNOWN_COLOR;
+}
+var PHIGROS_PUSH_LABELS = {
+  already_phi: "\u5DF2\u6EE1\u5206",
+  phi_only: "\u53EA\u80FD\u51B2\u6EE1\u5206",
+  target_acc: "\u76EE\u6807\u7CBE\u5EA6",
+  unreachable: "\u6682\u96BE\u63D0\u5347"
+};
+function titleFromSongId(songId) {
+  if (!songId)
+    return "";
+  const dot = songId.indexOf(".");
+  return dot > 0 ? songId.slice(0, dot) : songId;
+}
+function findRecord(gameRecord, songId, difficulty) {
+  var _a;
+  const list = gameRecord[songId];
+  if (!list)
+    return null;
+  return (_a = list.find((item) => item.difficulty === difficulty)) != null ? _a : null;
+}
+function toEntry(songId, difficulty, record, rks, inBest30) {
+  var _a, _b;
+  return {
+    songId,
+    title: titleFromSongId(songId),
+    difficulty,
+    rks,
+    score: record ? record.score : null,
+    accuracy: record ? record.accuracy : null,
+    isFullCombo: record ? Boolean(record.is_full_combo) : false,
+    chartConstant: record ? record.chart_constant : null,
+    color: phigrosDifficultyColor(difficulty),
+    pushHint: record ? (_b = PHIGROS_PUSH_LABELS[(_a = record.push_acc_hint) == null ? void 0 : _a.type]) != null ? _b : null : null,
+    pushTargetAcc: record && record.push_acc_hint && typeof record.push_acc_hint.acc === "number" ? record.push_acc_hint.acc : null,
+    inBest30
+  };
+}
+function buildPhigrosView(response, options = {}) {
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
+  const gameRecord = (_b = (_a = response.save) == null ? void 0 : _a.game_record) != null ? _b : {};
+  const b30 = (_d = (_c = response.rks) == null ? void 0 : _c.b30Charts) != null ? _d : [];
+  const limit = (_e = options.limit) != null ? _e : 30;
+  const best30 = b30.slice().sort((a, b) => {
+    var _a2, _b2;
+    return ((_a2 = b.rks) != null ? _a2 : 0) - ((_b2 = a.rks) != null ? _b2 : 0);
+  }).slice(0, limit).map((chart) => toEntry(chart.songId, chart.difficulty, findRecord(gameRecord, chart.songId, chart.difficulty), typeof chart.rks === "number" ? chart.rks : null, true));
+  let recordCount = 0;
+  let fullComboCount = 0;
+  let phiCount = 0;
+  const difficultiesPresent = /* @__PURE__ */ new Set();
+  for (const songId of Object.keys(gameRecord)) {
+    for (const record of (_f = gameRecord[songId]) != null ? _f : []) {
+      recordCount += 1;
+      difficultiesPresent.add(record.difficulty);
+      if (record.is_full_combo)
+        fullComboCount += 1;
+      if (record.score >= 1e6)
+        phiCount += 1;
+    }
+  }
+  const summary = (_g = response.save) == null ? void 0 : _g.summaryParsed;
+  return {
+    game: "phigros",
+    nickname: (_h = response.nickname) != null ? _h : "",
+    rks: typeof ((_i = response.rks) == null ? void 0 : _i.totalRks) === "number" ? response.rks.totalRks : 0,
+    best30,
+    stats: {
+      rks: typeof ((_j = response.rks) == null ? void 0 : _j.totalRks) === "number" ? response.rks.totalRks : 0,
+      best30Count: best30.length,
+      recordCount,
+      difficultiesPresent: [...difficultiesPresent].sort(),
+      fullComboCount,
+      phiCount
+    },
+    saveUpdatedAt: (_l = (_k = response.save) == null ? void 0 : _k.updatedAt) != null ? _l : null,
+    challengeModeRank: summary && typeof summary.challenge_mode_rank === "number" ? summary.challenge_mode_rank : null,
+    generatedAt: (_m = options.generatedAt) != null ? _m : (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+
 // packages/core/dist/qr/tables.js
 var EC_LEVELS = ["L", "M", "Q", "H"];
 var EC_LEVEL_FORMAT_BITS = {
@@ -2578,6 +2796,12 @@ export {
   MIN_VERSION,
   MODE_BYTE,
   NUM_EC_BLOCKS,
+  PHIGROS_API_BASE,
+  PHIGROS_DIFFICULTIES,
+  PHIGROS_DIFFICULTY_COLORS,
+  PHIGROS_PUSH_LABELS,
+  PHIGROS_UNKNOWN_COLOR,
+  PhigrosClient,
   RATE_COLORS,
   RATE_LABELS,
   RATE_THRESHOLDS,
@@ -2590,6 +2814,7 @@ export {
   assetImageUrl,
   buildB50View,
   buildChunithmBestsView,
+  buildPhigrosView,
   buildSongIndex,
   byteModeCharCountBits,
   bytesToHex,
@@ -2641,6 +2866,7 @@ export {
   normalizeNotes,
   numDataCodewords,
   parseWahlapQrPayload,
+  phigrosDifficultyColor,
   projectRating,
   qrSizeOfVersion,
   qrToBlockArt,
@@ -2654,6 +2880,7 @@ export {
   rsGeneratorPolynomial,
   rsRemainder,
   serializeLxnsError,
+  titleFromSongId,
   toChunithmScoreEntry,
   truncate,
   unwrapEnvelope,

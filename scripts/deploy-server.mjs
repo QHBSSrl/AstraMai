@@ -31,6 +31,15 @@ const PORT = process.env.DEPLOY_PORT ?? '52778';
 const USER = process.env.DEPLOY_USER ?? 'root';
 const KEY = process.env.DEPLOY_KEY ?? resolve(process.env.USERPROFILE ?? process.env.HOME, '.ssh/astramai_ed25519');
 const DIR = process.env.DEPLOY_DIR ?? '/www/wwwroot/astramai';
+
+/**
+ * Phigros 开放平台密钥。
+ *
+ * ⚠️ 这里的默认值是**测试 key**（`pgr_test_...`），正式上线要换生产 key。
+ * 换的时候不用改代码：设置环境变量 `PHIGROS_API_KEY` 即可覆盖，
+ * 而且脚本**只在远端 .env 里没有这个键时才写入**，已有值不会被覆盖。
+ */
+const PHIGROS_KEY = process.env.PHIGROS_API_KEY ?? 'pgr_test_rZ_TxS9QyvqkjrrpOEJKy1gEf2ZBKQU4';
 const TARGET = `${USER}@${HOST}`;
 
 const root = resolve(import.meta.dirname, '..');
@@ -164,6 +173,20 @@ else
   echo "    !! 远端没有 .env，需要手工创建后再启动"
   exit 1
 fi
+
+# 新加的配置项要补进去 —— 老 .env 里没有这些键，不补的话新功能会显示「未配置」。
+# 只在键不存在时追加，**绝不覆盖已有的值**（和上面保留 .env 是同一个原则）。
+ensure_env() {
+  key="$1"; value="$2"
+  [ -z "$value" ] && return 0
+  if grep -q "^\${key}=" "$DIR/.env"; then
+    echo "    \${key} 已存在，保留"
+  else
+    printf '%s=%s\\n' "$key" "$value" >> "$DIR/.env"
+    echo "    \${key} 已补写"
+  fi
+}
+ensure_env PHIGROS_API_KEY "${PHIGROS_KEY}"
 
 tar -xzf /tmp/astramai-runtime.tar.gz -C "$DIR"
 chmod 600 "$DIR/.env"

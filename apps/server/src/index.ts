@@ -14,6 +14,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { assertDeploymentSafety, readConfig } from './config.js';
 import { DiagStore } from './diag.js';
 import { PairingService } from './pairing.js';
+import { PhigrosService } from './phigros.js';
 import { GatewayService } from './gateway.js';
 import { createGuard } from './guard.js';
 import { sendJson, serveStatic } from './http.js';
@@ -47,8 +48,10 @@ const service = new GatewayService(config, registry);
 const diag = new DiagStore(config.repoRoot);
 // 配对：网页填数据 → 服务端内存暂存 → 手表凭 token 取走
 const pairing = new PairingService();
+// Phigros：玩家凭证来自 TapTap 扫码，不是一把全局密钥
+const phigros = new PhigrosService(config);
 const guard = createGuard(config);
-const router = createRouter(service, config, guard, diag, pairing);
+const router = createRouter(service, config, guard, diag, pairing, phigros);
 const hasWebDist = existsSync(config.webDist);
 
 /** 仅对本地来源放开 CORS；其他来源不下发 CORS 头，浏览器会自行拦截。 */
