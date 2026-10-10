@@ -13,6 +13,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 
 import { assertDeploymentSafety, readConfig } from './config.js';
 import { DiagStore } from './diag.js';
+import { PairingService } from './pairing.js';
 import { GatewayService } from './gateway.js';
 import { createGuard } from './guard.js';
 import { sendJson, serveStatic } from './http.js';
@@ -44,8 +45,10 @@ registry.register(
 const service = new GatewayService(config, registry);
 // 端上报诊断：真机拿不到日志，只能让 App 自己打回来
 const diag = new DiagStore(config.repoRoot);
+// 配对：网页填数据 → 服务端内存暂存 → 手表凭 token 取走
+const pairing = new PairingService();
 const guard = createGuard(config);
-const router = createRouter(service, config, guard, diag);
+const router = createRouter(service, config, guard, diag, pairing);
 const hasWebDist = existsSync(config.webDist);
 
 /** 仅对本地来源放开 CORS；其他来源不下发 CORS 头，浏览器会自行拦截。 */

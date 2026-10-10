@@ -43,7 +43,7 @@ export interface Guard {
  * 健康检查永远放行。
  * 手表要用它判断「地址填对没有」，此时还没法保证令牌已经配好。
  */
-const OPEN_PATHS = new Set(['/api/health', '/api/diag']);
+const OPEN_PATHS = new Set(['/api/health', '/api/diag', '/api/pair']);
 
 export function createGuard(config: ServerConfig): Guard {
   const windows = new Map<string, { count: number; resetAt: number }>();

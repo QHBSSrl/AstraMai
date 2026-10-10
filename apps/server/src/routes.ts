@@ -21,13 +21,14 @@ import {
   type MaimaiSong,
   type MaimaiSongDifficulty,
 } from '@astramai/core';
-import type { ServerResponse } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { resolveMode, type ServerConfig } from './config.js';
 import { Router, readBody, sendJson, sendText, type RequestContext } from './http.js';
 import type { Guard } from './guard.js';
 import type { GatewayService } from './gateway.js';
 import type { DiagStore } from './diag.js';
+import { POLL_INTERVAL_MS, type PairingService } from './pairing.js';
 
 const STATUS_BY_KIND: Record<LxnsErrorKind, number> = {
   'bad-request': 400,
@@ -72,6 +73,11 @@ function ok(res: ServerResponse, payload: Record<string, unknown>): void {
   sendJson(res, 200, { ok: true, success: true, ...payload });
 }
 
+/** 带状态码的失败响应。`ok()` 写死了 200，错误码必须走这里。 */
+function bad(res: ServerResponse, status: number, message: string): void {
+  sendJson(res, status, { ok: false, success: false, message });
+}
+
 function fail(res: ServerResponse, error: unknown, endpoint: string): void {
   const serialized = serializeLxnsError(error, endpoint);
   const status = STATUS_BY_KIND[serialized.kind] ?? 502;
@@ -84,8 +90,30 @@ function fail(res: ServerResponse, error: unknown, endpoint: string): void {
   });
 }
 
-function parseId(value: string | undefined, label: string): number {
-  const digits = (value ?? '').trim();
+/** 读并解析 JSON 请求体；解析失败返回空对象而不是抛错。 */
+async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  try {
+    const raw = await readBody(req);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * 从请求头取设备密钥原文。
+ *
+ * 刻意用请求头而不是 URL 参数：URL 会进访问日志，密钥不该留在日志里。
+ */
+function readDeviceSecret(req: IncomingMessage): string {
+  const value = req.headers['x-device-secret'];
+  const single = Array.isArray(value) ? value[0] : value;
+  return typeof single === 'string' ? single.trim() : '';
+}
+
+function parseId(value: string | undefined, label: string): number {  const digits = (value ?? '').trim();
   if (!/^\d{1,20}$/.test(digits)) {
     throw new LxnsError('bad-request', `${label} 必须是纯数字，收到：${digits || '(空)'}`);
   }
@@ -120,6 +148,7 @@ export function createRouter(
   config: ServerConfig,
   guard: Guard,
   diag: DiagStore,
+  pairing: PairingService,
 ): Router {
   const router = new Router();
 
@@ -481,6 +510,116 @@ export function createRouter(
   router.add('POST', '/api/diag/clear', (ctx) => {
     const cleared = diag.clear();
     ok(ctx.res, { data: { cleared } });
+  });
+
+  // ── 设备配对 ──────────────────────────────────────────────────────────
+  //
+  // 手表上没有好用的输入法，让玩家在手表上敲好友码/QQ 号很难受。
+  // 改成：手表显示一个 8 位 token，玩家在网页上填数据，手表凭 token 去取。
+  //
+  // 完整的威胁模型和「为什么做不到端到端加密」写在 pairing.ts 的注释里。
+
+  /** 手表发起配对，拿到 token。只上报设备密钥的哈希，原文不出设备。 */
+  router.add('POST', '/api/pair/start', async (ctx) => {
+    const body = await readJsonBody(ctx.req);
+    const deviceSecretHash = String(body.deviceSecretHash ?? '').trim();
+
+    if (!/^[0-9a-f]{64}$/.test(deviceSecretHash)) {
+      bad(ctx.res, 400, 'deviceSecretHash 必须是 64 位十六进制（SHA256）');
+      return;
+    }
+
+    const session = pairing.start(deviceSecretHash);
+    ok(ctx.res, {
+      data: {
+        token: session.token,
+        expiresAt: session.expiresAt,
+        pollIntervalMs: POLL_INTERVAL_MS,
+        ttlMs: session.expiresAt - session.createdAt,
+      },
+    });
+  });
+
+  /** 网页把玩家数据提交上来。 */
+  router.add('POST', '/api/pair/submit', async (ctx) => {
+    const body = await readJsonBody(ctx.req);
+    const token = String(body.token ?? '').trim();
+    const payload = String(body.payload ?? '');
+    const pin = body.pin === undefined || body.pin === null ? undefined : String(body.pin);
+
+    if (!/^\d{8}$/.test(token)) {
+      bad(ctx.res, 400, 'token 必须是 8 位数字');
+      return;
+    }
+    if (!payload) {
+      bad(ctx.res, 400, 'payload 不能为空');
+      return;
+    }
+    // 载荷在客户端就已经压成一行短文本，超过这个长度必然是异常调用
+    if (payload.length > 4096) {
+      bad(ctx.res, 413, 'payload 过长');
+      return;
+    }
+
+    const result = pairing.submit(token, payload, pin);
+    // 失败原因要做成对玩家可读的（网页要直接提示）
+    const MESSAGES: Record<string, string> = {
+      'not-found': 'token 不存在，请确认手表上显示的数字',
+      expired: 'token 已过期，请在手表上重新获取',
+      'pin-required': '该设备已开启传输密码，请输入密码',
+      'pin-wrong': '传输密码不正确',
+      'too-many-failures': '失败次数过多，该 token 已作废',
+    };
+
+    ok(ctx.res, {
+      data: result.ok
+        ? { ok: true, pinSet: result.pinSet }
+        : { ok: false, error: result.error, message: MESSAGES[result.error] ?? '提交失败' },
+    });
+  });
+
+  /** 手表轮询。**必须带设备密钥原文**——只凭 token 读不走数据。 */
+  router.get('/api/pair/poll', (ctx) => {
+    const token = (ctx.query.get('token') ?? '').trim();
+    const deviceSecret = readDeviceSecret(ctx.req);
+    if (!deviceSecret) {
+      bad(ctx.res, 400, '缺少设备密钥');
+      return;
+    }
+    if (!/^\d{8}$/.test(token)) {
+      bad(ctx.res, 400, 'token 格式不对');
+      return;
+    }
+
+    const result = pairing.poll(token, deviceSecret);
+    ok(ctx.res, { data: result });
+  });
+
+  /** 手表取走数据后要求服务端立刻删除——这是玩家的明确诉求。 */
+  router.add('POST', '/api/pair/consume', async (ctx) => {
+    const body = await readJsonBody(ctx.req);
+    const token = String(body.token ?? '').trim();
+    const deviceSecret = readDeviceSecret(ctx.req) || String(body.deviceSecret ?? '');
+
+    const removed = Boolean(deviceSecret) && /^\d{8}$/.test(token) && pairing.consume(token, deviceSecret);
+    ok(ctx.res, { data: { removed } });
+  });
+
+  /** 查这个 token 对应的设备有没有开 2FA，网页用来决定要不要显示密码框。 */
+  router.get('/api/pair/state', (ctx) => {
+    const token = (ctx.query.get('token') ?? '').trim();
+    if (!/^\d{8}$/.test(token)) {
+      bad(ctx.res, 400, 'token 格式不对');
+      return;
+    }
+    const session = pairing.get(token);
+    ok(ctx.res, {
+      data: {
+        exists: Boolean(session),
+        hasPin: session ? pairing.hasPin(token) : false,
+        expiresAt: session ? session.expiresAt : null,
+      },
+    });
   });
 
   // ── 兜底 ──────────────────────────────────────────────────────────────
