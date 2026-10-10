@@ -38,6 +38,7 @@ export * from './chunithm/bests.js';
 // 所以单独一层，不塞进 lxns/ 里。
 export * from './phigros/types.js';
 export * from './phigros/client.js';
+export * from './phigros/bests.js';
 
 // ── 二维码（零依赖，Vela 端可直接复用）────────────────────────────────
 export * from './qr/index.js';
