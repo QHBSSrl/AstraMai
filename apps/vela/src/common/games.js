@@ -27,6 +27,14 @@ export const GAMES = [
     features: ['b50', 'search', 'qr'],
   },
   {
+    id: 'phigros',
+    label: 'Phigros',
+    short: 'phi',
+    // 和落雪那两个不同：Phigros 的玩家标识来自 TapTap 扫码，
+    // **必须先登录**才能查分，所以入口归到 b50/search，但页面会先检查有没有凭证
+    features: ['b50', 'search'],
+  },
+  {
     id: 'chunithm',
     label: '中二节奏',
     short: '中二',

@@ -127,6 +127,13 @@ export function resetClient() {
 // 走裸 fetch 而不是 LxnsClient：这几个接口的响应形状和落雪信封不同
 // （格式类错误是顶层 { ok:false, message }），用 core 的解析反而绕。
 
+/**
+ * 通用 JSON 请求封装（配对与 Phigros 共用）。
+ *
+ * 刻意走裸 fetch 而不是 LxnsClient：这些接口的响应形状和落雪信封不同
+ * （格式类错误是顶层 { ok:false, message }，Phigros 则是 RFC 7807），
+ * 用 core 的解析反而绕。
+ */
 let rawFetch = null;
 
 function getRawFetch() {
@@ -139,7 +146,7 @@ function getRawFetch() {
   return rawFetch;
 }
 
-async function pairJson(path, init) {
+async function jsonRequest(path, init) {
   const response = await getRawFetch()(`${getServerBase()}${path}`, {
     method: (init && init.method) || 'GET',
     headers: { 'Content-Type': 'application/json', ...((init && init.headers) || {}) },
@@ -162,7 +169,7 @@ async function pairJson(path, init) {
  * 只上送设备密钥的**哈希**——原文永远不出设备。
  */
 export async function startPairing(deviceSecretHash) {
-  const payload = await pairJson('/api/pair/start', {
+  const payload = await jsonRequest('/api/pair/start', {
     method: 'POST',
     body: { deviceSecretHash },
   });
@@ -175,7 +182,7 @@ export async function startPairing(deviceSecretHash) {
 
 /** 轮询有没有数据。**必须带设备密钥原文**，否则服务端不会给。 */
 export async function pollPairing(token, deviceSecret) {
-  const payload = await pairJson(`/api/pair/poll?token=${encodeURIComponent(token)}`, {
+  const payload = await jsonRequest(`/api/pair/poll?token=${encodeURIComponent(token)}`, {
     headers: { 'X-Device-Secret': deviceSecret },
   });
   return (payload && payload.data) || { status: 'expired' };
@@ -183,10 +190,53 @@ export async function pollPairing(token, deviceSecret) {
 
 /** 取走后要求服务端立刻删除暂存数据。 */
 export async function consumePairing(token, deviceSecret) {
-  const payload = await pairJson('/api/pair/consume', {
+  const payload = await jsonRequest('/api/pair/consume', {
     method: 'POST',
     headers: { 'X-Device-Secret': deviceSecret },
     body: { token, deviceSecret },
   });
   return Boolean(payload && payload.data && payload.data.removed);
+}
+
+
+// ── Phigros ─────────────────────────────────────────────────────────────
+//
+// 和落雪的模型不同：玩家标识是一次 **TapTap 扫码**换来的 sessionToken，
+// 没有「按好友码查任何人」的入口。所以扫码这一步只能在这里做，查分时带着凭证。
+
+/**
+ * 生成 TapTap 登录二维码。
+ *
+ * 服务端只回 `verificationUrl`（**不回 SVG 图片**，手表渲染不了 SVG），
+ * 直接喂给 Vela 原生的 <qrcode value="..."> 即可。
+ */
+export async function createPhigrosQr(version = 'cn') {
+  const payload = await jsonRequest(`/api/v1/phigros/qr?version=${version}`, { method: 'POST' });
+  return (payload && payload.data) || {};
+}
+
+/** 轮询扫码状态。登录成功后返回的 sessionToken 就是要存下来的凭证。 */
+export async function pollPhigrosQr(qrId) {
+  const payload = await jsonRequest(`/api/v1/phigros/qr/${encodeURIComponent(qrId)}`);
+  return (payload && payload.data) || { status: 'Unknown' };
+}
+
+/**
+ * 查 Phigros 成绩。
+ *
+ * 凭证走请求头而不是 URL —— URL 会进访问日志，
+ * 而平台的使用条款明确禁止把 token 写进日志。
+ */
+export async function fetchPhigrosBests(sessionToken) {
+  const payload = await jsonRequest('/api/v1/phigros/bests', {
+    headers: { 'X-Phigros-Session': sessionToken },
+  });
+  return (payload && payload.data) || null;
+}
+
+/** Phigros 曲目搜索。平台唯一的曲库入口，没有全量列表。 */
+export async function searchPhigrosSongs(keyword, limit = 20) {
+  const query = encodeURIComponent(keyword);
+  const payload = await jsonRequest(`/api/v1/phigros/search?q=${query}&limit=${limit}`);
+  return (payload && payload.data) || { items: [] };
 }

@@ -333,7 +333,13 @@
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
   const { api, core, diag, games, navigation, store, validate } = global.AstraMai;
-  const { fetchB50, fetchB50ByQq, fetchChunithmBests, fetchChunithmBestsByQq } = api;
+  const {
+    fetchB50,
+    fetchB50ByQq,
+    fetchChunithmBests,
+    fetchChunithmBestsByQq,
+    fetchPhigrosBests,
+  } = api;
   const { chunithmDifficultyColor } = core;
   const { gameById, readCurrentGame } = games;
   const { mark } = diag;
@@ -396,7 +402,7 @@
     onInit() {
       mark('B50:onInit');
       console.debug('[AstraMai] B50 onInit');
-      warmUp(['queryKind', 'queryValue', 'friendCode', 'currentGame'])
+      warmUp(['queryKind', 'queryValue', 'friendCode', 'currentGame', 'phigrosSession'])
         .then(() => {
           // 当前游戏决定查哪个接口、统计行怎么写
           this.gameId = gameById(readCurrentGame(readSetting)).id;
@@ -474,6 +480,13 @@
     },
 
     query() {
+      // Phigros 没有「输入好友码」这回事——凭证来自 TapTap 扫码，
+      // 所以必须在校验输入框之前就分出去，否则会提示「好友码应为 15 位数字」
+      if (this.gameId === 'phigros') {
+        this.queryPhigros();
+        return;
+      }
+
       const code = normalizeDigits(this.code);
       if (!isReadyToSubmit(this.kind, code)) {
         this.errorText = this.kind === 'qq' ? 'QQ 号应为 5–11 位数字' : '好友码应为 15 位数字';
@@ -515,7 +528,74 @@
         this.applyChunithm(view);
         return;
       }
+      if (this.gameId === 'phigros') {
+        this.applyPhigros(view);
+        return;
+      }
       this.applyMaimai(view);
+    },
+
+    /**
+     * 查 Phigros 成绩。
+     *
+     * 没登录就直接引导去登录页，**不发请求**——
+     * 发出去也是 401，不如省一次往返并告诉玩家该做什么。
+     */
+    queryPhigros() {
+      const session = readSetting('phigrosSession', '');
+      if (!session) {
+        this.errorText = '还没登录 Phigros。请到「设置 → Phigros 登录」用 TapTap 扫码。';
+        this.hasResult = false;
+        return;
+      }
+
+      this.keyboardHidden = true;
+      this.errorText = '';
+      this.saving = '查询中…';
+
+      fetchPhigrosBests(session)
+        .then((view) => {
+          this.apply(view);
+          this.saving = '';
+        })
+        .catch((error) => {
+          this.errorText = error && error.message ? error.message : '查询失败';
+          this.hasResult = false;
+          this.saving = '';
+        });
+    },
+
+    /** Phigros：RKS + B30。 */
+    applyPhigros(view) {
+      const stats = view.stats || {};
+      const best30 = view.best30 || [];
+
+      this.ratingText = String(view.rks);
+      this.tierText = view.nickname || '';
+      this.playerName = view.nickname || '';
+      this.statLine1 = 'B30　' + (stats.best30Count ?? best30.length);
+      this.statLine2 = '成绩总数　' + (stats.recordCount ?? 0);
+      this.statLine3 = 'FC　' + (stats.fullComboCount ?? 0);
+      this.statLine4 = '满分　' + (stats.phiCount ?? 0);
+
+      allEntries = best30.map((entry) => ({
+        title: entry.title,
+        difficulty: entry.difficulty,
+        diffColor: entry.color || '#9bacd0',
+        levelValue:
+          typeof entry.chartConstant === 'number' ? entry.chartConstant.toFixed(1) : '--',
+        // B30 的每条自带它对 RKS 的贡献
+        rating: typeof entry.rks === 'number' ? entry.rks.toFixed(2) : '--',
+        achievements: String(entry.score ?? '--'),
+        // Phigros 没有「版本」这种逐条信息，显示准确率更有用
+        versionTitle:
+          typeof entry.accuracy === 'number'
+            ? 'ACC ' + entry.accuracy.toFixed(2) + '%'
+            : 'ACC --',
+        jacketUrl: '',
+      }));
+
+      this.finishApply();
     },
 
     /** 舞萌：B35 + B15 合成 B50。 */

@@ -1,0 +1,303 @@
+<template>
+  <div class="phi-page">
+    <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
+    <text class="title">用 TapTap 扫码登录</text>
+
+    <!-- 有二维码就画出来。内容是 verificationUrl，交给原生 qrcode 组件渲染 -->
+    <div class="qr-box" if="{{ verificationUrl }}">
+      <qrcode class="qr" value="{{ verificationUrl }}"></qrcode>
+    </div>
+
+    <text class="status" style="color: {{ statusColor }}">{{ statusText }}</text>
+    <text class="hint" if="{{ hint }}">{{ hint }}</text>
+
+    <div class="actions">
+      <div class="action" if="{{ !success && qrId }}" @click="refreshNow">
+        <text class="action__text">刷新</text>
+      </div>
+      <div class="action action--ghost" if="{{ !success }}" @click="restart">
+        <text class="action__text">重新获取</text>
+      </div>
+      <div class="action action--ghost" @click="onBack">
+        <text class="action__text">{{ success ? '完成' : '返回' }}</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .phi-page {
+    flex-direction: column;
+    align-items: center;
+    padding: 14px;
+    background-color: #070b16;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: #1c2740;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: #e8eefc;
+  }
+
+  .title {
+    font-size: 24px;
+    color: #e8eefc;
+    margin-top: 2px;
+  }
+
+  /* 二维码给足尺寸，手机才好对焦 */
+  .qr-box {
+    margin-top: 12px;
+    padding: 8px;
+    border-radius: 12px;
+    background-color: #ffffff;
+  }
+
+  .qr {
+    width: 220px;
+    height: 220px;
+  }
+
+  .status {
+    font-size: 18px;
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+
+  .hint {
+    font-size: 14px;
+    color: #6d7fa3;
+    text-align: center;
+    margin-top: 6px;
+    line-height: 1.6;
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .action {
+    height: 56px;
+    padding: 0 18px;
+    margin: 0 4px;
+    border-radius: 28px;
+    background-color: #ff5f9e;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action--ghost {
+    background-color: #1c2740;
+  }
+
+  .action__text {
+    font-size: 20px;
+    color: #1a0710;
+  }
+
+  .action--ghost .action__text {
+    color: #e8eefc;
+  }
+</style>
+
+<script>
+  const { api, diag, navigation, store } = global.AstraMai;
+  const { createPhigrosQr, pollPhigrosQr } = api;
+  const { mark } = diag;
+  const { goBack } = navigation;
+  const { readSetting, warmUp, writeSetting } = store;
+
+  /** 凭证存这里的键。B50 页查 Phigros 时会读它。 */
+  const SESSION_KEY = 'phigrosSession';
+
+  /** 自动轮询间隔。平台建议 1 秒，服务端还缓存 1 秒，1.5 秒足够。 */
+  const POLL_MS = 1500;
+
+  /**
+   * 自动轮询的**硬上限**。
+   *
+   * 这条是刻意的：扫码轮询虽然是有界的（用户扫完就停），
+   * 但如果用户拿了码就走开，没人管的话它会一直打下去。
+   * 两分钟足够扫完，超了就停下让用户手动点刷新——
+   * **宁可让用户多点一下，也不给服务端制造无界负载。**
+   */
+  const POLL_MAX_MS = 2 * 60 * 1000;
+
+  export default {
+    private: {
+      qrId: '',
+      verificationUrl: '',
+      statusText: '正在获取二维码…',
+      statusColor: '#9bacd0',
+      hint: '',
+      success: false,
+      timer: null,
+      startedAt: 0,
+    },
+
+    onReady() {
+      mark('PhigrosLogin:onReady');
+    },
+
+    onInit() {
+      mark('PhigrosLogin:onInit');
+      warmUp([SESSION_KEY])
+        .then(() => this.begin())
+        .catch((error) => {
+          console.error('[AstraMai] Phigros 登录页初始化失败：', error);
+          this.statusText = '存储不可用，无法保存登录状态';
+          this.statusColor = '#f2564b';
+        });
+    },
+
+    /** 离开就停轮询——省电，也顺带把负载收掉。 */
+    onHide() {
+      this.stopPolling();
+    },
+
+    onDestroy() {
+      this.stopPolling();
+    },
+
+    begin() {
+      createPhigrosQr('cn')
+        .then((data) => {
+          this.qrId = data.qrId || '';
+          this.verificationUrl = data.verificationUrl || '';
+          this.statusText = '用手机 TapTap 扫上面的二维码';
+          this.hint = '扫完会自动完成，不用手动确认。';
+          this.statusColor = '#9bacd0';
+          this.startedAt = Date.now();
+          this.startPolling();
+        })
+        .catch((error) => {
+          console.error('[AstraMai] 获取 Phigros 二维码失败：', error);
+          this.statusText = error && error.message ? error.message : '获取二维码失败';
+          this.statusColor = '#f2564b';
+        });
+    },
+
+    startPolling() {
+      this.stopPolling();
+      this.timer = setInterval(() => this.tick(), POLL_MS);
+    },
+
+    stopPolling() {
+      if (this.timer) {
+        clearInterval(this.timer);
+        this.timer = null;
+      }
+    },
+
+    /** 定时器每轮：到点就停，否则查一次。 */
+    tick() {
+      if (this.success) {
+        this.stopPolling();
+        return;
+      }
+      if (Date.now() - this.startedAt > POLL_MAX_MS) {
+        this.stopPolling();
+        this.statusText = '超过两分钟没扫，已停止自动检查';
+        this.hint = '扫完后点「刷新」即可。';
+        this.statusColor = '#f2a33c';
+        return;
+      }
+      this.pollOnce();
+    },
+
+    /**
+     * 手动刷新：查一次，并把计时窗口顺延，让自动轮询继续。
+     * 玩家从手机上切回来时点一下能马上看到结果。
+     */
+    refreshNow() {
+      if (this.success || !this.qrId) return;
+      this.statusText = '正在检查…';
+      this.statusColor = '#9bacd0';
+      this.startedAt = Date.now();
+      this.startPolling();
+      this.pollOnce();
+    },
+
+    /** 真正发查询的那一处。 */
+    pollOnce() {
+      pollPhigrosQr(this.qrId)
+        .then((data) => {
+          const status = String(data.status || '');
+
+          if (data.sessionToken) {
+            this.onLoggedIn(data.sessionToken);
+            return;
+          }
+          if (status === 'Pending' || status === 'pending') {
+            // 还在等，保持原提示，不刷屏
+            return;
+          }
+          // 其它状态原样显示——不猜它是什么意思，能看到原文比瞎翻译强
+          this.statusText = '登录状态：' + status;
+          this.statusColor = '#f2a33c';
+        })
+        .catch((error) => {
+          console.warn('[AstraMai] 轮询扫码状态失败：', error);
+          this.statusText = '网络不太好，正在重试…';
+          this.statusColor = '#f2a33c';
+        });
+    },
+
+    /** 拿到凭证：存下来、停轮询、提示成功。 */
+    onLoggedIn(sessionToken) {
+      try {
+        writeSetting(SESSION_KEY, sessionToken);
+      } catch (error) {
+        console.error('[AstraMai] 保存 Phigros 凭证失败：', error);
+        this.statusText = '登录成功但保存失败';
+        this.statusColor = '#f2564b';
+        return;
+      }
+
+      this.success = true;
+      this.stopPolling();
+      this.statusText = '登录成功';
+      this.statusColor = '#58d68d';
+      this.hint = '回到首页即可查看 RKS 与 B30。';
+      this.verificationUrl = '';
+    },
+
+    /** 换一张二维码重新开始。 */
+    restart() {
+      this.stopPolling();
+      this.qrId = '';
+      this.verificationUrl = '';
+      this.statusText = '正在获取二维码…';
+      this.hint = '';
+      this.success = false;
+      this.statusColor = '#9bacd0';
+      this.begin();
+    },
+
+    onBack() {
+      this.stopPolling();
+      goBack('/settings');
+    },
+  };
+</script>

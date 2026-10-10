@@ -71,6 +71,10 @@
       "pages/Settings": {
         "component": "settings",
         "path": "/settings"
+      },
+      "pages/PhigrosLogin": {
+        "component": "phigros-login",
+        "path": "/phigros-login"
       }
     }
   },
