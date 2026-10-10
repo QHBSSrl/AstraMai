@@ -15,6 +15,8 @@ import {
   serializeLxnsError,
   jacketUrl,
   versionTitleOf,
+  normalizeNotes,
+  musicUrl,
   type LxnsErrorKind,
   type MaimaiSong,
   type MaimaiSongDifficulty,
@@ -260,6 +262,8 @@ export function createRouter(
         bpm: number;
         /** 封面图直链。手表上直接丢给 <image> 即可。 */
         jacketUrl: string;
+        /** 试听音频直链（mp3）。 */
+        musicUrl: string;
         version: number;
         /** 版本名（如 BUDDiES）。查不到时为 null。 */
         versionTitle: string | null;
@@ -270,6 +274,12 @@ export function createRouter(
           level: string;
           level_value: number;
           note_designer: string;
+          /**
+           * 物量明细。「谱面确认」要用——曲库本来就带这个数据
+           * （拉曲库时是 `getSongList({ notes: true })`），之前只是没透出来。
+           * BUDDY 谱面的左右手已经在 core 里合并过。
+           */
+          notes: { total: number; tap: number; hold: number; slide: number; touch: number; break: number } | null;
         }[];
         matchedBy: 'title' | 'artist' | 'alias';
       }[] = [];
@@ -289,6 +299,7 @@ export function createRouter(
           genre: song.genre,
           bpm: song.bpm,
           jacketUrl: jacketUrl(song.id),
+          musicUrl: musicUrl(song.id),
           version: song.version,
           versionTitle: versionTitleOf(versions, song.version),
           aliases,
@@ -299,6 +310,7 @@ export function createRouter(
               level: chart.level,
               level_value: chart.level_value,
               note_designer: chart.note_designer,
+              notes: normalizeNotes(chart.notes),
             }),
           ),
           matchedBy,

@@ -26,6 +26,9 @@
     },
     {
       "name": "system.device"
+    },
+    {
+      "name": "system.audio"
     }
   ],
   "config": {
@@ -53,6 +56,10 @@
       "pages/Search": {
         "component": "search",
         "path": "/search"
+      },
+      "pages/Song": {
+        "component": "song",
+        "path": "/song"
       }
     }
   },

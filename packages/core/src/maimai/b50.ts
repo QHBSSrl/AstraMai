@@ -416,7 +416,7 @@ function buildEntry(score: MaimaiScore, index: SongIndex, warnings: Set<string>)
   };
 }
 
-function normalizeNotes(notes: MaimaiSongDifficulty['notes']): MaimaiNotes | null {
+export function normalizeNotes(notes: MaimaiSongDifficulty['notes']): MaimaiNotes | null {
   if (!notes) return null;
   if ('left' in notes || 'right' in notes) {
     // BUDDY 谱面：1P / 2P 物量相加即为整谱物量

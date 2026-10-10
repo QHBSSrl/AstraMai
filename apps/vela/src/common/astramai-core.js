@@ -2361,6 +2361,7 @@ export {
   minimumAchievementForRate,
   musicUrl,
   normalizeAchievement,
+  normalizeNotes,
   numDataCodewords,
   parseWahlapQrPayload,
   projectRating,

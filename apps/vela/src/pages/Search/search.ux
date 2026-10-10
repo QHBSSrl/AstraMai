@@ -51,7 +51,11 @@
             <text class="set__cell" for="{{ cell in $item.dxCells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
           </div>
         </div>
-        <text class="row__badge">{{ $item.badge }}</text>
+
+        <!-- ▸ 进详情：试听 + 完整谱面（定数 / 物量 / 谱师） -->
+        <div class="row__more" @click="openSong($idx)">
+          <text class="row__more-text">▸</text>
+        </div>
       </list-item>
     </list>
 
@@ -187,6 +191,19 @@
     font-weight: bold;
   }
 
+  /* ▸ 进详情的入口。做够大，手表上要好点。 */
+  .row__more {
+    width: 44px;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .row__more-text {
+    font-size: 28px;
+    color: #6d7fa3;
+  }
+
   .row__title {
     font-size: 21px;
     color: #e8eefc;
@@ -204,24 +221,12 @@
     color: #f2a33c;
     margin-top: 2px;
   }
-
-  .row__badge {
-    font-size: 16px;
-    color: #9bacd0;
-    margin-left: 8px;
-  }
 </style>
 
 <script>
   import { searchSongs } from '../../common/api.js';
-  import { goBack } from '../../common/navigation.js';
-
-  /** 命中维度的展示名。 */
-  const MATCH_LABEL = {
-    title: '曲名',
-    alias: '别名',
-    artist: '艺术家',
-  };
+  import { goBack, push } from '../../common/navigation.js';
+  import { warmUp, writeSetting } from '../../common/store.js';
 
   /** 难度序号 → 简称，与游戏内一致。 */
   const DIFFICULTY_SHORT = ['BAS', 'ADV', 'EXP', 'MST', 'Re:M'];
@@ -263,16 +268,44 @@
       : item.artist;
   }
 
+  /** 详情数据由曲目搜索页写进本地存储，详情页读出来渲染。 */
+  const STORAGE_KEY = 'songDetail';
+
   export default {
     private: {
       keyword: '',
       keyboardHidden: false,
       statusText: '支持日文曲名、中文别名与罗马音',
       results: [],
+      /** 原始返回，详情页要用完整字段（物量、谱师、试听直链）。 */
+      rawResults: [],
     },
 
     onInit() {
       console.log('[AstraMai] Search onInit');
+      // 详情数据要写进本地存储，先把存储模块热起来
+      warmUp([STORAGE_KEY]).catch((error) =>
+        console.warn('[AstraMai] 存储预热失败：', error),
+      );
+    },
+
+    /**
+     * 打开曲目详情。
+     *
+     * 详情数据走本地存储而不是路由参数：一是路由只能带字符串，
+     * 二是手表上再发一次请求拿同样的数据不划算。
+     * 用下标而不是整个对象，避免把大对象塞进事件参数。
+     */
+    openSong(index) {
+      const song = this.rawResults[index];
+      if (!song) return;
+      try {
+        writeSetting(STORAGE_KEY, JSON.stringify(song));
+      } catch (error) {
+        console.error('[AstraMai] 写入曲目数据失败：', error);
+        return;
+      }
+      push('/song');
     },
 
     /** 返回上一页。 */
@@ -318,6 +351,8 @@
       searchSongs(keyword, 30)
         .then((payload) => {
           const list = payload && payload.results ? payload.results : [];
+          // 详情页要用完整字段，所以原始结果单独留一份
+          this.rawResults = list;
           this.results = list.map((item) => {
             const charts = item.difficulties || [];
             return {
@@ -328,7 +363,6 @@
               stdCells: toCells(charts.filter((chart) => chart.type === 'standard')),
               dxCells: toCells(charts.filter((chart) => chart.type === 'dx')),
               jacketUrl: item.jacketUrl || '',
-              badge: MATCH_LABEL[item.matchedBy] || '',
             };
           });
           this.statusText =

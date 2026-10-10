@@ -1,0 +1,323 @@
+<template>
+  <div class="song-page">
+    <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
+    <div class="head">
+      <image class="cover" src="{{ jacketUrl }}"></image>
+      <div class="head__main">
+        <text class="title">{{ title }}</text>
+        <text class="aliases">{{ aliasesText }}</text>
+        <text class="meta">版本 {{ versionTitle }}</text>
+        <text class="meta">BPM {{ bpmText }}</text>
+      </div>
+    </div>
+
+    <div class="actions">
+      <div class="action" if="{{ audioReady }}" @click="togglePreview">
+        <text class="action__text">{{ playing ? '停止' : '试听' }}</text>
+      </div>
+      <div class="action action--ghost" @click="onBack">
+        <text class="action__text">返回</text>
+      </div>
+    </div>
+
+    <text class="hint" if="{{ hint }}">{{ hint }}</text>
+
+    <!-- 谱面确认：逐难度列出定数、物量、谱师 -->
+    <list class="charts">
+      <list-item class="chart" type="item" for="{{ charts }}">
+        <text class="chart__diff" style="color: {{ $item.color }}">{{ $item.diff }}</text>
+        <text class="chart__level" style="color: {{ $item.color }}">{{ $item.level }}</text>
+        <div class="chart__main">
+          <text class="chart__total">物量 {{ $item.total }}</text>
+          <text class="chart__breakdown">{{ $item.breakdown }}</text>
+          <text class="chart__designer">谱师 {{ $item.designer }}</text>
+        </div>
+      </list-item>
+    </list>
+  </div>
+</template>
+
+<style>
+  .song-page {
+    flex-direction: column;
+    padding: 14px;
+    background-color: #070b16;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: #1c2740;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: #e8eefc;
+  }
+
+  .head {
+    flex-direction: row;
+    margin-top: 6px;
+  }
+
+  .cover {
+    width: 110px;
+    height: 110px;
+    border-radius: 10px;
+    background-color: #1c2740;
+  }
+
+  .head__main {
+    flex: 1;
+    flex-direction: column;
+    margin-left: 12px;
+  }
+
+  .title {
+    font-size: 26px;
+    color: #e8eefc;
+  }
+
+  .aliases {
+    font-size: 16px;
+    color: #9bacd0;
+    margin-top: 4px;
+  }
+
+  .meta {
+    font-size: 16px;
+    color: #f2a33c;
+    margin-top: 3px;
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  .action {
+    height: 60px;
+    padding: 0 30px;
+    margin: 0 5px;
+    border-radius: 30px;
+    background-color: #ff5f9e;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action--ghost {
+    background-color: #1c2740;
+  }
+
+  .action__text {
+    font-size: 22px;
+    color: #1a0710;
+  }
+
+  .action--ghost .action__text {
+    color: #e8eefc;
+  }
+
+  .hint {
+    font-size: 16px;
+    color: #9bacd0;
+    text-align: center;
+    margin-top: 6px;
+  }
+
+  /* <list> 必须显式给高度，否则高度为 0、一条都画不出来 */
+  .charts {
+    width: 100%;
+    height: 250px;
+    margin-top: 10px;
+  }
+
+  .chart {
+    flex-direction: row;
+    align-items: center;
+    height: 74px;
+    padding: 6px 8px;
+  }
+
+  .chart__diff {
+    width: 52px;
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .chart__level {
+    width: 60px;
+    font-size: 22px;
+    font-weight: bold;
+  }
+
+  .chart__main {
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .chart__total {
+    font-size: 18px;
+    color: #e8eefc;
+  }
+
+  .chart__breakdown {
+    font-size: 13px;
+    color: #6d7fa3;
+    margin-top: 2px;
+  }
+
+  .chart__designer {
+    font-size: 14px;
+    color: #9bacd0;
+    margin-top: 2px;
+  }
+</style>
+
+<script>
+  import { isAudioAvailable, onEnded, play, stop } from '../../common/audio.js';
+  import { goBack } from '../../common/navigation.js';
+  import { readSetting, warmUp } from '../../common/store.js';
+
+  /** 难度序号 → 简称，与游戏内一致。 */
+  const DIFFICULTY_SHORT = ['BAS', 'ADV', 'EXP', 'MST', 'Re:M'];
+
+  /** 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。 */
+  const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
+
+  /** 详情数据由曲目搜索页写进本地存储，这里读出来渲染。 */
+  const STORAGE_KEY = 'songDetail';
+
+  /** 物量明细拼成一行；全为 0 的项不显示，免得占地方。 */
+  function buildBreakdown(notes) {
+    if (!notes) return '暂无物量数据';
+    const parts = [];
+    if (notes.tap) parts.push(`TAP ${notes.tap}`);
+    if (notes.hold) parts.push(`HOLD ${notes.hold}`);
+    if (notes.slide) parts.push(`SLIDE ${notes.slide}`);
+    if (notes.touch) parts.push(`TOUCH ${notes.touch}`);
+    if (notes.break) parts.push(`BREAK ${notes.break}`);
+    return parts.join(' · ');
+  }
+
+  export default {
+    private: {
+      jacketUrl: '',
+      title: '',
+      aliasesText: '',
+      versionTitle: '未知',
+      bpmText: '--',
+      musicUrl: '',
+      charts: [],
+
+      audioReady: false,
+      playing: false,
+      hint: '',
+    },
+
+    onInit() {
+      console.log('[AstraMai] Song onInit');
+      this.audioReady = isAudioAvailable();
+
+      warmUp([STORAGE_KEY])
+        .then(() => this.load())
+        .catch((error) => console.error('[AstraMai] Song 初始化失败：', error));
+    },
+
+    /** 离开页面一定停掉音频，否则会在后台一直响。 */
+    onHide() {
+      this.stopPreview();
+    },
+
+    onDestroy() {
+      this.stopPreview();
+    },
+
+    load() {
+      const raw = readSetting(STORAGE_KEY, '');
+      if (!raw) {
+        this.hint = '没有曲目数据，请返回重新搜索';
+        return;
+      }
+
+      let song;
+      try {
+        song = JSON.parse(raw);
+      } catch (error) {
+        console.error('[AstraMai] 曲目数据解析失败：', error);
+        this.hint = '曲目数据已损坏，请返回重新搜索';
+        return;
+      }
+
+      this.jacketUrl = song.jacketUrl || '';
+      this.title = song.title || '';
+      this.aliasesText = (song.aliases || []).join(' / ') || song.artist || '';
+      this.versionTitle = song.versionTitle || '未知';
+      this.bpmText = song.bpm ? String(song.bpm) : '--';
+      this.musicUrl = song.musicUrl || '';
+
+      const charts = song.charts || [];
+      this.charts = charts.map((chart) => ({
+        diff: DIFFICULTY_SHORT[chart.difficulty] || `#${chart.difficulty}`,
+        color: DIFFICULTY_COLOR[chart.difficulty] || '#9bacd0',
+        level: typeof chart.level_value === 'number' ? chart.level_value.toFixed(1) : '--',
+        total: chart.notes ? chart.notes.total : '--',
+        breakdown: buildBreakdown(chart.notes),
+        designer: chart.note_designer || '未知',
+      }));
+
+      if (this.charts.length === 0) this.hint = '这首歌没有谱面数据';
+      else if (!this.audioReady) this.hint = '当前设备不支持试听';
+    },
+
+    togglePreview() {
+      if (this.playing) {
+        this.stopPreview();
+        return;
+      }
+      if (!this.musicUrl) {
+        this.hint = '这首歌没有试听音源';
+        return;
+      }
+
+      // 注册一次即可，播完自动把按钮状态改回来
+      onEnded(() => {
+        this.playing = false;
+        this.hint = '';
+      });
+
+      if (play(this.musicUrl)) {
+        this.playing = true;
+        this.hint = '正在试听…';
+      } else {
+        this.playing = false;
+        this.hint = '试听失败，当前设备可能不支持';
+      }
+    },
+
+    stopPreview() {
+      if (!this.playing) return;
+      stop();
+      this.playing = false;
+      this.hint = '';
+    },
+
+    onBack() {
+      this.stopPreview();
+      goBack('/');
+    },
+  };
+</script>
