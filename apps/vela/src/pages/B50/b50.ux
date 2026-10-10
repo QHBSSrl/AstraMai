@@ -59,6 +59,7 @@
       <list class="list">
         <list-item class="row" type="item" for="{{ entries }}">
           <text class="row__rank">{{ $idx + 1 }}</text>
+          <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
           <div class="row__main">
             <text class="row__title">{{ $item.title }}</text>
             <text class="row__sub">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
@@ -256,8 +257,17 @@
   .row {
     flex-direction: row;
     align-items: center;
-    height: 58px;
+    height: 76px;
     padding: 6px 8px;
+  }
+
+  /* 封面。定死尺寸，避免图片加载前后布局跳动。 */
+  .row__cover {
+    width: 58px;
+    height: 58px;
+    border-radius: 8px;
+    margin-left: 6px;
+    background-color: #1c2740;
   }
 
   .row__rank {
@@ -468,6 +478,8 @@
           levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
           rating: entry.rating === null ? '--' : String(entry.rating),
           achievements: entry.achievements.toFixed(4) + '%',
+          // 封面直链，服务端组装 B50 视图时已经带上
+          jacketUrl: entry.jacketUrl || '',
         }));
 
       this.hasResult = true;

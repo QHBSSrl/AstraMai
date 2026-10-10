@@ -30,9 +30,11 @@
     <!-- <list> 必须显式给高度（官方文档要求），否则高度为 0、一条都画不出来 -->
     <list class="list" if="{{ results.length > 0 }}">
       <list-item class="row" type="item" for="{{ results }}">
+        <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
         <div class="row__main">
           <text class="row__title">{{ $item.title }}</text>
           <text class="row__sub">{{ $item.sub }}</text>
+          <text class="row__meta">{{ $item.meta }}</text>
         </div>
         <text class="row__badge">{{ $item.badge }}</text>
       </list-item>
@@ -130,13 +132,22 @@
   .row {
     flex-direction: row;
     align-items: center;
-    height: 56px;
+    height: 88px;
     padding: 6px 8px;
+  }
+
+  /* 封面。定死尺寸，避免图片加载前后布局跳动。 */
+  .row__cover {
+    width: 68px;
+    height: 68px;
+    border-radius: 8px;
+    background-color: #1c2740;
   }
 
   .row__main {
     flex: 1;
     flex-direction: column;
+    margin-left: 10px;
   }
 
   .row__title {
@@ -147,6 +158,13 @@
   .row__sub {
     font-size: 16px;
     color: #6d7fa3;
+  }
+
+  /* 版本 · 难度 定数 */
+  .row__meta {
+    font-size: 16px;
+    color: #f2a33c;
+    margin-top: 2px;
   }
 
   .row__badge {
@@ -166,6 +184,36 @@
     alias: '别名',
     artist: '艺术家',
   };
+
+  /** 难度序号 → 简称，与游戏内一致。 */
+  const DIFFICULTY_SHORT = ['BAS', 'ADV', 'EXP', 'MST', 'Re:M'];
+
+  /**
+   * 挑出定数最高的那条谱面。
+   *
+   * 列表一行放不下所有难度，先给最高的那条——它是玩家最关心的。
+   * 将来若要展开看全部，服务端已经把每个难度都返回了。
+   */
+  function topChart(item) {
+    let best = null;
+    for (const chart of item.difficulties || []) {
+      if (typeof chart.level_value !== 'number') continue;
+      if (!best || chart.level_value > best.level_value) best = chart;
+    }
+    return best;
+  }
+
+  /** 「版本 · 难度 定数」，两样都可能缺，缺了就少显示一段。 */
+  function buildMeta(item) {
+    const parts = [];
+    if (item.versionTitle) parts.push(item.versionTitle);
+    const best = topChart(item);
+    if (best) {
+      const label = DIFFICULTY_SHORT[best.difficulty] || `#${best.difficulty}`;
+      parts.push(`${label} ${best.level_value.toFixed(1)}`);
+    }
+    return parts.join(' · ');
+  }
 
   export default {
     private: {
@@ -225,6 +273,8 @@
           this.results = list.map((item) => ({
             title: item.title,
             sub: item.aliases && item.aliases.length > 0 ? item.aliases.slice(0, 3).join(' / ') : item.artist,
+            meta: buildMeta(item),
+            jacketUrl: item.jacketUrl || '',
             badge: MATCH_LABEL[item.matchedBy] || '',
           }));
           this.statusText =

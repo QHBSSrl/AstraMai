@@ -199,9 +199,20 @@ try {
   );
   const parsed = JSON.parse(res);
   const d = parsed.data ?? {};
-  console.log(`   外网可达 ✅  mode=${d.mode}  hasServerKey=${d.hasServerKey}  tokenRequired=${d.accessControl?.tokenRequired}`);
-  if (d.accessControl?.tokenRequired !== true) {
-    console.error('\n⚠️ tokenRequired 不是 true —— 立刻检查 API_TOKEN 是否生效！');
+  const authMode = d.accessControl?.authMode ?? 'key';
+  const tokenRequired = d.accessControl?.tokenRequired;
+  console.log(
+    `   外网可达 ✅  mode=${d.mode}  hasServerKey=${d.hasServerKey}  authMode=${authMode}  tokenRequired=${tokenRequired}`,
+  );
+
+  // 校验的是「配置和实际行为是否一致」，而不是「必须要求令牌」。
+  // AUTH_MODE=open 时本来就不该要求令牌，硬性断言只会报假警报。
+  if (authMode === 'key' && tokenRequired !== true) {
+    console.error('\n⚠️ authMode=key 但 tokenRequired 不是 true —— 检查 API_TOKEN 是否生效！');
+    process.exit(1);
+  }
+  if (d.hasServerKey !== true) {
+    console.error('\n⚠️ hasServerKey 不是 true —— 服务端没读到落雪密钥，会静默降级成模拟数据。');
     process.exit(1);
   }
 } catch (error) {

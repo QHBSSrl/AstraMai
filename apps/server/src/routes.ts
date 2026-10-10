@@ -13,6 +13,7 @@ import {
   LxnsClient,
   LxnsError,
   serializeLxnsError,
+  jacketUrl,
   type LxnsErrorKind,
   type MaimaiSong,
   type MaimaiSongDifficulty,
@@ -243,13 +244,43 @@ export function createRouter(
 
       const library = await service.getLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
       const needle = keyword.toLowerCase();
+
+      /**
+       * 版本号 → 版本名。
+       *
+       * 在服务端解析而不是丢给客户端：曲目里存的是 `version: 21007` 这种数字，
+       * 名字在曲库的 versions 表里。让每个客户端各自维护这份映射是重复劳动，
+       * 而且上游一改就全得跟着改。
+       *
+       * ⚠️ 两个字段的粒度不一样：曲目里是 21007 这种细粒度值（末三位是修订号），
+       * 而 versions 表里是 21000 这样的千位步长。所以必须**按千位取整**再查，
+       * 直接用原值查会全部落空。
+       */
+      const versionTitles = new Map(library.songs.versions.map((v) => [v.version, v.title]));
+      const versionTitleOf = (songVersion: number): string | null =>
+        versionTitles.get(songVersion) ??
+        versionTitles.get(Math.floor(songVersion / 1000) * 1000) ??
+        null;
+
       const results: {
         id: number;
         title: string;
         artist: string;
         genre: string;
+        bpm: number;
+        /** 封面图直链。手表上直接丢给 <image> 即可。 */
+        jacketUrl: string;
+        version: number;
+        /** 版本名（如 BUDDiES）。查不到时为 null。 */
+        versionTitle: string | null;
         aliases: string[];
-        difficulties: { type: string; difficulty: number; level: string; level_value: number }[];
+        difficulties: {
+          type: string;
+          difficulty: number;
+          level: string;
+          level_value: number;
+          note_designer: string;
+        }[];
         matchedBy: 'title' | 'artist' | 'alias';
       }[] = [];
 
@@ -266,6 +297,10 @@ export function createRouter(
           title: song.title,
           artist: song.artist,
           genre: song.genre,
+          bpm: song.bpm,
+          jacketUrl: jacketUrl(song.id),
+          version: song.version,
+          versionTitle: versionTitleOf(song.version),
           aliases,
           difficulties: [...(song.difficulties.standard ?? []), ...(song.difficulties.dx ?? [])].map(
             (chart) => ({
@@ -273,6 +308,7 @@ export function createRouter(
               difficulty: chart.difficulty,
               level: chart.level,
               level_value: chart.level_value,
+              note_designer: chart.note_designer,
             }),
           ),
           matchedBy,
