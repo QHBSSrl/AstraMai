@@ -190,13 +190,15 @@
 <script>
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { audio, diag, navigation, store } = global.AstraMai;
+  const { audio, core, diag, navigation, store } = global.AstraMai;
+  const { chunithmDifficultyColor, chunithmDifficultyName } = core;
   const { isAudioAvailable, onEnded, play, stop } = audio;
   const { mark } = diag;
   const { goBack } = navigation;
   const { readSetting, warmUp } = store;
 
   /** 难度序号 → 简称，与游戏内一致。 */
+  /** 舞萌难度简称。中二走 chunithmDifficultyName，两套不能混用。 */
   const DIFFICULTY_SHORT = ['BAS', 'ADV', 'EXP', 'MST', 'Re:M'];
 
   /** 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。 */
@@ -279,10 +281,19 @@
       this.bpmText = song.bpm ? String(song.bpm) : '--';
       this.musicUrl = song.musicUrl || '';
 
+      // 当前游戏由搜索页写在存储里（详情页是它跳过来的）
+      const isChunithm = song.game === 'chunithm';
+
       const charts = song.charts || [];
       this.charts = charts.map((chart) => ({
-        diff: DIFFICULTY_SHORT[chart.difficulty] || `#${chart.difficulty}`,
-        color: DIFFICULTY_COLOR[chart.difficulty] || '#9bacd0',
+        // 难度名与配色都按游戏取：中二有 6 档且 WE 是特殊谱面，
+        // 用舞萌那张 5 档表会把 ULTIMA 显示成 #4、WE 显示成 #5
+        diff: isChunithm
+          ? chunithmDifficultyName(chart.difficulty)
+          : DIFFICULTY_SHORT[chart.difficulty] || `#${chart.difficulty}`,
+        color: isChunithm
+          ? chunithmDifficultyColor(chart.difficulty)
+          : DIFFICULTY_COLOR[chart.difficulty] || '#9bacd0',
         level: typeof chart.level_value === 'number' ? chart.level_value.toFixed(1) : '--',
         total: chart.notes ? chart.notes.total : '--',
         breakdown: buildBreakdown(chart.notes),

@@ -42,13 +42,18 @@
             等于把 BASIC / ADV / EXP 全遮住了。
             STD 与 DX 各一行——同一首歌两套谱面的定数经常不一样。
           -->
-          <div class="row__set" if="{{ $item.stdCells.length > 0 }}">
-            <text class="set__label">STD</text>
-            <text class="set__cell" for="{{ cell in $item.stdCells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
+          <!--
+            两行难度定数。标签与内容都按游戏动态给：
+            舞萌是 STD / DX 两套谱面；中二只有一套、但有 6 档（含 WORLD'S END）。
+            写死 STD/DX 的话中二玩家会看到两个不存在的分类。
+          -->
+          <div class="row__set" if="{{ $item.set1Cells.length > 0 }}">
+            <text class="set__label">{{ $item.set1Label }}</text>
+            <text class="set__cell" for="{{ cell in $item.set1Cells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
           </div>
-          <div class="row__set" if="{{ $item.dxCells.length > 0 }}">
-            <text class="set__label">DX</text>
-            <text class="set__cell" for="{{ cell in $item.dxCells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
+          <div class="row__set" if="{{ $item.set2Cells.length > 0 }}">
+            <text class="set__label">{{ $item.set2Label }}</text>
+            <text class="set__cell" for="{{ cell in $item.set2Cells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
           </div>
         </div>
 
@@ -225,8 +230,10 @@
 <script>
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { api, navigation, store } = global.AstraMai;
-  const { searchSongs } = api;
+  const { api, core, games, navigation, store } = global.AstraMai;
+  const { searchChunithmSongs, searchSongs } = api;
+  const { chunithmDifficultyColor } = core;
+  const { gameById, readCurrentGame } = games;
 
   /**
    * 原始搜索结果。
@@ -268,13 +275,17 @@
    * 只保留有定数的谱面（上游偶尔缺），并按难度序号排序，
    * 保证显示顺序恒为 BAS → Re:M。
    */
-  function toCells(charts) {
+  function toCells(charts, isChunithm) {
     return (charts || [])
       .filter((chart) => typeof chart.level_value === 'number')
       .sort((a, b) => a.difficulty - b.difficulty)
       .map((chart) => ({
         text: formatConstant(chart.level_value),
-        color: DIFFICULTY_COLOR[chart.difficulty] || '#9bacd0',
+        // 中二是 6 档，而且 ULTIMA 官方是黑、WE 是特殊谱面，
+        // 配色规则和舞萌完全不同，必须用各自的函数而不是共用一张表
+        color: isChunithm
+          ? chunithmDifficultyColor(chart.difficulty)
+          : DIFFICULTY_COLOR[chart.difficulty] || '#9bacd0',
       }));
   }
 
@@ -293,6 +304,8 @@
     private: {
       keyword: '',
       keyboardHidden: true,
+      /** 当前游戏 id。决定查哪个接口、用哪套难度配色。 */
+      gameId: 'maimai',
       statusText: '支持日文曲名、中文别名与罗马音',
       results: [],
     },
@@ -305,6 +318,7 @@
       mark('Search:onInit');
       console.debug('[AstraMai] Search onInit');
       // 详情数据要写进本地存储，先把存储模块热起来
+      this.gameId = gameById(readCurrentGame(readSetting)).id;
       warmUp([STORAGE_KEY]).catch((error) =>
         console.warn('[AstraMai] 存储预热失败：', error),
       );
@@ -321,7 +335,8 @@
       const song = rawResults[index];
       if (!song) return;
       try {
-        writeSetting(STORAGE_KEY, JSON.stringify(song));
+        // 把当前游戏一并带过去：详情页要用对应那套难度配色
+        writeSetting(STORAGE_KEY, JSON.stringify({ ...song, game: this.gameId }));
       } catch (error) {
         console.error('[AstraMai] 写入曲目数据失败：', error);
         return;
@@ -369,7 +384,9 @@
       this.keyboardHidden = true;
       this.statusText = '搜索中…';
 
-      searchSongs(keyword, 30)
+      const isChunithm = this.gameId === 'chunithm';
+      const search = isChunithm ? searchChunithmSongs : searchSongs;
+      search(keyword, 30)
         .then((payload) => {
           const list = payload && payload.results ? payload.results : [];
           // 详情页要用完整字段，所以原始结果单独留一份
@@ -379,13 +396,31 @@
           // （官方《常用业务优化》：超过 10 条建议分页渲染）
           rowCache = list.map((item) => {
             const charts = item.difficulties || [];
+
+            if (isChunithm) {
+              // 中二只有一套谱面（没有 standard/dx 之分），6 档全排一行。
+              // WE 靠金色区分，不单独拆出来——它本来就是同一张谱面列表里的一项。
+              return {
+                title: item.title,
+                sub: buildSub(item),
+                versionTitle: item.versionTitle || '未知',
+                set1Label: '定数',
+                set1Cells: toCells(charts, true),
+                set2Label: '',
+                set2Cells: [],
+                jacketUrl: item.jacketUrl || '',
+              };
+            }
+
             return {
               title: item.title,
               sub: buildSub(item),
               // 版本单独占一行，并带「版本」二字——混在副标题里认不出来
               versionTitle: item.versionTitle || '未知',
-              stdCells: toCells(charts.filter((chart) => chart.type === 'standard')),
-              dxCells: toCells(charts.filter((chart) => chart.type === 'dx')),
+              set1Label: 'STD',
+              set1Cells: toCells(charts.filter((chart) => chart.type === 'standard'), false),
+              set2Label: 'DX',
+              set2Cells: toCells(charts.filter((chart) => chart.type === 'dx'), false),
               jacketUrl: item.jacketUrl || '',
             };
           });

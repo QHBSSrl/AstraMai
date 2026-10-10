@@ -98,6 +98,18 @@ export function searchSongs(keyword, limit = 30) {
   return getClient().request(`/api/maimai/search?q=${query}&limit=${limit}`);
 }
 
+/**
+ * 中二节奏曲目搜索。
+ *
+ * 和舞萌命中同样的三个维度（曲名 / 艺术家 / 别名），
+ * 但**难度结构不同**：中二是 6 档且物量是 air/flick。
+ * 所以结果不能直接套舞萌的渲染逻辑。
+ */
+export function searchChunithmSongs(keyword, limit = 30) {
+  const query = encodeURIComponent(keyword);
+  return getClient().request(`/api/v1/chunithm/search?q=${query}&limit=${limit}`);
+}
+
 /** 服务端健康检查，用来判断地址填对没有。 */
 export function fetchHealth() {
   return getClient().request('/api/health');
