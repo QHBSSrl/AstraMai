@@ -188,6 +188,7 @@
 </style>
 
 <script>
+  import { mark } from '../../common/diag.js';
   import { isAudioAvailable, onEnded, play, stop } from '../../common/audio.js';
   import { goBack } from '../../common/navigation.js';
   import { readSetting, warmUp } from '../../common/store.js';
@@ -228,7 +229,12 @@
       hint: '',
     },
 
+    onReady() {
+      mark('Song:onReady');
+    },
+
     onInit() {
+      mark('Song:onInit');
       console.log('[AstraMai] Song onInit');
       this.audioReady = isAudioAvailable();
 

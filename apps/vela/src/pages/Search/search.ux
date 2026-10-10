@@ -224,12 +224,10 @@
 </style>
 
 <script>
+  import { mark } from '../../common/diag.js';
   import { searchSongs } from '../../common/api.js';
   import { goBack, push } from '../../common/navigation.js';
   import { warmUp, writeSetting } from '../../common/store.js';
-
-  /** 难度序号 → 简称，与游戏内一致。 */
-  const DIFFICULTY_SHORT = ['BAS', 'ADV', 'EXP', 'MST', 'Re:M'];
 
   /**
    * 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。
@@ -281,7 +279,12 @@
       rawResults: [],
     },
 
+    onReady() {
+      mark('Search:onReady');
+    },
+
     onInit() {
+      mark('Search:onInit');
       console.log('[AstraMai] Search onInit');
       // 详情数据要写进本地存储，先把存储模块热起来
       warmUp([STORAGE_KEY]).catch((error) =>

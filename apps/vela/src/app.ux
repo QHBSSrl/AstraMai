@@ -1,4 +1,6 @@
 <script>
+  import { mark, reportError } from './common/diag.js';
+
   /**
    * 应用入口。
    *
@@ -11,10 +13,13 @@
    * 运行时直接 `Abort App` —— 表现就是**纯黑屏，且控制台没有任何应用日志**。
    *
    * `onError` 不是装饰：没有它的时候，应用初始化失败是静默的。
+   * 现在它还负责把错误**打回服务端**——真机拿不到日志，
+   * 这是唯一能看到「到底报了什么」的通道。
    */
   export default {
     onCreate() {
       console.log('[AstraMai] app onCreate');
+      mark('app:onCreate');
     },
 
     onError(error) {
@@ -27,10 +32,13 @@
       } catch (loggingError) {
         console.error('[AstraMai] app onError（打印失败）:', loggingError);
       }
+      // 上报是 best-effort：真机上这是唯一能把错误带出来的途径
+      reportError('app:onError', error);
     },
 
     onDestroy() {
       console.log('[AstraMai] app onDestroy');
+      mark('app:onDestroy');
     },
   };
 </script>

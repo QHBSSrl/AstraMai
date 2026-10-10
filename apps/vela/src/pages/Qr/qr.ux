@@ -161,6 +161,7 @@
 </style>
 
 <script>
+  import { mark } from '../../common/diag.js';
   import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js'
   import { goBack } from '../../common/navigation.js'
   import { clearSetting, readSetting, warmUp, writeSetting } from '../../common/store.js'
@@ -186,7 +187,12 @@
       goBack('/')
     },
 
+    onReady() {
+      mark('Qr:onReady');
+    },
+
     onInit() {
+      mark('Qr:onInit');
       console.log('[AstraMai] Qr onInit')
       warmUp([STORAGE_KEY])
         .then(() => this.load())

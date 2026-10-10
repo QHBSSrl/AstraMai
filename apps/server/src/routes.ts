@@ -27,6 +27,7 @@ import { resolveMode, type ServerConfig } from './config.js';
 import { Router, readBody, sendJson, sendText, type RequestContext } from './http.js';
 import type { Guard } from './guard.js';
 import type { GatewayService } from './gateway.js';
+import type { DiagStore } from './diag.js';
 
 const STATUS_BY_KIND: Record<LxnsErrorKind, number> = {
   'bad-request': 400,
@@ -118,6 +119,7 @@ export function createRouter(
   service: GatewayService,
   config: ServerConfig,
   guard: Guard,
+  diag: DiagStore,
 ): Router {
   const router = new Router();
 
@@ -421,6 +423,61 @@ export function createRouter(
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
     }
+  });
+
+  // ── 端上报诊断 ────────────────────────────────────────────────────────
+  //
+  // 真机拿不到日志：Vela 的官方「真机调试」只支持 Watch S4 且仅对合作方开放，
+  // 普通手表既没有调试小尾巴也连不上 AIoT-IDE。所以让 App 自己把
+  // 「走到哪一步 / 报了什么错」打回服务端，开发者这边才看得到。
+
+  /** 接收上报。客户端 fire-and-forget，失败也不影响它自己。 */
+  router.add('POST', '/api/diag', async (ctx) => {
+    const body = await readBody(ctx.req);
+    let payload: Record<string, unknown> = {};
+    try {
+      payload = body ? JSON.parse(body) : {};
+    } catch {
+      // 不是 JSON 就当作纯文本消息，总比丢掉强
+      payload = { message: body.slice(0, 500) };
+    }
+
+    const forwarded = ctx.req.headers['x-forwarded-for'];
+    const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    const from =
+      (typeof forwardedValue === 'string' ? forwardedValue.split(',')[0]?.trim() : '') ||
+      ctx.req.socket.remoteAddress ||
+      'unknown';
+
+    const entry = diag.record({
+      from,
+      event: String(payload.event ?? 'unknown').slice(0, 80),
+      message: String(payload.message ?? '').slice(0, 1000),
+      stack: String(payload.stack ?? '').slice(0, 4000),
+      extra: String(payload.extra ?? '').slice(0, 1000),
+    });
+
+    ok(ctx.res, { data: { received: true, at: entry.at } });
+  });
+
+  /** 读取上报。用于开发者在服务器上排查真机问题。 */
+  router.get('/api/diag', (ctx) => {
+    const since = (ctx.query.get('since') ?? '').trim();
+    const limit = Number.parseInt(ctx.query.get('limit') ?? '200', 10) || 200;
+    const entries = diag.list(since || undefined, limit);
+    ok(ctx.res, {
+      data: {
+        count: entries.length,
+        file: diag.file,
+        entries,
+      },
+    });
+  });
+
+  /** 清空。排查完一轮之后重置，避免旧信息干扰。 */
+  router.add('POST', '/api/diag/clear', (ctx) => {
+    const cleared = diag.clear();
+    ok(ctx.res, { data: { cleared } });
   });
 
   // ── 兜底 ──────────────────────────────────────────────────────────────

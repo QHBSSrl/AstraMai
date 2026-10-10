@@ -12,6 +12,7 @@ import { existsSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { assertDeploymentSafety, readConfig } from './config.js';
+import { DiagStore } from './diag.js';
 import { GatewayService } from './gateway.js';
 import { createGuard } from './guard.js';
 import { sendJson, serveStatic } from './http.js';
@@ -41,8 +42,10 @@ registry.register(
 );
 
 const service = new GatewayService(config, registry);
+// 端上报诊断：真机拿不到日志，只能让 App 自己打回来
+const diag = new DiagStore(config.repoRoot);
 const guard = createGuard(config);
-const router = createRouter(service, config, guard);
+const router = createRouter(service, config, guard, diag);
 const hasWebDist = existsSync(config.webDist);
 
 /** 仅对本地来源放开 CORS；其他来源不下发 CORS 头，浏览器会自行拦截。 */

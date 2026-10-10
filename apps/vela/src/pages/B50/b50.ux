@@ -318,6 +318,7 @@
 </style>
 
 <script>
+  import { mark } from '../../common/diag.js';
   import { fetchB50, fetchB50ByQq } from '../../common/api.js';
   import { goBack } from '../../common/navigation.js';
   import { readSetting, warmUp, writeSetting } from '../../common/store.js';
@@ -361,7 +362,12 @@
       goBack('/');
     },
 
+    onReady() {
+      mark('B50:onReady');
+    },
+
     onInit() {
+      mark('B50:onInit');
       console.log('[AstraMai] B50 onInit');
       warmUp(['queryKind', 'queryValue', 'friendCode'])
         .then(() => this.restore())
