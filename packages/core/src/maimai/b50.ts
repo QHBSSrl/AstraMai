@@ -101,6 +101,27 @@ export function findDifficulty(
 
 // ── 视图模型 ────────────────────────────────────────────────────────────
 
+/**
+ * 版本号 → 版本名。
+ *
+ * ⚠️ 两个字段的粒度不一样：曲目里是 `21007` 这种细粒度值（末三位是修订号），
+ * 而 versions 表里是 `21000` 这样的千位步长。所以先按原值查，
+ * 查不到再**按千位取整**兜底——直接用原值查会全部落空。
+ *
+ * 放在 core 里而不是各端各写一遍：服务端的搜索接口和这里的 B50 都要用，
+ * 这份取整规则踩过一次坑，不该有第二份实现。
+ */
+export function versionTitleOf(
+  versions: readonly MaimaiVersion[] | undefined,
+  version: number | null | undefined,
+): string | null {
+  if (!versions || version === null || version === undefined) return null;
+  const exact = versions.find((item) => item.version === version);
+  if (exact) return exact.title;
+  const coarse = Math.floor(version / 1000) * 1000;
+  return versions.find((item) => item.version === coarse)?.title ?? null;
+}
+
 export interface B50Entry {
   /** 原始成绩，保留以便后续扩展。 */
   score: MaimaiScore;
@@ -111,6 +132,8 @@ export interface B50Entry {
   genre: string;
   bpm: number | null;
   songVersion: number | null;
+  /** 版本名（如「舞萌DX 2021」）。查不到时为 null。 */
+  songVersionTitle: string | null;
   jacketUrl: string;
 
   /** 曲目别名（落雪别名系统）。 */
@@ -365,6 +388,7 @@ function buildEntry(score: MaimaiScore, index: SongIndex, warnings: Set<string>)
     genre: song?.genre ?? '',
     bpm: song?.bpm ?? null,
     songVersion: song?.version ?? null,
+    songVersionTitle: versionTitleOf(index.versions, song?.version),
     jacketUrl: jacketUrl(score.id),
     aliases: index.aliases.get(score.id) ?? [],
     type: score.type,

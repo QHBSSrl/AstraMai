@@ -765,6 +765,16 @@ function findDifficulty(song, type, levelIndex, levelLabel) {
   const list = type === "dx" ? (_c = song.difficulties.dx) != null ? _c : [] : (_d = song.difficulties.standard) != null ? _d : [];
   return (_e = list.find((chart) => chart.difficulty === levelIndex)) != null ? _e : list[0];
 }
+function versionTitleOf(versions, version) {
+  var _a, _b;
+  if (!versions || version === null || version === void 0)
+    return null;
+  const exact = versions.find((item) => item.version === version);
+  if (exact)
+    return exact.title;
+  const coarse = Math.floor(version / 1e3) * 1e3;
+  return (_b = (_a = versions.find((item) => item.version === coarse)) == null ? void 0 : _a.title) != null ? _b : null;
+}
 function buildB50View(input) {
   var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u;
   const { player, bests, index } = input;
@@ -834,6 +844,7 @@ function buildEntry(score, index, warnings) {
     genre: (_e = song == null ? void 0 : song.genre) != null ? _e : "",
     bpm: (_f = song == null ? void 0 : song.bpm) != null ? _f : null,
     songVersion: (_g = song == null ? void 0 : song.version) != null ? _g : null,
+    songVersionTitle: versionTitleOf(index.versions, song == null ? void 0 : song.version),
     jacketUrl: jacketUrl(score.id),
     aliases: (_h = index.aliases.get(score.id)) != null ? _h : [],
     type: score.type,
@@ -2370,5 +2381,6 @@ export {
   utf8Decode,
   utf8Encode,
   verifyScoreRating,
+  versionTitleOf,
   wahlapQrContentOf
 };

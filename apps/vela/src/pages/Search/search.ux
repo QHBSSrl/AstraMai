@@ -34,6 +34,7 @@
         <div class="row__main">
           <text class="row__title">{{ $item.title }}</text>
           <text class="row__sub">{{ $item.sub }}</text>
+          <text class="row__version">版本 {{ $item.versionTitle }}</text>
 
           <!--
             定数逐难度列出，用游戏内的难度配色。
@@ -138,16 +139,18 @@
   .list {
     width: 100%;
     /* <list> 必须显式给高度，否则高度为 0，一条都画不出来。
-       这里是三行内容（曲名 / 版本+别名 / STD+DX 定数），所以给得高一些。
+       320px 是按 432x514 的屏幕倒推的：去掉页边距、查询框、按钮行之后的余量。
        搜索完成后键盘会自动收起，这块地方能整个用上。 */
-    height: 300px;
+    height: 320px;
     margin-top: 12px;
   }
 
   .row {
     flex-direction: row;
     align-items: center;
-    height: 108px;
+    /* 最多 5 行内容：曲名 / 别名 / 版本 / STD / DX。
+       定死高度，避免列表项高度随内容变化而抖动。 */
+    height: 128px;
     padding: 6px 8px;
   }
 
@@ -192,6 +195,14 @@
   .row__sub {
     font-size: 16px;
     color: #6d7fa3;
+  }
+
+  /* 版本单独一行并带标签。之前混在副标题里，用户反馈「版本显示呢」——
+     实际是有的，只是认不出来。 */
+  .row__version {
+    font-size: 16px;
+    color: #f2a33c;
+    margin-top: 2px;
   }
 
   .row__badge {
@@ -244,14 +255,12 @@
       }));
   }
 
-  /** 副标题：版本名 + 别名（没别名就用艺术家）。 */
+  /** 副标题：只放别名（没别名就用艺术家）。
+   *  版本单独一行并带标签，混在这里会看不出来。 */
   function buildSub(item) {
-    const parts = [];
-    if (item.versionTitle) parts.push(item.versionTitle);
-    parts.push(
-      item.aliases && item.aliases.length > 0 ? item.aliases.slice(0, 3).join(' / ') : item.artist,
-    );
-    return parts.filter(Boolean).join(' · ');
+    return item.aliases && item.aliases.length > 0
+      ? item.aliases.slice(0, 3).join(' / ')
+      : item.artist;
   }
 
   export default {
@@ -314,6 +323,8 @@
             return {
               title: item.title,
               sub: buildSub(item),
+              // 版本单独占一行，并带「版本」二字——混在副标题里认不出来
+              versionTitle: item.versionTitle || '未知',
               stdCells: toCells(charts.filter((chart) => chart.type === 'standard')),
               dxCells: toCells(charts.filter((chart) => chart.type === 'dx')),
               jacketUrl: item.jacketUrl || '',

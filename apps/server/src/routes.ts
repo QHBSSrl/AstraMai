@@ -14,6 +14,7 @@ import {
   LxnsError,
   serializeLxnsError,
   jacketUrl,
+  versionTitleOf,
   type LxnsErrorKind,
   type MaimaiSong,
   type MaimaiSongDifficulty,
@@ -246,21 +247,10 @@ export function createRouter(
       const needle = keyword.toLowerCase();
 
       /**
-       * 版本号 → 版本名。
-       *
-       * 在服务端解析而不是丢给客户端：曲目里存的是 `version: 21007` 这种数字，
-       * 名字在曲库的 versions 表里。让每个客户端各自维护这份映射是重复劳动，
-       * 而且上游一改就全得跟着改。
-       *
-       * ⚠️ 两个字段的粒度不一样：曲目里是 21007 这种细粒度值（末三位是修订号），
-       * 而 versions 表里是 21000 这样的千位步长。所以必须**按千位取整**再查，
-       * 直接用原值查会全部落空。
+       * 版本名解析放在 core 里（`versionTitleOf`），服务端与 B50 共用一份。
+       * 那份「按千位取整兜底」的规则踩过一次坑，不该有第二份实现。
        */
-      const versionTitles = new Map(library.songs.versions.map((v) => [v.version, v.title]));
-      const versionTitleOf = (songVersion: number): string | null =>
-        versionTitles.get(songVersion) ??
-        versionTitles.get(Math.floor(songVersion / 1000) * 1000) ??
-        null;
+      const versions = library.songs.versions;
 
       const results: {
         id: number;
@@ -300,7 +290,7 @@ export function createRouter(
           bpm: song.bpm,
           jacketUrl: jacketUrl(song.id),
           version: song.version,
-          versionTitle: versionTitleOf(song.version),
+          versionTitle: versionTitleOf(versions, song.version),
           aliases,
           difficulties: [...(song.difficulties.standard ?? []), ...(song.difficulties.dx ?? [])].map(
             (chart) => ({
