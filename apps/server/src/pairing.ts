@@ -32,6 +32,15 @@ const TOKEN_TTL_MS = 10 * 60 * 1000;
 /** 每个 token 允许的失败次数，超过就作废——防爆破。 */
 const MAX_FAILURES = 5;
 
+/**
+ * 每个 token 允许的查询次数上限。
+ *
+ * 客户端是**纯手动刷新**（不做轮询），正常玩家点十几次就到头了。
+ * 设这个上限是为了防脚本：即使有人拿到 token 猛刷，也刷不穿。
+ * 轮询那种 O(用户数) 的持续负载从设计上就不存在，这里是第二道闸。
+ */
+const MAX_POLLS = 120;
+
 /** 同时存在的会话上限，防止有人无限创建把内存刷爆。 */
 const MAX_SESSIONS = 2000;
 
@@ -49,6 +58,8 @@ export interface PairSession {
   consumed: boolean;
   /** 校验失败次数，用于限速。 */
   failures: number;
+  /** 已查询次数，用于挡住脚本猛刷。 */
+  polls: number;
 }
 
 /** 提交结果。 */
@@ -124,6 +135,7 @@ export class PairingService {
       expiresAt: now + TOKEN_TTL_MS,
       consumed: false,
       failures: 0,
+      polls: 0,
     };
     this.sessions.set(session.token, session);
     return session;
@@ -190,6 +202,13 @@ export class PairingService {
   poll(token: string, deviceSecret: string): PollResult {
     const session = this.get(token);
     if (!session) return { status: 'expired' };
+
+    // 挡脚本：客户端是手动刷新，正常玩家用不到这么多次
+    session.polls += 1;
+    if (session.polls > MAX_POLLS) {
+      this.sessions.delete(token);
+      return { status: 'expired' };
+    }
 
     if (!safeEqual(session.deviceSecretHash, sha256Hex(deviceSecret))) {
       session.failures += 1;

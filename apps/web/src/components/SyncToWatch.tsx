@@ -117,8 +117,8 @@ export function SyncToWatch() {
         setFeedback({
           tone: 'ok',
           text: result.pinSet
-            ? '已送到服务器，并已为这台设备开启传输密码。手表会自动收到（也可以点「刷新」立刻取）。'
-            : '已送到服务器。手表每两秒自动取一次，也可以点「刷新」立刻取。数据在手表取走后立刻删除，最多保留 10 分钟。',
+            ? '已送到服务器，并已为这台设备开启传输密码。现在到手表上点「刷新」即可取走。'
+            : '已送到服务器。现在到手表上点「刷新」取走。数据在取走后立刻删除，最多保留 10 分钟。',
         });
       } else {
         setFeedback({ tone: 'error', text: result.message ?? '提交失败。' });
@@ -143,7 +143,7 @@ export function SyncToWatch() {
       <ol className="sync-steps">
         <li>在手表上打开「同步」，屏幕上会显示一个 8 位配对码</li>
         <li>把配对码填到下面，选好类型并填上数据</li>
-        <li>点「同步到手表」——手表每两秒自动取一次，不用手动操作</li>
+        <li>点「同步到手表」，然后回到手表点「刷新」取走</li>
       </ol>
 
       <div className="field">
@@ -244,6 +244,7 @@ export function SyncToWatch() {
       <p className="footnote" style={{ marginTop: 14 }}>
         数据只放在服务端内存里，不落盘、取走即删、最多保留 10 分钟。
         读取还需要手表本地的设备密钥——**即使有人猜中配对码，也读不走你的数据**。
+        手表端不做轮询：每次同步只在你去点「刷新」时才请求一次服务端。
       </p>
     </section>
   );

@@ -18,7 +18,10 @@
     <text class="status" style="color: {{ statusColor }}">{{ statusText }}</text>
 
     <div class="actions">
-      <!-- 有自动轮询，但玩家从网页切回来时点一下能立刻拿到结果，不用等下一轮 -->
+      <!--
+        刻意**不做自动轮询**：轮询是 O(用户数) 的持续负载，人多起来会把服务端压垮；
+        手动刷新是 O(点击次数) 的，代价只在玩家真的需要时才付。
+      -->
       <div class="action" if="{{ !success && token }}" @click="refreshNow">
         <text class="action__text">刷新</text>
       </div>
@@ -145,8 +148,6 @@
   const { readSetting, warmUp, writeSetting } = store;
   const { describePayload, parseSyncPayload, storageWritesFor } = syncPayload;
 
-  /** 轮询间隔。太密费电，太疏玩家等得急。 */
-  const POLL_MS = 2000;
 
   export default {
     private: {
@@ -159,8 +160,6 @@
       hint: '',
       success: false,
       // 未声明的字段在 Vela 里行为不可靠，这几个必须显式列出来
-      // （qr.ux 的定时器句柄也是这么声明的）
-      timer: null,
       deviceSecret: '',
       expiresAt: 0,
     },
@@ -184,14 +183,13 @@
         });
     },
 
-    /** 离开页面就停轮询，否则会在后台一直发请求耗电。 */
-    onHide() {
-      this.stopPolling();
-    },
+    /**
+     * 没有定时器要清——配对是完全手动的。
+     * 钩子留着是因为将来若加了需要清理的资源，这里是唯一正确的落点。
+     */
+    onHide() {},
 
-    onDestroy() {
-      this.stopPolling();
-    },
+    onDestroy() {},
 
     begin() {
       if (!isCryptoAvailable()) {
@@ -218,10 +216,9 @@
           // 数字之间留空，手表小屏上更好认
           this.tokenText = String(data.token).split('').join(' ');
           this.leadText = '在网页「同步到手表」里填入这串数字';
-          this.statusText = '等待网页提交…';
+          this.statusText = '网页提交后，点下面的「刷新」';
           this.statusColor = '#9bacd0';
           this.updateCountdown();
-          this.startPolling();
         })
         .catch((error) => {
           console.error('[AstraMai] 获取配对码失败：', error);
@@ -232,57 +229,31 @@
     },
 
     /**
-     * 手动刷新：立刻查一次，不等下一轮自动轮询。
+     * 手动刷新：查一次服务端。
      *
-     * 自动轮询本来就够用，但玩家从网页切回手表时点一下能马上看到结果，
-     * 不用盯着倒计时等——网页那边的提示文案也是让玩家回来点刷新。
+     * **刻意不做自动轮询。** 轮询是 O(用户数) 的持续负载——每个开着配对页的
+     * 人都在定时打服务端，人一多就把它压垮了；而手动刷新是 O(点击次数) 的，
+     * 代价只在玩家真的需要时才付。
+     *
+     * 相应地，界面上的时间提示也只在点刷新时更新——**不显示会自己变旧的数据**，
+     * 免得停在那儿误导人。
      */
     refreshNow() {
       if (this.success || !this.token) return;
+
       this.updateCountdown();
       if (Date.now() > this.expiresAt) {
-        this.statusText = '配对码已过期，请重新获取';
+        this.statusText = '配对码已过期，请点「重新获取」';
         this.statusColor = '#f2a33c';
         return;
       }
+
       this.statusText = '正在检查…';
       this.statusColor = '#9bacd0';
-      // 直接调 tick 里的查询逻辑，避免两份实现走偏
       this.pollOnce();
     },
 
-    startPolling() {
-      this.stopPolling();
-      this.timer = setInterval(() => this.tick(), POLL_MS);
-    },
-
-    stopPolling() {
-      if (this.timer) {
-        clearInterval(this.timer);
-        this.timer = null;
-      }
-    },
-
-    /** 定时器每轮：更新倒计时 + 查一次。 */
-    tick() {
-      this.updateCountdown();
-
-      if (this.success) {
-        this.stopPolling();
-        return;
-      }
-      if (!this.token) return;
-      if (Date.now() > this.expiresAt) {
-        this.stopPolling();
-        this.statusText = '配对码已过期，请重新获取';
-        this.statusColor = '#f2a33c';
-        return;
-      }
-
-      this.pollOnce();
-    },
-
-    /** 真正发查询的那一处——定时器和手动刷新都走这里。 */
+    /** 查一次服务端。只有手动刷新会调它——没有定时器。 */
     pollOnce() {
       pollPairing(this.token, this.deviceSecret)
         .then((data) => {
@@ -291,24 +262,18 @@
             return;
           }
           if (data.status === 'expired') {
-            this.stopPolling();
-            this.statusText = '配对码已失效，请重新获取';
+            this.statusText = '配对码已失效，请点「重新获取」';
             this.statusColor = '#f2a33c';
             return;
           }
-          // 手动刷新时给个「还没到」的反馈，否则玩家会以为按钮没反应
-          if (this.statusText === '正在检查…') {
-            this.statusText = '网页还没提交，请稍候…';
-            this.statusColor = '#9bacd0';
-          }
+          // 给个明确的「还没到」反馈，否则玩家会以为按钮没反应
+          this.statusText = '网页还没提交，请稍后再点刷新';
+          this.statusColor = '#9bacd0';
         })
         .catch((error) => {
-          // 单次网络抖动不该打断整个流程，下一轮继续
-          console.warn('[AstraMai] 轮询失败（将重试）：', error);
-          if (this.statusText === '正在检查…') {
-            this.statusText = '网络不太好，正在重试…';
-            this.statusColor = '#f2a33c';
-          }
+          console.warn('[AstraMai] 刷新失败：', error);
+          this.statusText = error && error.message ? error.message : '网络不太好，请重试';
+          this.statusColor = '#f2a33c';
         });
     },
 
@@ -334,7 +299,6 @@
       }
 
       this.success = true;
-      this.stopPolling();
       this.leadText = '已同步';
       this.statusText = `已保存${describePayload(payload)}`;
       this.statusColor = '#58d68d';
@@ -366,7 +330,6 @@
 
     /** 换一个配对码重新开始。 */
     restart() {
-      this.stopPolling();
       this.token = '';
       this.tokenText = '';
       this.countdownText = '';
@@ -379,7 +342,6 @@
     },
 
     onBack() {
-      this.stopPolling();
       goBack('/');
     },
   };

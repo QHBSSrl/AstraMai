@@ -214,3 +214,35 @@ test('统计信息只暴露数量，不泄露内容', () => {
   assert.deepEqual(Object.keys(stats).sort(), ['pinnedDevices', 'sessions']);
   assert.ok(!JSON.stringify(stats).includes('SECRET'));
 });
+
+test('查询次数上限挡得住脚本猛刷（客户端是手动刷新，不做轮询）', () => {
+  const pairing = new PairingService();
+  const device = makeDevice();
+  const session = pairing.start(device.hash);
+
+  // 正常玩家点十几次就到头了，前 120 次必须都正常
+  for (let i = 0; i < 120; i += 1) {
+    assert.equal(pairing.poll(session.token, device.secret).status, 'waiting', `第 ${i + 1} 次不该被拒`);
+  }
+
+  // 越过上限就作废
+  assert.deepEqual(pairing.poll(session.token, device.secret), { status: 'expired' });
+  assert.equal(pairing.get(session.token), null, '作废后 token 应当从表里消失');
+});
+
+test('查询上限不会被错误密钥的查询白白耗掉', () => {
+  const pairing = new PairingService();
+  const device = makeDevice();
+  const session = pairing.start(device.hash);
+
+  // 先来一堆错误密钥的查询（这些会累加 failures，但也会累加 polls）
+  for (let i = 0; i < 3; i += 1) pairing.poll(session.token, 'wrong');
+
+  // 正确密钥仍然可用，而且次数还够
+  for (let i = 0; i < 100; i += 1) {
+    const result = pairing.poll(session.token, device.secret);
+    if (result.status === 'expired') {
+      assert.fail(`第 ${i + 1} 次正常查询就被拒了——上限被错误密钥的查询吃掉了`);
+    }
+  }
+});
