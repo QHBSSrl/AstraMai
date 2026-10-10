@@ -33,6 +33,12 @@ export * from './maimai/qr-payload.js';
 export * from './chunithm/constants.js';
 export * from './chunithm/bests.js';
 
+// ── Phigros ─────────────────────────────────────────────────────────────
+// 和落雪是两个完全不同的平台（玩家标识来自 TapTap 扫码、没有全量曲库接口），
+// 所以单独一层，不塞进 lxns/ 里。
+export * from './phigros/types.js';
+export * from './phigros/client.js';
+
 // ── 二维码（零依赖，Vela 端可直接复用）────────────────────────────────
 export * from './qr/index.js';
 
