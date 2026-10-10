@@ -2,6 +2,18 @@
 
 <template>
   <div class="b50-page">
+    <!--
+      显式返回键。
+      手表上没有可见的返回入口，用户得先知道「从边缘侧滑」这个隐藏手势才能回去；
+      不知道的人会到处找按钮，找不到就只能大退应用重进。模拟器上更是没有侧滑手势。
+    -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+      <text class="topbar__title">Best 50</text>
+    </div>
+
     <!-- ── 查询目标 ─────────────────────────────────────────────── -->
     <div class="kinds">
       <div class="kind {{ kind === 'friendCode' ? 'kind--on' : '' }}" @click="setKind('friendCode')">
@@ -80,6 +92,31 @@
     flex-direction: column;
     padding: 14px;
     background-color: #070b16;
+  }
+
+  /* 返回键。做够大，手表上要好点。 */
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+    margin-bottom: 4px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: #1c2740;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: #e8eefc;
+  }
+
+  .topbar__title {
+    font-size: 22px;
+    color: #9bacd0;
+    margin-left: 14px;
   }
 
   .kinds {
@@ -264,6 +301,7 @@
 
 <script>
   import { fetchB50, fetchB50ByQq } from '../../common/api.js';
+  import { goBack } from '../../common/navigation.js';
   import { readSetting, warmUp, writeSetting } from '../../common/store.js';
   import {
     appendDigit,
@@ -295,6 +333,11 @@
       avgLevelText: '',
       selfCheckText: '',
       entries: [],
+    },
+
+    /** 返回上一页。失败也不会把用户困住——goBack 内部会兜底跳首页。 */
+    onBack() {
+      goBack('/');
     },
 
     onInit() {

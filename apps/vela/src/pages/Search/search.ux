@@ -7,7 +7,15 @@
       <text class="query__hint">{{ statusText }}</text>
     </div>
 
+    <!--
+      返回键放在按钮行里，不额外占竖直空间——下面是全屏输入法键盘，
+      页面可用高度本来就紧。
+      存在的理由：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势。
+    -->
     <div class="actions">
+      <div class="action action--ghost" @click="onBack">
+        <text class="action__text">‹ 返回</text>
+      </div>
       <div class="action {{ keyword ? '' : 'action--disabled' }}" @click="runSearch">
         <text class="action__text">搜索</text>
       </div>
@@ -79,11 +87,12 @@
     margin-top: 12px;
   }
 
+  /* 一行要放下 4 个按钮（返回 / 搜索 / 清空 / 收起），所以做得紧凑些 */
   .action {
-    height: 64px;
-    padding: 0 26px;
-    margin: 0 5px;
-    border-radius: 32px;
+    height: 60px;
+    padding: 0 16px;
+    margin: 0 4px;
+    border-radius: 30px;
     background-color: #ff5f9e;
     align-items: center;
     justify-content: center;
@@ -98,7 +107,7 @@
   }
 
   .action__text {
-    font-size: 24px;
+    font-size: 21px;
     color: #1a0710;
   }
 
@@ -149,6 +158,7 @@
 
 <script>
   import { searchSongs } from '../../common/api.js';
+  import { goBack } from '../../common/navigation.js';
 
   /** 命中维度的展示名。 */
   const MATCH_LABEL = {
@@ -167,6 +177,11 @@
 
     onInit() {
       console.log('[AstraMai] Search onInit');
+    },
+
+    /** 返回上一页。 */
+    onBack() {
+      goBack('/');
     },
 
     /**

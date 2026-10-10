@@ -1,5 +1,15 @@
 <template>
   <div class="page">
+    <!--
+      显式返回键。手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势；
+      不知道的人会到处找按钮，找不到就只能大退应用重进。
+    -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
     <text class="title">机台二维码</text>
 
     <!-- 有内容：交给原生 qrcode 组件画 -->
@@ -97,6 +107,25 @@
     margin-top: 18px;
   }
 
+  /* 返回键。做够大，手表上要好点。 */
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+    margin-bottom: 4px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: #1c2740;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: #e8eefc;
+  }
+
   .btn {
     height: 64px;
     padding: 0 26px;
@@ -133,6 +162,7 @@
 
 <script>
   import { describeValidity, parseWahlapQrPayload } from '../../common/astramai-core.js'
+  import { goBack } from '../../common/navigation.js'
   import { clearSetting, readSetting, warmUp, writeSetting } from '../../common/store.js'
 
   const STORAGE_KEY = 'qrInput'
@@ -149,6 +179,11 @@
       validityText: '',
       validityClass: '',
       timer: null,
+    },
+
+    /** 返回上一页。 */
+    onBack() {
+      goBack('/')
     },
 
     onInit() {
