@@ -16,18 +16,56 @@ import {
   CHUNITHM_CHAIN_LABELS,
   CHUNITHM_DIFFICULTY_COLORS,
   CHUNITHM_DIFFICULTY_COUNT,
+  CHUNITHM_DIFFICULTY_FULL_NAMES,
   CHUNITHM_DIFFICULTY_NAMES,
   CHUNITHM_FC_LABELS,
+  CHUNITHM_NORMAL_DIFFICULTY_COUNT,
   CHUNITHM_RANK_LABELS,
   CHUNITHM_UNKNOWN_COLOR,
+  CHUNITHM_WORLD_S_END_INDEX,
   chunithmDifficultyColor,
+  chunithmDifficultyFullName,
   chunithmDifficultyName,
+  isChunithmNormalDifficulty,
+  isChunithmWorldsEnd,
 } from '../dist/index.js';
 
+test('常规难度是 5 档，WORLD\'S END 不算在内', () => {
+  // 这条是用户纠正我的：我一开始把 WE 当成第六档难度。
+  // WE 的性质等同于舞萌的宴会场——是**独立的一类特殊谱面**，
+  // 不是"比 ULTIMA 更难的难度"。混进那一排颜色会让玩家误解。
+  assert.equal(CHUNITHM_NORMAL_DIFFICULTY_COUNT, 5);
+  assert.equal(CHUNITHM_DIFFICULTY_COUNT, 6, '下标取值有 6 个，但难度档位只有 5 个');
+  assert.equal(CHUNITHM_WORLD_S_END_INDEX, 5);
+});
+
+test('下标 5 被认作 WORLD\'S END，且不是常规难度', () => {
+  assert.equal(isChunithmWorldsEnd(5), true);
+  assert.equal(isChunithmNormalDifficulty(5), false);
+
+  // 0–4 都是常规难度
+  for (let i = 0; i < 5; i += 1) {
+    assert.equal(isChunithmNormalDifficulty(i), true, `${i} 应当是常规难度`);
+    assert.equal(isChunithmWorldsEnd(i), false);
+  }
+});
+
+test('未知档位既不算常规也不算 WE，避免被误当难度参与统计', () => {
+  assert.equal(isChunithmNormalDifficulty(6), false);
+  assert.equal(isChunithmWorldsEnd(6), false);
+  assert.equal(isChunithmNormalDifficulty(-1), false);
+});
+
+test('WE 有独立的全称，不能只显示缩写', () => {
+  assert.equal(chunithmDifficultyFullName(5), "WORLD'S END");
+  assert.equal(chunithmDifficultyFullName(4), 'ULTIMA');
+  assert.match(chunithmDifficultyFullName(99), /未知难度/);
+});
+
 test('难度档位是 6 档（含 WORLD\'S END，文档漏了这档）', () => {
-  assert.equal(CHUNITHM_DIFFICULTY_COUNT, 6);
   assert.equal(CHUNITHM_DIFFICULTY_NAMES.length, 6);
   assert.equal(CHUNITHM_DIFFICULTY_COLORS.length, 6);
+  assert.equal(CHUNITHM_DIFFICULTY_FULL_NAMES.length, 6);
 });
 
 test('六档的名字与顺序符合游戏内实际', () => {

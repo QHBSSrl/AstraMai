@@ -1,29 +1,42 @@
 <template>
   <div class="page">
-    <text class="brand">AstraMai</text>
-    <text class="brand__sub">街机音游工具</text>
+    <!--
+      顶栏：标题在左、设置在右。
+      之前标题是居中的大 logo，加游戏之后首页入口会变多，
+      把「设置 / 切换游戏 / 同步」这些收进右上角，首页才留得下功能入口。
+    -->
+    <div class="topbar">
+      <text class="brand">AstraMai</text>
+      <div class="settings-btn" @click="goSettings">
+        <text class="settings-btn__text">设置</text>
+      </div>
+    </div>
+
+    <!-- 当前游戏。整块可点，点了也进设置（切换游戏在那里） -->
+    <div class="game" @click="goSettings">
+      <text class="game__name">{{ gameLabel }}</text>
+      <text class="game__hint">当前游戏 · 点此切换</text>
+    </div>
 
     <div class="menu">
-      <div class="entry" @click="go('b50')">
+      <div class="entry" if="{{ showB50 }}" @click="go('b50')">
         <text class="entry__title">Best 50</text>
         <text class="entry__sub">{{ targetSummary }}</text>
       </div>
 
-      <!-- 放在搜索上面：手表上打字很难受，能同步就少打一次字 -->
-      <div class="entry entry--accent" @click="go('sync')">
-        <text class="entry__title">同步到手表</text>
-        <text class="entry__sub">在网页上填好友码 / QQ 号，不用在手表上打字</text>
-      </div>
-
-      <div class="entry" @click="go('search')">
+      <div class="entry" if="{{ showSearch }}" @click="go('search')">
         <text class="entry__title">曲目搜索</text>
         <text class="entry__sub">日文曲名 · 中文别名 · 罗马音</text>
       </div>
 
-      <div class="entry" @click="go('qr')">
+      <div class="entry" if="{{ showQr }}" @click="go('qr')">
         <text class="entry__title">二维码</text>
         <text class="entry__sub">{{ qrSummary }}</text>
       </div>
+
+      <text class="empty" if="{{ !showB50 && !showSearch && !showQr }}">
+        这个游戏还没有可用功能
+      </text>
     </div>
 
     <text class="foot">{{ serverSummary }}</text>
@@ -33,27 +46,60 @@
 <style>
   .page {
     flex-direction: column;
-    align-items: center;
-    padding: 22px 20px;
+    padding: 16px 20px;
     background-color: #070b16;
   }
 
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  /* 标题占满剩余宽度，设置按钮固定 —— 比 space-between 稳妥 */
   .brand {
-    font-size: 38px;
+    flex: 1;
+    font-size: 32px;
     font-weight: bold;
     color: #ff5f9e;
   }
 
-  .brand__sub {
+  .settings-btn {
+    padding: 8px 18px;
+    border-radius: 20px;
+    background-color: #1c2740;
+  }
+
+  .settings-btn__text {
     font-size: 20px;
-    color: #9bacd0;
-    margin-top: 4px;
+    color: #e8eefc;
+  }
+
+  .game {
+    flex-direction: column;
+    width: 100%;
+    padding: 14px 18px;
+    margin-top: 8px;
+    border-radius: 14px;
+    background-color: #141d30;
+  }
+
+  .game__name {
+    font-size: 24px;
+    color: #4fd6ff;
+  }
+
+  .game__hint {
+    font-size: 15px;
+    color: #6d7fa3;
+    margin-top: 2px;
   }
 
   .menu {
     flex-direction: column;
     width: 100%;
-    margin-top: 20px;
+    margin-top: 14px;
   }
 
   .entry {
@@ -64,30 +110,22 @@
     background-color: #141d30;
   }
 
-  /* 同步入口是「少打一次字」的主要路径，给它一点视觉权重 */
-  .entry--accent {
-    background-color: #1d2942;
-    border-left: 4px solid #ff5f9e;
-  }
-
-  /* 条目变多了，收紧一点间距免得超出一屏 */
-  .menu {
-    margin-top: 16px;
-  }
-
-  .entry__sub {
-    font-size: 16px;
-  }
-
   .entry__title {
     font-size: 28px;
     color: #e8eefc;
   }
 
   .entry__sub {
-    font-size: 17px;
+    font-size: 16px;
     color: #9bacd0;
     margin-top: 4px;
+  }
+
+  .empty {
+    font-size: 17px;
+    color: #6d7fa3;
+    text-align: center;
+    margin-top: 20px;
   }
 
   .foot {
@@ -101,40 +139,24 @@
   // 刻意**不** import api.js：首页不需要网络，
   // 而 api.js 会连上 @system.fetch，拖进来只会让首页多一个初始化失败的可能。
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
-  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { config, core, diag, store, validate } = global.AstraMai;
+  const { config, core, diag, games, navigation, store, validate } = global.AstraMai;
   const { getServerBase } = config;
   const { describeValidity, parseWahlapQrPayload } = core;
   const { mark } = diag;
+  const { gameById, gameHasFeature, readCurrentGame } = games;
+  const { push } = navigation;
   const { readSetting, warmUp } = store;
   const { summarizeTarget } = validate;
-
-  /** router 也延迟取，避免平台模块不可用时整页初始化失败。 */
-  let routerModule;
-  function getRouter() {
-    if (routerModule !== undefined) return routerModule;
-    try {
-      // eslint-disable-next-line global-require
-      routerModule = require('@system.router') || null;
-    } catch (error) {
-      console.warn('[AstraMai] @system.router 不可用：', error);
-      routerModule = null;
-    }
-    return routerModule;
-  }
-
-  const ROUTES = {
-    sync: '/sync',
-    b50: '/b50',
-    search: '/search',
-    qr: '/qr',
-  };
 
   export default {
     private: {
       qrSummary: '未导入',
       targetSummary: '未保存，点击输入',
       serverSummary: '',
+      gameLabel: '',
+      showB50: false,
+      showSearch: false,
+      showQr: false,
     },
 
     onReady() {
@@ -144,22 +166,30 @@
     onInit() {
       mark('Index:onInit');
       console.debug('[AstraMai] Index onInit');
-      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode'])
+      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame'])
         .then(() => this.refresh())
         .catch((error) => console.error('[AstraMai] Index 初始化失败：', error));
     },
 
-    // 从其它页面返回时刷新
+    // 从设置或其它页面返回时刷新（切换游戏后菜单要跟着变）
     onShow() {
       this.refresh();
     },
 
     refresh() {
       try {
+        // ── 当前游戏决定显示哪些入口 ──
+        const game = gameById(readCurrentGame(readSetting));
+        this.gameLabel = game.label;
+        // 按游戏的能力开关入口：中二还没接查分，就不显示 Best 50，
+        // **宁可少显示，也别让玩家点进去报错**
+        this.showB50 = gameHasFeature(game, 'b50');
+        this.showSearch = gameHasFeature(game, 'search');
+        this.showQr = gameHasFeature(game, 'qr');
+
         // 已保存的查分目标——展示出来让用户知道不用再输一遍
         const kind = readSetting('queryKind', 'friendCode') === 'qq' ? 'qq' : 'friendCode';
-        const value =
-          readSetting('queryValue', '') || readSetting('friendCode', '');
+        const value = readSetting('queryValue', '') || readSetting('friendCode', '');
         this.targetSummary = summarizeTarget(kind, value) || '未保存，点击输入';
 
         const saved = readSetting('qrInput', '');
@@ -189,9 +219,11 @@
     },
 
     go(name) {
-      const router = getRouter();
-      if (!router) return;
-      router.push({ uri: ROUTES[name] });
+      push('/' + name);
+    },
+
+    goSettings() {
+      push('/settings');
     },
   };
 </script>

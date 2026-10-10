@@ -67,6 +67,10 @@
       "pages/Sync": {
         "component": "sync",
         "path": "/sync"
+      },
+      "pages/Settings": {
+        "component": "settings",
+        "path": "/settings"
       }
     }
   },

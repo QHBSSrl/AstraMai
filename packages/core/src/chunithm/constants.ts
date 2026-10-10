@@ -7,11 +7,44 @@
  *
  *   0 BASIC / 1 ADVANCED / 2 EXPERT / 3 MASTER / 4 ULTIMA / 5 WORLD'S END
  *
- * 只看文档会把 WORLD'S END 整档漏掉，UI 上显示成 `#5`。
- * 这是 2026-10 直接请求 `/api/v0/chunithm/song/list` 核对出来的。
+ * 这是 2026-10 直接请求 `/api/v0/chunithm/song/list` 核对出来的，
+ * 实测档位分布：
+ *   0=BAS 1406 / 1=ADV 1406 / 2=EXP 1406 / 3=MST 1406 / 4=ULT 82 / 5=WE 52
+ *
+ * ── 关于 WORLD'S END：它是特殊谱面，不是第六档难度 ──────────────────
+ *
+ * （这条是用户纠正我的，我一开始当成了普通档位。）
+ *
+ * WORLD'S END 的性质**和舞萌的宴会场（utage）一样**：
+ *   - 它不是「某个难度级别的谱面」，而是**独立的一类特殊谱面**
+ *   - 曲目不一定有，有也不止一张；定数和常规难度体系不同源
+ *   - 舞萌那边干脆单独放在 `difficulties.utage` 数组里，`level_index` 恒为 0
+ *
+ * 所以这里把「常规五档」和「WORLD'S END」在语义上分开：
+ * 常规难度参与配色、统计、B30 计算；WORLD'S END 单独展示、单独标注。
+ * 把它们混在一排颜色里，会让玩家以为 WE 是"比 ULTIMA 更难的难度"。
  */
 
-/** 已知难度档位的数量（含 WORLD'S END）。 */
+/** 常规难度档位数（BASIC…ULTIMA）。WORLD'S END 不算在内。 */
+export const CHUNITHM_NORMAL_DIFFICULTY_COUNT = 5;
+
+/**
+ * WORLD'S END 在 `difficulty` 字段里的下标。
+ *
+ * 上游把它和常规难度放在同一个数组里，只用下标区分——
+ * 这是它和舞萌最大的结构差异（舞萌有独立的 `utage` 数组）。
+ */
+export const CHUNITHM_WORLD_S_END_INDEX = 5;
+
+/** 判断某个难度下标是不是 WORLD'S END。 */
+export function isChunithmWorldsEnd(index: number): boolean {
+  return index === CHUNITHM_WORLD_S_END_INDEX;
+}
+
+/**
+ * 已知难度下标的取值个数（含 WORLD'S END），用于校验与遍历。
+ * 注意这个数**不是**「难度档位数」——那个是 CHUNITHM_NORMAL_DIFFICULTY_COUNT。
+ */
 export const CHUNITHM_DIFFICULTY_COUNT = 6;
 
 /**
@@ -25,6 +58,16 @@ export const CHUNITHM_DIFFICULTY_NAMES: readonly string[] = [
   'MST',
   'ULT',
   'WE',
+];
+
+/** 难度全称。 */
+export const CHUNITHM_DIFFICULTY_FULL_NAMES: readonly string[] = [
+  'BASIC',
+  'ADVANCED',
+  'EXPERT',
+  'MASTER',
+  'ULTIMA',
+  "WORLD'S END",
 ];
 
 /**
@@ -57,9 +100,26 @@ export function chunithmDifficultyName(index: number): string {
   return CHUNITHM_DIFFICULTY_NAMES[index] ?? `#${index}`;
 }
 
+/** 难度全称。WORLD'S END 会返回带撇号的完整写法。 */
+export function chunithmDifficultyFullName(index: number): string {
+  return CHUNITHM_DIFFICULTY_FULL_NAMES[index] ?? `未知难度 #${index}`;
+}
+
 /** 难度颜色。未知档位返回中性灰。 */
 export function chunithmDifficultyColor(index: number): string {
   return CHUNITHM_DIFFICULTY_COLORS[index] ?? CHUNITHM_UNKNOWN_COLOR;
+}
+
+/**
+ * 这个难度是否参与常规难度体系（配色排、统计、Rating 计算）。
+ *
+ * WORLD'S END 不参与——它的性质等同于舞萌的宴会场。
+ * UI 上应当把它**单独展示**，而不是塞进那一排难度颜色里。
+ */
+export function isChunithmNormalDifficulty(index: number): boolean {
+  // 下界必须显式判断：只写 `index < 5` 的话 -1 会被当成常规难度
+  // （测试抓到的边界）。WE 是 5，天然被上界排除。
+  return index >= 0 && index < CHUNITHM_NORMAL_DIFFICULTY_COUNT;
 }
 
 /** CLEAR 类型的中文说明。 */

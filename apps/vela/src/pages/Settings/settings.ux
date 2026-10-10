@@ -1,0 +1,192 @@
+<template>
+  <div class="page">
+    <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
+    <text class="title">设置</text>
+
+    <!-- 游戏切换 -->
+    <text class="section">游戏</text>
+    <div class="rows">
+      <div class="row" for="{{ gameRows }}" @click="selectGame($item.id)">
+        <text class="row__label" style="color: {{ $item.current ? '#4fd6ff' : '#e8eefc' }}">{{ $item.label }}</text>
+        <text class="row__mark" if="{{ $item.current }}">当前</text>
+      </div>
+    </div>
+
+    <!-- 功能 -->
+    <text class="section">功能</text>
+    <div class="rows">
+      <div class="row" @click="goSync">
+        <text class="row__label">同步到手表</text>
+        <text class="row__mark">›</text>
+      </div>
+    </div>
+    <text class="hint">在网页上填好友码 / QQ 号 / 二维码，不用在手表上打字。</text>
+
+    <!-- 服务端 -->
+    <text class="section">服务端</text>
+    <div class="rows">
+      <div class="row row--static">
+        <text class="row__value">{{ serverBase }}</text>
+      </div>
+    </div>
+    <text class="hint">地址写死在应用里，改它要改 common/config.js。</text>
+
+    <text class="foot">AstraMai · 街机音游工具</text>
+  </div>
+</template>
+
+<style>
+  .page {
+    flex-direction: column;
+    padding: 14px 20px;
+    background-color: #070b16;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: #1c2740;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: #e8eefc;
+  }
+
+  .title {
+    font-size: 30px;
+    font-weight: bold;
+    color: #e8eefc;
+    margin-top: 4px;
+  }
+
+  .section {
+    font-size: 16px;
+    color: #6d7fa3;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+
+  .rows {
+    flex-direction: column;
+    width: 100%;
+    border-radius: 14px;
+    background-color: #141d30;
+  }
+
+  .row {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 64px;
+    padding: 0 18px;
+  }
+
+  .row--static {
+    height: 56px;
+  }
+
+  .row__label {
+    flex: 1;
+    font-size: 22px;
+    color: #e8eefc;
+  }
+
+  .row__value {
+    font-size: 16px;
+    color: #9bacd0;
+  }
+
+  .row__mark {
+    font-size: 19px;
+    color: #4fd6ff;
+  }
+
+  .hint {
+    font-size: 14px;
+    color: #6d7fa3;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  .foot {
+    font-size: 14px;
+    color: #4a5a78;
+    text-align: center;
+    margin-top: 24px;
+  }
+</style>
+
+<script>
+  const { config, diag, games, navigation, store } = global.AstraMai;
+  const { getServerBase } = config;
+  const { mark } = diag;
+  const { GAMES, readCurrentGame, writeCurrentGame } = games;
+  const { goBack, push } = navigation;
+  const { readSetting, warmUp, writeSetting } = store;
+
+  export default {
+    private: {
+      gameRows: [],
+      serverBase: '',
+    },
+
+    onReady() {
+      mark('Settings:onReady');
+    },
+
+    onInit() {
+      mark('Settings:onInit');
+      warmUp(['currentGame', 'qrInput', 'queryKind', 'queryValue', 'friendCode'])
+        .then(() => this.refresh())
+        .catch((error) => console.error('[AstraMai] Settings 初始化失败：', error));
+    },
+
+    refresh() {
+      const current = readCurrentGame(readSetting);
+      // 做成可直接渲染的行，模板里就不用再算
+      this.gameRows = GAMES.map((game) => ({
+        id: game.id,
+        label: game.label,
+        current: game.id === current,
+      }));
+      this.serverBase = getServerBase();
+    },
+
+    /**
+     * 切换游戏。
+     *
+     * 切换后**停在本页**而不是自动返回：让玩家看到「当前」标记跟着变了，
+     * 否则点一下什么都没发生，会以为没生效。
+     */
+    selectGame(id) {
+      try {
+        writeCurrentGame(writeSetting, id);
+        this.refresh();
+      } catch (error) {
+        console.error('[AstraMai] 切换游戏失败：', error);
+      }
+    },
+
+    goSync() {
+      push('/sync');
+    },
+
+    onBack() {
+      goBack('/');
+    },
+  };
+</script>
