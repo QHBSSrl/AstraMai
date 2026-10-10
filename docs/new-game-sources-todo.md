@@ -2,6 +2,27 @@
 
 > 这份文档是"先去查一轮"之后的版本。原以为要逐个游戏找 API，
 > 实际查完发现**结论和直觉相反**：街机系几乎白送，手机音游反而更难或不可行。
+>
+> **2026-10 更新**：中二节奏已接入并上线（core + 服务端，实测 18/18 通过）。
+> Phigros 与太鼓的接口规范已拿到，方案写在文末。
+
+---
+
+## 零、已经做完的
+
+| 项目 | 状态 |
+|---|---|
+| maimai DX 全链路 | ✅ 上线 |
+| **中二节奏：core + 服务端** | ✅ **已上线**（曲库 1458 首、搜索、曲绘） |
+| 中二节奏：玩家成绩（B30） | ⬜ 待做，需要确认密钥的中二权限 |
+| 网页 / 手表的游戏切换 | ⬜ 待做 |
+
+中二已上线的接口：
+
+```
+GET /api/v1/chunithm/songs              曲库，notes=1 带物量
+GET /api/v1/chunithm/search?q=&limit=   曲目搜索
+```
 
 ---
 
@@ -188,3 +209,99 @@ apps/server/src/sources/
 
 这轮 maimai 的坑（`JSON.parse('123456789012345')` 会成功返回数字那个）
 就是对真实数据写测试时才炸出来的。
+
+---
+
+## 六、Phigros 与太鼓：规范已拿到（2026-10 补）
+
+### Phigros —— 比预想的好得多
+
+`https://lilith.xtower.site/api-docs/`（Phigros Query 开放平台）
+
+**关键发现：这是托管的 REST 服务，不需要我们自己跑那个 C++ 原生库。**
+之前查到 `philib` 要 `phigros.dll` 时以为很重，原来已经有人把它托管好了。
+
+```
+Base   https://r0semi.xtower.site/api/v1/open/
+Auth   header  X-OpenApi-Token: <key>
+```
+
+| 接口 | 作用 |
+|---|---|
+| `POST /auth/qrcode?taptapVersion=cn` | 生成 TapTap 登录二维码 → `{qrId, verificationUrl, qrcodeBase64}` |
+| `GET /auth/qrcode/{qrId}/status` | 轮询 → `{status, retryAfter, sessionToken}` |
+| `POST /save?calculate_rks=true` | 传 `{sessionToken, taptapVersion}` → 存档 + RKS + B30 + 评级统计 |
+| `GET /songs/search?q=&limit=` | 曲目搜索 → `{items:[{id,name,composer,chartConstants:{ez,hd,in,at}}], total, hasMore}` |
+
+**实测确认**（用你给的测试 key）：
+
+```
+q=Spasmodic  → Spasmodic | 定数 EZ8.2 HD12.9 IN15.5 AT16.7
+q=云         → 云女孩 / 星拂云锦      ← 中文搜索正常
+```
+
+**接入方式与其它游戏不同，要注意：**
+
+- 玩家标识是 **sessionToken**，来自 **TapTap 扫码登录**
+- 也就是说：**扫码这一步必须在网页上做**（手表上没有摄像头也没有 TapTap）
+  → 正好是配对同步的用武之地：网页扫码拿到 token → 传给手表
+- **曲绘不在这个 API 里**：`/songs/search` 只给 `illustrator`（插画师名），没有图 URL
+  → 曲绘要么另找资源站，要么只显示插画师名
+- 难度只有 4 档：**EZ / HD / IN / AT**（比中二简单）
+- 存档里的成绩是**按 `曲名.曲师` 为键**的字典，不是数组——映射时要转一下
+- `chartConstants` 是定数表，正好补齐曲库缺的那部分
+
+**待确认**：`pgr_test_...` 是测试 key，正式接入需要换成生产 key，
+并确认它的 rate limit 与 scope。
+
+### 太鼓之达人 —— 接口规范已明确
+
+`https://viewer.sakura-bot.cn/docs/score-token`（Sakura Taiko Viewer）
+
+```
+POST https://sakura-bot.cn/api/public-score/by-token
+Content-Type: application/json
+body: {"token":"用户的48位token"}
+```
+
+返回：
+
+```json
+{
+  "ok": true,
+  "taikoId": "2258735",
+  "fetchedAt": "...",
+  "data": {
+    "profile": { "mydon_name": "...", "userid": "...", "province": "...", ... },
+    "songs": [{ "song_no": 187, "level": 4, "high_score": 1000000,
+                "good_cnt": 160, "ok_cnt": 0, "ng_cnt": 0,
+                "combo_cnt": 160, "clear_cnt": 1, "full_combo_cnt": 1,
+                "dondaful_combo_cnt": 1, "highscore_datetime": "..." }],
+    "achievement": { "count_level": 5, "ary_crown_count": [...], "ary_score_rank_count": [...] }
+  }
+}
+```
+
+**又是"用户提供凭证"的模式**（48 位 token）→ 同样走配对同步。
+
+文档里明确写了三条约束，接的时候必须遵守：
+
+> - 接口支持 CORS，可由浏览器直接请求；有后端时**建议服务端代调用**，减少 token 暴露
+> - 接口返回前会尝试拉取最新成绩。**请避免高频轮询**，并在业务侧设置短时间缓存
+> - **不要把 token 写入日志、埋点、URL 查询参数或错误上报**
+
+错误码：`400` 请求体/token 非法 · `401` token 无效或已轮换 ·
+`404` 绑定 ID 或本地成绩不存在 · `502` 上游拉取失败
+
+**待确认**：你正在申请开发者 API，批下来后需要确认
+「开发者 API」和这个「用户 token API」是不是同一套。
+
+### 两个游戏共同的结论
+
+**它们都是"用户提供凭证"模型**（Phigros 是 sessionToken、太鼓是 48 位 token）。
+这意味着：
+
+1. **配对同步功能的价值远不止 maimai** —— 它是"把用户凭证安全送到手表"的通用通道
+2. 服务端必须**缓存 + 限速**，两边文档都明确要求了（太鼓甚至写进了接入约束）
+3. **凭证不能进日志** —— 我们现有的 diag 上报通道要小心，别把请求体原样打回去
+
