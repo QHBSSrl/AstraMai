@@ -234,9 +234,28 @@ export async function fetchPhigrosBests(sessionToken) {
   return (payload && payload.data) || null;
 }
 
-/** Phigros 曲目搜索。平台唯一的曲库入口，没有全量列表。 */
+/**
+ * Phigros 曲目搜索。平台唯一的曲库入口，没有全量列表。
+ *
+ * ⚠️ **在这里把形状统一成 `{ results }`**，和落雪那两个接口对齐。
+ *
+ * 起因是一个真 bug：平台返回 `{ items, total, ... }`，而落雪返回
+ * `{ keyword, count, results }`。页面原来写死读 `payload.results`，
+ * 于是 Phigros 搜索恒为空数组、且不报错。
+ *
+ * 当时的修法是在页面里加分支，但那只解决这一次——
+ * **只要三个接口形状不同，任何新页面都会再踩一遍**。
+ * 所以改成在源头归一：调用方只认一种形状。
+ */
 export async function searchPhigrosSongs(keyword, limit = 20) {
   const query = encodeURIComponent(keyword);
   const payload = await jsonRequest(`/api/v1/phigros/search?q=${query}&limit=${limit}`);
-  return (payload && payload.data) || { items: [] };
+  const data = (payload && payload.data) || {};
+  const items = data.items || [];
+  return {
+    // 统一成 results，和 searchSongs / searchChunithmSongs 一致
+    results: items,
+    total: typeof data.total === 'number' ? data.total : items.length,
+    hasMore: Boolean(data.hasMore),
+  };
 }

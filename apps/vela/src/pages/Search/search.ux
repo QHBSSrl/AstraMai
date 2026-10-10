@@ -395,7 +395,12 @@
           : searchSongs;
       search(keyword, 30)
         .then((payload) => {
-          const list = payload && payload.results ? payload.results : [];
+          // 三个接口的形状**已经在 api.js 里统一成 `{ results }`**。
+          // 曾经写死 `payload.results` 而 Phigros 返回 `{ items }`，
+          // 于是 Phigros 搜索恒为空数组且不报错；
+          // 当时的修法是在这里加分支，但那只解决一次——
+          // 形状不统一的话，任何新页面都会再踩。所以在源头归一。
+          const list = (payload && payload.results) || [];
           // 详情页要用完整字段，所以原始结果单独留一份
           rawResults = list;
 
