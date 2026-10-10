@@ -330,8 +330,8 @@
 </template>
 
 <script>
-import vibrator from "@system.vibrator";
-import device from '@system.device'
+  // [二分] vibrator import 已移除
+  // [二分] device import 已移除
 import { createDictionaryLoader } from "./assets/dictionaryLoader.js";
 
 function deleteLast(t) {
@@ -755,7 +755,9 @@ export default {
     }
   },
   onVibrate() {
-    if (this.vibratemode != "") {
+    // [AstraMai patch] 同样加防御：模拟器等环境可能没有振动器，
+    // 抛出去会把页面初始化打断。
+    if (this.vibratemode != "" && vibrator && typeof vibrator.vibrate === 'function') {
       vibrator.vibrate({ mode: this.vibratemode });
     }
   },
@@ -774,6 +776,15 @@ export default {
     this.addAllTxt(temp);
   },
   adjustScreenWidth(){
+    // [AstraMai patch] 加防御。
+    //
+    // 原代码直接调 device.getInfo(...)，没有任何存在性检查。
+    // 但官方 manifest 文档的权限表里，system.device 只列出 getSerial / getDeviceId，
+    // getInfo 在部分平台上并不存在——于是这里抛 TypeError，
+    // 把整个页面的初始化打断，表现为**页面完全空白**（连页面自己的内容都不渲染）。
+    //
+    // screenWidth 拿不到不影响输入法主体功能，所以拿不到就用默认值。
+    if (!device || typeof device.getInfo !== 'function') return;
     device.getInfo({
       success: (data) => {
         this.screenWidth = data.screenWidth;

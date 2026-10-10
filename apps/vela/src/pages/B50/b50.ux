@@ -1,3 +1,4 @@
+
 <import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
 
 <template>
@@ -43,7 +44,8 @@
         </div>
       </div>
 
-      <list class="list">
+      <!-- <list> 必须显式给高度，否则高度为 0、成绩一条都画不出来 -->
+      <list class="list" style="height: {{ keyboardHidden ? '320px' : '130px' }};">
         <list-item class="row" type="item" for="{{ entries }}">
           <text class="row__rank">{{ $idx + 1 }}</text>
           <div class="row__main">
@@ -209,14 +211,15 @@
   }
 
   .list {
-    flex: 1;
+    width: 100%;
     margin-top: 12px;
   }
 
   .row {
     flex-direction: row;
     align-items: center;
-    padding: 12px 8px;
+    height: 58px;
+    padding: 6px 8px;
   }
 
   .row__rank {
