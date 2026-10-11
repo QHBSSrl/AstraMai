@@ -39,7 +39,6 @@
       </text>
     </div>
 
-    <text class="foot">{{ serverSummary }}</text>
   </div>
 </template>
 
@@ -139,8 +138,7 @@
   // 刻意**不** import api.js：首页不需要网络，
   // 而 api.js 会连上 @system.fetch，拖进来只会让首页多一个初始化失败的可能。
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
-  const { config, core, diag, games, navigation, store, validate } = global.AstraMai;
-  const { getServerBase } = config;
+  const { core, diag, games, navigation, store, validate } = global.AstraMai;
   const { describeValidity, parseWahlapQrPayload } = core;
   const { mark } = diag;
   const { gameById, gameHasFeature, readCurrentGame } = games;
@@ -152,7 +150,6 @@
     private: {
       qrSummary: '未导入',
       targetSummary: '未保存，点击输入',
-      serverSummary: '',
       gameLabel: '',
       showB50: false,
       showSearch: false,
@@ -212,7 +209,6 @@
           }
         }
 
-        this.serverSummary = '服务端 ' + getServerBase();
       } catch (error) {
         console.error('[AstraMai] Index refresh 失败：', error);
       }

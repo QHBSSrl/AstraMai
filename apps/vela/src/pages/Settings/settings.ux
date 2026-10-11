@@ -21,9 +21,14 @@
     <!-- 功能 -->
     <text class="section">功能</text>
     <div class="rows">
-      <div class="row" @click="goSync">
-        <text class="row__label">同步到手表</text>
-        <text class="row__mark">›</text>
+      <!--
+        同步暂时关闭：后端目前是裸 IP，等换成能绑域名的服务器再放出来。
+        这里不做成「点了报错」，而是**直接告诉用户暂不可用**——
+        点进去再失败对用户更糟。
+      -->
+      <div class="row row--off" @click="explainSyncUnavailable">
+        <text class="row__label row__label--off">同步到手表</text>
+        <text class="row__mark">暂不可用</text>
       </div>
       <!--
         Phigros 的凭证来自 TapTap 扫码，只能在这里登一次。
@@ -34,17 +39,9 @@
         <text class="row__mark">{{ phigrosStatus }}</text>
       </div>
     </div>
-    <text class="hint">「同步到手表」用于落雪那两个游戏：在网页上填好友码 / QQ 号，不用在手表上打字。</text>
+    <text class="hint">同步功能依赖的服务端正在迁移，暂时不可用。</text>
+    <text class="hint hint--warn" if="{{ syncNotice }}">{{ syncNotice }}</text>
     <text class="hint">Phigros 需要先用 TapTap 扫码登录一次，之后就不用再扫。</text>
-
-    <!-- 服务端 -->
-    <text class="section">服务端</text>
-    <div class="rows">
-      <div class="row row--static">
-        <text class="row__value">{{ serverBase }}</text>
-      </div>
-    </div>
-    <text class="hint">地址写死在应用里，改它要改 common/config.js。</text>
 
     <text class="foot">AstraMai · 街机音游工具</text>
   </div>
@@ -124,6 +121,19 @@
     color: #4fd6ff;
   }
 
+  /* 不可用的行：压暗，并且不显示「›」（它点不动，给箭头是误导） */
+  .row--off {
+    opacity: 0.5;
+  }
+
+  .row__label--off {
+    color: #9bacd0;
+  }
+
+  .hint--warn {
+    color: #f2a33c;
+  }
+
   .hint {
     font-size: 14px;
     color: #6d7fa3;
@@ -140,8 +150,7 @@
 </style>
 
 <script>
-  const { config, diag, games, navigation, store } = global.AstraMai;
-  const { getServerBase } = config;
+  const { diag, games, navigation, store } = global.AstraMai;
   const { mark } = diag;
   const { GAMES, readCurrentGame, writeCurrentGame } = games;
   const { goBack, push } = navigation;
@@ -150,7 +159,8 @@
   export default {
     private: {
       gameRows: [],
-      serverBase: '',
+      /** 同步为何不可用——点一下会展开说明。 */
+      syncNotice: '',
       /** Phigros 的登录状态。空串表示没登录过。 */
       phigrosStatus: '未登录',
     },
@@ -174,7 +184,7 @@
         label: game.label,
         current: game.id === current,
       }));
-      this.serverBase = getServerBase();
+
       // 只是「有没有登录」这一个比特，**不读出来展示**——
       // 凭证不该出现在界面上，截图分享时也安全
       this.phigrosStatus = readSetting('phigrosSession', '') ? '已登录' : '未登录';
@@ -195,8 +205,14 @@
       }
     },
 
-    goSync() {
-      push('/sync');
+    /**
+     * 同步暂不可用。
+     *
+     * 不跳转、也不弹错——只是把原因写在页面上。
+     * 等后端换成能绑域名的服务器，把这里改回 push('/sync') 即可。
+     */
+    explainSyncUnavailable() {
+      this.syncNotice = 'API 服务器问题，功能暂不可用。';
     },
 
     goPhigrosLogin() {

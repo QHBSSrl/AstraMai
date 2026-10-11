@@ -126,7 +126,7 @@
   const { createPhigrosQr, pollPhigrosQr } = api;
   const { mark } = diag;
   const { goBack } = navigation;
-  const { readSetting, warmUp, writeSetting } = store;
+  const { warmUp, writeSetting } = store;
 
   /** 凭证存这里的键。B50 页查 Phigros 时会读它。 */
   const SESSION_KEY = 'phigrosSession';
