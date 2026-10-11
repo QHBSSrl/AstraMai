@@ -26,24 +26,18 @@ export const GAMES = [
     short: '舞萌',
     features: ['b50', 'search', 'qr'],
   },
-  // ── Phigros：暂时撤下（2026-10）─────────────────────────────────────
-  //
-  // 原因：接入后连着几轮都没修干净（搜索恒 0 条、界面上残留无用的输入框、
-  // 成绩行显示加载失败的灰块）。先撤出用户可见范围，别让人一直当测试。
-  //
-  // **代码都还在**，恢复只需要三步：
-  //   1. 把下面这段注释解开
-  //   2. manifest.json 里加回 pages/PhigrosLogin 路由
-  //      （component: 'phigros-login', path: '/phigros-login'）
-  //   3. 设置页加回「Phigros 登录」那一行（goPhigrosLogin）
-  // 服务端接口保留着，没动，不用管。
-  //
-  // {
-  //   id: 'phigros',
-  //   label: 'Phigros',
-  //   short: 'phi',
-  //   features: ['b50', 'search'],
-  // },
+  {
+    id: 'phigros',
+    label: 'Phigros',
+    short: 'phi',
+    // ⚠️ **故意不给 'search'**：曲目查询那条路一直没修干净（搜出来恒 0 条），
+    // 先砍掉。首页不会显示「曲目搜索」入口，也就不可能点进去看到空列表。
+    //
+    // 查分（RKS + B30）保留——服务端实测 20/20，登录页与 B50 分支都在。
+    // 将来要恢复曲目查询：把 'search' 加回来，
+    // 并确认 api.js 里 searchPhigrosSongs 已经把形状归一成 { results }。
+    features: ['b50'],
+  },
   {
     id: 'chunithm',
     label: '中二节奏',

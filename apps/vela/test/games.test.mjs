@@ -36,18 +36,21 @@ test('至少包含舞萌与中二', () => {
   assert.ok(ids.includes('chunithm'));
 });
 
-test('Phigros 处于「已撤下」状态，不在可选列表里', () => {
-  // 2026-10 撤下：接入后连着几轮没修干净（搜索恒 0 条、界面残留无用输入框、
-  // 成绩行显示加载失败的灰块），先移出用户可见范围。
+test('Phigros 只保留查分，曲目查询已砍', () => {
+  // 用户原话：「头疼砍头不是让你全砍了的，只需要把 phigros 的曲目查询砍了就行」。
+  // 曲目查询那条路一直没修干净（搜出来恒 0 条），先砍掉——
+  // 首页不显示「曲目搜索」入口，也就不可能点进去看到空列表。
   //
-  // 这条测试是**故意的**：如果哪天有人把 Phigros 加回 GAMES 却没把功能做扎实，
-  // 这里会红，逼着做决定——而不是让它悄悄回到用户面前。
-  // 真要恢复时，连同这条断言一起改，并确认那几个问题都解决了。
-  const ids = GAMES.map((game) => game.id);
-  assert.ok(!ids.includes('phigros'), 'Phigros 不应出现在可选游戏列表里');
+  // 这条测试是**故意的**：如果哪天有人把 'search' 加回来却没把搜索修好，
+  // 这里会红，逼着做决定。真要恢复时连同这条断言一起改。
+  const phigros = gameById('phigros');
+  assert.equal(gameHasFeature(phigros, 'b50'), true, '查分应当保留');
+  assert.equal(gameHasFeature(phigros, 'search'), false, '曲目查询应当已砍掉');
+});
 
-  // 曾经存过 phigros 的用户会回退到默认游戏，而不是拿到 undefined 崩掉
-  assert.equal(gameById('phigros').id, DEFAULT_GAME_ID);
+test('Phigros 在可选列表里（查分是可用的）', () => {
+  const ids = GAMES.map((game) => game.id);
+  assert.ok(ids.includes('phigros'), 'Phigros 应当可选择——只砍搜索，不是整个撤下');
 });
 
 test('id 必须和服务端的路径前缀一致', () => {
