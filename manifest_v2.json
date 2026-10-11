@@ -3,12 +3,12 @@
     "id": "com.astranexus.astramai",
     "restype": "quick_app",
     "name": "AstraMai",
-    "description": "AstraMai是AstraNexus团队开发的一款音乐游戏工具软件，可以在腕上查询自己的Best数据，曲目信息，获取玩家登录二维码等功能，一切基础功能均为免费。目前仅为测试版，欢迎加入交流群帮助我们改进项目：308532898 （UI是deepseek写的，测试版先不要求UI了）",
+    "description": "AstraMai是AstraNexus团队开发的一款音乐游戏工具软件，可以在腕上查询自己的Best数据，曲目信息，获取玩家登录二维码等功能，一切基础功能均为免费，设计上仅支持eSIM设备（因为非eSIM用这个好像没啥意义）。目前仅为测试版，欢迎加入交流群帮助我们改进项目：308532898 （UI是deepseek写的，测试版先不要求UI了）",
     "preview": [
-      "media/redmi_watch-2026-10-11-10-21-19.png",
       "media/redmi_watch-2026-10-11-10-22-44.png",
       "media/redmi_watch-2026-10-11-10-22-08.png",
-      "media/redmi_watch-2026-10-11-10-21-40.png"
+      "media/redmi_watch-2026-10-11-10-21-40.png",
+      "media/redmi_watch-2026-10-11-10-21-19.png"
     ],
     "icon": "media/icon.png",
     "cover": "media/e063302b03dd5fb1849871be6e3a395d (自定义) (1).png",
