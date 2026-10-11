@@ -249,7 +249,8 @@
 <script>
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { api, core, games, navigation, store } = global.AstraMai;
+  const { api, core, diag, games, navigation, store } = global.AstraMai;
+  const { mark } = diag;
   const { searchChunithmSongs, searchPhigrosSongs, searchSongs } = api;
   const { chunithmDifficultyColor, phigrosDifficultyColor } = core;
   const { gameById, readCurrentGame } = games;
@@ -273,7 +274,7 @@
   let rowCache = [];
   let shownCount = 0;
   const { goBack, push } = navigation;
-  const { warmUp, writeSetting } = store;
+  const { readSetting, warmUp, writeSetting } = store;
 
   /**
    * 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。
