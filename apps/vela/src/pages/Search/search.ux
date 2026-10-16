@@ -648,9 +648,6 @@
                 title: item.title,
                 sub: buildSub(item),
                 versionTitle: item.versionTitle || '未知',
-              // 版本 + 分类同一行。分类是中文（服务端已映射过：
-              // 舞萌的 genre 原始值是日文，直接显示看不懂）
-              versionLine: joinMeta(item.versionTitle || '未知', item.genreTitle),
                 // 版本 + 分类同一行——分类是找曲子的主要线索之一
                 versionLine: joinMeta(item.versionTitle || '未知', item.genreTitle),
                 set1Label: '定数',
@@ -666,6 +663,9 @@
               sub: buildSub(item),
               // 版本单独占一行，并带「版本」二字——混在副标题里认不出来
               versionTitle: item.versionTitle || '未知',
+              // 版本 + 分类同一行。分类是中文——服务端已经把舞萌那份
+              // 日文原始值（ゲームバラエティ）映射过了，直接显示看不懂
+              versionLine: joinMeta(item.versionTitle || '未知', item.genreTitle),
               set1Label: 'STD',
               set1Cells: toCells(charts.filter((chart) => chart.type === 'standard'), false),
               set2Label: 'DX',
