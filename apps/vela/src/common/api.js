@@ -110,6 +110,31 @@ export function searchChunithmSongs(keyword, limit = 30) {
   return getClient().request(`/api/v1/chunithm/search?q=${query}&limit=${limit}`);
 }
 
+/**
+ * 拉某游戏的乐曲分类列表。
+ *
+ * 单独一个接口、只回 7 个分类名：曲库有一千多首，
+ * 为了几个分类名去拉整份曲库不值得。
+ *
+ * ⚠️ **中二的分类没有 title 字段**（实测），只有 `genre` 且本身已是中文；
+ * 舞萌两个都有。调用方统一用 `title || genre`。
+ */
+export function fetchGenres(gameId) {
+  return getClient().request(`/api/v1/${gameId}/genres`);
+}
+
+/**
+ * 按分类浏览曲目。
+ *
+ * 走的是**同一个搜索接口**，所以返回形状与关键词搜索完全一致——
+ * 渲染、分页、详情跳转都不用为「浏览」另写一套。
+ */
+export function searchByGenre(gameId, genreId, limit = 100) {
+  return getClient().request(
+    `/api/v1/${gameId}/search?genre=${encodeURIComponent(genreId)}&limit=${limit}`,
+  );
+}
+
 /** 服务端健康检查，用来判断地址填对没有。 */
 export function fetchHealth() {
   return getClient().request('/api/health');

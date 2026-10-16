@@ -22,13 +22,28 @@
       <div class="action action--ghost" @click="clearAll">
         <text class="action__text">清空</text>
       </div>
+      <!-- Phigros 平台没有分类概念，按钮对它隐藏 -->
+      <div class="action action--ghost" if="{{ gameId !== 'phigros' }}" @click="toggleGenres">
+        <text class="action__text">{{ mode === 'genre' ? '曲目' : '分类' }}</text>
+      </div>
       <div class="action action--ghost" @click="toggleKeyboard">
         <text class="action__text">{{ keyboardHidden ? '输入' : '收起' }}</text>
       </div>
     </div>
 
     <!-- <list> 必须显式给高度（官方文档要求），否则高度为 0、一条都画不出来 -->
-    <list class="list" if="{{ results.length > 0 }}" onscrollbottom="onScrollBottom">
+    <!--
+      分类列表。和曲目列表互斥显示——手表屏幕小，两个列表同屏放不下。
+      点一个分类就直接列出该类曲目（复用同一个搜索接口）。
+    -->
+    <list class="list" if="{{ mode === 'genre' }}">
+      <list-item class="cat" type="item" for="{{ genreRows }}" @click="pickGenre($idx)">
+        <text class="cat__name">{{ $item.label }}</text>
+        <text class="cat__mark">▸</text>
+      </list-item>
+    </list>
+
+    <list class="list" if="{{ mode === 'songs' && results.length > 0 }}" onscrollbottom="onScrollBottom">
       <list-item class="row" type="item" for="{{ results }}">
         <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
         <div class="row__main">
@@ -145,6 +160,31 @@
     color: #6d7fa3;
   }
 
+  /*
+   * 分类行。
+   * 比曲目行矮（曲目行带封面和两行定数），整行可点。
+   */
+  .cat {
+    flex-direction: row;
+    align-items: center;
+    height: 72px;
+    margin-bottom: 8px;
+    padding: 0 20px;
+    border-radius: 14px;
+    background-color: #141d30;
+  }
+
+  .cat__name {
+    flex: 1;
+    font-size: 24px;
+    color: #e8eefc;
+  }
+
+  .cat__mark {
+    font-size: 22px;
+    color: #6d7fa3;
+  }
+
   .list {
     width: 100%;
     /* <list> 必须显式给高度，否则高度为 0，一条都画不出来。
@@ -251,7 +291,7 @@
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
   const { api, core, diag, games, navigation, store } = global.AstraMai;
   const { mark } = diag;
-  const { searchChunithmSongs, searchPhigrosSongs, searchSongs } = api;
+  const { fetchGenres, searchByGenre, searchChunithmSongs, searchPhigrosSongs, searchSongs } = api;
   const { chunithmDifficultyColor, phigrosDifficultyColor } = core;
   const { gameById, readCurrentGame } = games;
 
@@ -328,6 +368,10 @@
       gameId: 'maimai',
       statusText: '支持日文曲名、中文别名与罗马音',
       results: [],
+      /** 'songs' 看曲目，'genre' 看分类列表。 */
+      mode: 'songs',
+      /** 分类列表的行（已按游戏整理好中文名）。 */
+      genreRows: [],
     },
 
     onReady() {
@@ -429,6 +473,61 @@
       this.statusText = this.keyword ? `${this.keyword.length} 字 · 点「搜索」` : '支持日文曲名、中文别名与罗马音';
     },
 
+    /**
+     * 切到 / 切回分类列表。
+     *
+     * 第一次点才去拉分类（缓存住，来回切不重复请求）。
+     */
+    toggleGenres() {
+      if (this.mode === 'genre') {
+        this.mode = 'songs';
+        this.statusText = '支持日文曲名、中文别名与罗马音';
+        return;
+      }
+      this.keyboardHidden = true;
+      this.mode = 'genre';
+      this.statusText = '按分类浏览';
+
+      if (this.genreRows.length > 0) return;
+
+      this.statusText = '正在获取分类…';
+      fetchGenres(this.gameId)
+        .then((data) => {
+          const genres = (data && data.genres) || [];
+          // ⚠️ 中二的分类**没有 title 字段**，只有 genre（本身已是中文）
+          this.genreRows = genres.map((g) => ({
+            id: String(g.id),
+            label: g.title || g.genre || ('分类 ' + g.id),
+          }));
+          this.statusText = this.genreRows.length > 0 ? '按分类浏览' : '这个游戏没有分类数据';
+        })
+        .catch((error) => {
+          console.error('[AstraMai] 获取分类失败：', error);
+          this.statusText = error && error.message ? error.message : '获取分类失败';
+          this.mode = 'songs';
+        });
+    },
+
+    /** 点了某个分类：直接列出该类曲目，复用已有的行渲染与分页。 */
+    pickGenre(index) {
+      const row = this.genreRows[index];
+      if (!row) return;
+
+      this.mode = 'songs';
+      this.keyboardHidden = true;
+      this.statusText = '正在加载「' + row.label + '」…';
+
+      searchByGenre(this.gameId, row.id)
+        .then((payload) => {
+          this.renderResults((payload && payload.results) || [], row.label);
+        })
+        .catch((error) => {
+          console.error('[AstraMai] 按分类加载失败：', error);
+          this.statusText = error && error.message ? error.message : '加载失败';
+          this.results.length = 0;
+        });
+    },
+
     clearAll() {
       this.keyword = '';
       this.results = [];
@@ -457,14 +556,36 @@
           : searchSongs;
       search(keyword, 30)
         .then((payload) => {
-          // 三个接口的形状**已经在 api.js 里统一成 `{ results }`**。
-          // 曾经写死 `payload.results` 而 Phigros 返回 `{ items }`，
-          // 于是 Phigros 搜索恒为空数组且不报错；
-          // 当时的修法是在这里加分支，但那只解决一次——
-          // 形状不统一的话，任何新页面都会再踩。所以在源头归一。
-          const list = (payload && payload.results) || [];
-          // 详情页要用完整字段，所以原始结果单独留一份
-          rawResults = list;
+          // 结果形状**已在 api.js 里统一成 `{ results }`**（Phigros 那边是 `{ items }`，
+          // 在源头转过了）。这里只负责把数组交给渲染。
+          this.renderResults((payload && payload.results) || [], keyword);
+        })
+        .catch((error) => {
+          this.results.length = 0;
+          rowCache = [];
+          shownCount = 0;
+          this.statusText = error && error.message ? error.message : '搜索失败';
+          this.keyboardHidden = false;
+        });
+    },
+
+    /**
+     * 把结果数组转成可渲染的行并显示。
+     *
+     * 抽出来的理由：**关键词搜索和按分类浏览返回的是同一种形状**
+     * （分类浏览就是给搜索接口加了个 `genre` 参数），
+     * 渲染、分页、详情跳转都该共用一份，不然改一处漏一处。
+     *
+     * @param list  曲目数组
+     * @param label 用于结果文案——关键词或分类名
+     */
+    renderResults(list, label) {
+      const isChunithm = this.gameId === 'chunithm';
+      const isPhigros = this.gameId === 'phigros';
+
+      // 详情页要用完整字段，所以原始结果单独留一份
+      rawResults = list;
+
 
           // 先转换成一页能用的行，其余等触底再取
           // （官方《常用业务优化》：超过 10 条建议分页渲染）
@@ -540,18 +661,11 @@
           // 结果对象较多，主动回收一次（官方《内存优化》建议的手动触发点）
           if (typeof global.runGC === 'function') global.runGC();
 
+
           this.statusText =
             list.length === 0
-              ? `没有匹配「${keyword}」的曲目`
-              : `${list.length} 条结果 · 继续输入可缩小范围`;
-        })
-        .catch((error) => {
-          this.results.length = 0;
-          rowCache = [];
-          shownCount = 0;
-          this.statusText = error && error.message ? error.message : '搜索失败';
-          this.keyboardHidden = false;
-        });
+              ? `「${label}」下没有曲目`
+              : `${list.length} 条 · ${label}`;
     },
 
     /** 追加一页。触底时也会调这里。 */

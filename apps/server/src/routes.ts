@@ -275,12 +275,33 @@ export function createRouter(
     try {
       const keyword = (ctx.query.get('q') ?? '').trim();
       const limit = Math.min(Math.max(Number.parseInt(ctx.query.get('limit') ?? '30', 10) || 30, 1), 200);
-      if (keyword.length === 0) {
+
+      /**
+       * 按分类浏览（可选）。
+       *
+       * 传分类 id，服务端映射成曲目上的 genre 字符串。
+       * **走同一个接口、返回同一种形状**，客户端不用为「浏览」单写一套。
+       */
+      const genreId = (ctx.query.get('genre') ?? '').trim();
+
+      if (keyword.length === 0 && genreId.length === 0) {
         ok(ctx.res, { data: { keyword, results: [] } });
         return;
       }
 
       const library = await service.getLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
+
+      // 分类 id → 曲目上的 genre 原始值
+      let genreValue: string | null = null;
+      if (genreId.length > 0) {
+        const found = library.songs.genres.find((g) => String(g.id) === genreId);
+        if (!found) {
+          bad(ctx.res, 400, `未知的分类 id：${genreId}`);
+          return;
+        }
+        genreValue = found.genre;
+      }
+
       const needle = keyword.toLowerCase();
 
       /**
@@ -318,13 +339,20 @@ export function createRouter(
            */
           notes: { total: number; tap: number; hold: number; slide: number; touch: number; break: number } | null;
         }[];
-        matchedBy: 'title' | 'artist' | 'alias';
+        matchedBy: 'title' | 'artist' | 'alias' | 'genre';
       }[] = [];
 
       for (const song of library.songs.songs) {
+        // 按分类浏览时先过分类；分类不看关键词，所以这里不判 needle
+        if (genreValue !== null && song.genre !== genreValue) continue;
+
         const aliases = library.aliases.aliases.find((a) => a.song_id === song.id)?.aliases ?? [];
-        let matchedBy: 'title' | 'artist' | 'alias' | null = null;
-        if (song.title.toLowerCase().includes(needle)) matchedBy = 'title';
+        let matchedBy: 'title' | 'artist' | 'alias' | 'genre' | null = null;
+
+        if (genreValue !== null) {
+          // 分类浏览：整类都要，不按关键词筛
+          matchedBy = 'genre';
+        } else if (song.title.toLowerCase().includes(needle)) matchedBy = 'title';
         else if (aliases.some((alias) => alias.toLowerCase().includes(needle))) matchedBy = 'alias';
         else if (song.artist.toLowerCase().includes(needle)) matchedBy = 'artist';
         if (!matchedBy) continue;
@@ -423,8 +451,10 @@ export function createRouter(
     try {
       const keyword = (ctx.query.get('q') ?? '').trim();
       const limit = Math.min(Math.max(Number.parseInt(ctx.query.get('limit') ?? '30', 10) || 30, 1), 100);
-      if (!keyword) {
-        bad(ctx.res, 400, '缺少查询参数 q');
+      // 分类浏览时不需要关键词
+      const genreId = (ctx.query.get('genre') ?? '').trim();
+      if (!keyword && !genreId) {
+        bad(ctx.res, 400, '缺少查询参数 q（或分类参数 genre）');
         return;
       }
 
@@ -432,12 +462,26 @@ export function createRouter(
       const needle = keyword.toLowerCase();
       const versionTitles = new Map(library.songs.versions.map((v) => [v.version, v.title]));
 
+      // 分类 id → 曲目上的 genre 原始值
+      let genreValue: string | null = null;
+      if (genreId) {
+        const found = library.songs.genres.find((g) => String(g.id) === genreId);
+        if (!found) {
+          bad(ctx.res, 400, `未知的分类 id：${genreId}`);
+          return;
+        }
+        genreValue = found.genre;
+      }
+
       const results: Record<string, unknown>[] = [];
       for (const song of library.songs.songs) {
+        if (genreValue !== null && song.genre !== genreValue) continue;
+
         const aliases =
           library.aliases.aliases.find((item) => item.song_id === song.id)?.aliases ?? [];
-        let matchedBy: 'title' | 'artist' | 'alias' | null = null;
-        if (song.title.toLowerCase().includes(needle)) matchedBy = 'title';
+        let matchedBy: 'title' | 'artist' | 'alias' | 'genre' | null = null;
+        if (genreValue !== null) matchedBy = 'genre';
+        else if (song.title.toLowerCase().includes(needle)) matchedBy = 'title';
         else if (aliases.some((alias) => alias.toLowerCase().includes(needle))) matchedBy = 'alias';
         else if (song.artist.toLowerCase().includes(needle)) matchedBy = 'artist';
         if (!matchedBy) continue;
@@ -458,6 +502,34 @@ export function createRouter(
   };
 
   router.get('/api/v1/chunithm/search', chunithmSearchHandler);
+
+  /**
+   * 乐曲分类列表。
+   *
+   * 单独开这个接口是为了**轻量**：手表只想拿 7 个分类名，
+   * 没必要为此拉下整份曲库（舞萌 1344 首、中二 1458 首）。
+   */
+  const genresHandler = (pick: 'maimai' | 'chunithm') => async (ctx: RequestContext): Promise<void> => {
+    try {
+      const library =
+        pick === 'maimai'
+          ? await service.getLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config))
+          : await service.getChunithmLibrary(sourceOf(ctx, service), clientKeyOf(ctx, config));
+      ok(ctx.res, {
+        source: library.source,
+        data: {
+          game: pick,
+          genres: library.songs.genres,
+          versions: library.songs.versions,
+        },
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  };
+
+  router.get('/api/v1/maimai/genres', genresHandler('maimai'));
+  router.get('/api/v1/chunithm/genres', genresHandler('chunithm'));
 
   // ── Phigros ───────────────────────────────────────────────────────────
   //
