@@ -49,7 +49,7 @@
         <div class="row__main">
           <text class="row__title">{{ $item.title }}</text>
           <text class="row__sub">{{ $item.sub }}</text>
-          <text class="row__version">版本 {{ $item.versionTitle }}</text>
+          <text class="row__version">{{ $item.versionLine }}</text>
 
           <!--
             定数逐难度列出，用游戏内的难度配色。
@@ -349,6 +349,21 @@
       }));
   }
 
+  /**
+   * 把「版本」和「分类」拼成一行。
+   *
+   * 分类可能缺（接口没给、或这个游戏没有分类概念），
+   * 缺了就不显示，**不留一个孤零零的分隔符**。
+   */
+  function joinMeta(version, genre) {
+    const v = String(version || '').trim();
+    const g = String(genre || '').trim();
+    if (v && g) return '版本 ' + v + ' · ' + g;
+    if (v) return '版本 ' + v;
+    if (g) return g;
+    return '版本 未知';
+  }
+
   /** 副标题：只放别名（没别名就用艺术家）。
    *  版本单独一行并带标签，混在这里会看不出来。 */
   function buildSub(item) {
@@ -610,6 +625,8 @@
                 sub: item.composer || '',
                 // 也没有版本；插画师是这个接口里唯一多出来的信息
                 versionTitle: item.illustrator ? '插画 ' + item.illustrator : '',
+                // Phigros 平台没有分类概念，这行只有版本
+                versionLine: item.illustrator ? '插画 ' + item.illustrator : '',
                 set1Label: '定数',
                 set1Cells: cells,
                 set2Label: '',
@@ -631,6 +648,11 @@
                 title: item.title,
                 sub: buildSub(item),
                 versionTitle: item.versionTitle || '未知',
+              // 版本 + 分类同一行。分类是中文（服务端已映射过：
+              // 舞萌的 genre 原始值是日文，直接显示看不懂）
+              versionLine: joinMeta(item.versionTitle || '未知', item.genreTitle),
+                // 版本 + 分类同一行——分类是找曲子的主要线索之一
+                versionLine: joinMeta(item.versionTitle || '未知', item.genreTitle),
                 set1Label: '定数',
                 set1Cells: toCells(charts, true),
                 set2Label: '',

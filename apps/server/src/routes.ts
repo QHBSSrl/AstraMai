@@ -310,6 +310,19 @@ export function createRouter(
        */
       const versions = library.songs.versions;
 
+      /**
+       * 分类的「原始值 → 展示名」映射。
+       *
+       * 曲目上的 `genre` 是原始值：舞萌那边是**日文**
+       * （niconicoボーカロイド / ゲームバラエティ），直接给用户看不懂。
+       * 中文名在 genres 的 `title` 里。
+       * 中二反过来——`genre` 本身就是中文，而 genres 没有 title。
+       * 所以两边谁缺都用对方兜底。
+       */
+      const genreTitles = new Map(
+        library.songs.genres.map((g) => [g.genre, g.title || g.genre]),
+      );
+
       const results: {
         id: number;
         title: string;
@@ -326,6 +339,8 @@ export function createRouter(
         /** 版本名（如 BUDDiES）。查不到时为 null。 */
         versionTitle: string | null;
         aliases: string[];
+        /** 分类的展示名（已映射成中文）。查不到时为 null。 */
+        genreTitle: string | null;
         difficulties: {
           type: string;
           difficulty: number;
@@ -359,6 +374,7 @@ export function createRouter(
 
         results.push({
           id: song.id,
+          genreTitle: genreTitles.get(song.genre) ?? null,
           title: song.title,
           artist: song.artist,
           genre: song.genre,
@@ -462,6 +478,18 @@ export function createRouter(
       const needle = keyword.toLowerCase();
       const versionTitles = new Map(library.songs.versions.map((v) => [v.version, v.title]));
 
+      /**
+       * 中二的分类展示名。
+       *
+       * **中二和舞萌刚好相反**：中二的 `genre` 本身就是中文
+       * （东方Project / 原创 / 彩绿），而且类型上**没有 `title` 字段**——
+       * 写 `g.title` 会被 TS 直接报错（TS2339），这条实测结论有类型背书。
+       * 舞萌那边 `genre` 是日文、`title` 才是中文。
+       *
+       * 所以这里直接拿 `genre` 当展示名，不做映射。
+       */
+      const genreTitles = new Map(library.songs.genres.map((g) => [g.genre, g.genre]));
+
       // 分类 id → 曲目上的 genre 原始值
       let genreValue: string | null = null;
       if (genreId) {
@@ -488,6 +516,7 @@ export function createRouter(
 
         results.push({
           ...compactChunithmSong(song, true),
+          genreTitle: genreTitles.get(song.genre) ?? null,
           versionTitle: versionTitles.get(song.version) ?? null,
           aliases,
           matchedBy,
