@@ -971,8 +971,9 @@ function computeStats(standard, dx, bests) {
   const ratingsOf = (list) => list.filter((e) => e.computedRating !== null).map((e) => e.computedRating);
   const computedStandardTotal = sum2(ratingsOf(standard));
   const computedDxTotal = sum2(ratingsOf(dx));
-  const standardTotal = (_a = bests.standard_total) != null ? _a : 0;
-  const dxTotal = (_b = bests.dx_total) != null ? _b : 0;
+  const hasSourceTotals = typeof bests.standard_total === "number" || typeof bests.dx_total === "number";
+  const standardTotal = hasSourceTotals ? (_a = bests.standard_total) != null ? _a : 0 : computedStandardTotal;
+  const dxTotal = hasSourceTotals ? (_b = bests.dx_total) != null ? _b : 0 : computedDxTotal;
   const total = standardTotal + dxTotal;
   const computedTotal = computedStandardTotal + computedDxTotal;
   const levelValues = withLevel.map((e) => e.levelValue);

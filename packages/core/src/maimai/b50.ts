@@ -494,8 +494,20 @@ function computeStats(standard: B50Entry[], dx: B50Entry[], bests: MaimaiBests):
   const computedStandardTotal = sum(ratingsOf(standard));
   const computedDxTotal = sum(ratingsOf(dx));
 
-  const standardTotal = bests.standard_total ?? 0;
-  const dxTotal = bests.dx_total ?? 0;
+  /**
+   * 合计。**源不给就用本地算的。**
+   *
+   * 落雪会给 `standard_total` / `dx_total`，直接用即可；
+   * 但自建 net 的 `ratingComposition` 里**只有达成率、没有 rating**，
+   * 源只能自己按定数算——而源不一定拿得到曲库。
+   *
+   * 以前写死 `?? 0`，源不给就显示 0 分。现在回退到本地算出来的，
+   * 至少数字是对的。对拍（delta）仍然只在源给了合计时才有意义。
+   */
+  const hasSourceTotals =
+    typeof bests.standard_total === 'number' || typeof bests.dx_total === 'number';
+  const standardTotal = hasSourceTotals ? (bests.standard_total ?? 0) : computedStandardTotal;
+  const dxTotal = hasSourceTotals ? (bests.dx_total ?? 0) : computedDxTotal;
   const total = standardTotal + dxTotal;
   const computedTotal = computedStandardTotal + computedDxTotal;
 

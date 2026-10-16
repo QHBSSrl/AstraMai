@@ -209,6 +209,8 @@ export class GatewayService {
   async getB50(input: {
     friendCode?: number | undefined;
     qq?: number | undefined;
+    /** 自建 net 的用户名。 */
+    username?: string | undefined;
     sourceId?: string | undefined;
     clientKey?: string | undefined;
     forceMock?: boolean | undefined;
@@ -217,7 +219,11 @@ export class GatewayService {
     const { key, usedServerKey } = this.resolveKey(input.clientKey);
     const mode = this.modeFor(input.clientKey, input.forceMock);
 
-    const query: PlayerQuery = { friendCode: input.friendCode, qq: input.qq };
+    const query: PlayerQuery = {
+      friendCode: input.friendCode,
+      qq: input.qq,
+      username: input.username,
+    };
     if (mode !== 'mock' && !source.supports(query)) {
       throw new LxnsError('bad-request', `${source.label} 不支持这个查询方式`, {
         friendly: explainUnsupportedBy(source, query),
@@ -238,7 +244,9 @@ export class GatewayService {
     }
 
     const player: MaimaiPlayer = await source.getPlayer(query);
-    const bests = await source.getBests(player.friend_code);
+    // 传 query 而不是 player.friend_code——自建 net 没有好友码，
+    // 它要的是用户名。源自己知道该用哪个字段。
+    const bests = await source.getBests(query);
     const view = buildB50View({
       player,
       bests,
@@ -257,6 +265,8 @@ export class GatewayService {
   async getChunithmBests(input: {
     friendCode?: number | undefined;
     qq?: number | undefined;
+    /** 自建 net 的用户名。 */
+    username?: string | undefined;
     sourceId?: string | undefined;
     clientKey?: string | undefined;
     forceMock?: boolean | undefined;
@@ -281,19 +291,30 @@ export class GatewayService {
     }
 
     const library = await this.getChunithmLibrary(source.id, input.clientKey);
-    const player = await source.getChunithmPlayer({
+    const query: PlayerQuery = {
       friendCode: input.friendCode,
       qq: input.qq,
-    });
-    const bests = await source.getChunithmBests(player.friend_code);
+      username: input.username,
+    };
+    if (!source.supports(query)) {
+      throw new LxnsError('bad-request', `${source.label} 不支持这个查询方式`, {
+        friendly: explainUnsupportedBy(source, query),
+      });
+    }
+
+    const player = await source.getChunithmPlayer(query);
+    const bests = await source.getChunithmBests(query);
     const view = buildChunithmBestsView({ player, bests, songs: library.songs });
 
     return { mode, view, sourceId: source.id, usedServerKey };
   }
 
   /** 玩家信息，不做 B50 聚合。 */
-  async getPlayer(input: {    friendCode?: number | undefined;
+  async getPlayer(input: {
+    friendCode?: number | undefined;
     qq?: number | undefined;
+    /** 自建 net 的用户名。 */
+    username?: string | undefined;
     sourceId?: string | undefined;
     clientKey?: string | undefined;
   }): Promise<{ mode: LxnsMode; player: MaimaiPlayer; sourceId: string }> {
@@ -304,7 +325,11 @@ export class GatewayService {
         friendly: '演示数据不提供单独的玩家信息，请用 B50 接口（它会带上完整模拟数据）。',
       });
     }
-    const player = await source.getPlayer({ friendCode: input.friendCode, qq: input.qq });
+    const player = await source.getPlayer({
+      friendCode: input.friendCode,
+      qq: input.qq,
+      username: input.username,
+    });
     return { mode, player, sourceId: source.id };
   }
 
@@ -332,6 +357,9 @@ export class GatewayService {
 
 function explainUnsupportedBy(source: DataSource, query: PlayerQuery): string {
   if (query.qq !== undefined) return `${source.label} 不支持用 QQ 号查询，请改用好友码。`;
+  if (query.username !== undefined) {
+    return `${source.label} 不支持用用户名查询，请改用好友码。`;
+  }
   return `${source.label} 无法处理这个查询。`;
 }
 

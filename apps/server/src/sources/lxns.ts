@@ -65,6 +65,7 @@ export class LxnsSource implements DataSource {
   }
 
   supports(query: PlayerQuery): boolean {
+    // 落雪只认好友码和 QQ 号，不认用户名（那是自建 net 的标识）
     return query.friendCode !== undefined || query.qq !== undefined;
   }
 
@@ -80,10 +81,10 @@ export class LxnsSource implements DataSource {
       : client.getPlayer(query.friendCode as number);
   }
 
-  async getBests(friendCode: number): Promise<MaimaiBests> {
+  async getBests(query: PlayerQuery): Promise<MaimaiBests> {
     // 玩家信息通常已经取过，这里只再花一次；扣减按整段查询算的常量来
     this.options.limiter.spend(COST_PER_B50 - 1, this.label);
-    return this.client().getBests(friendCode);
+    return this.client().getBests(query.friendCode as number);
   }
 
   async fetchLibrary(): Promise<RawLibrary> {
@@ -122,9 +123,9 @@ export class LxnsSource implements DataSource {
   }
 
   /** 中二成绩。上游一次给 B30 + Selection10 + Recent10。 */
-  async getChunithmBests(friendCode: number): Promise<ChunithmBests> {
+  async getChunithmBests(query: PlayerQuery): Promise<ChunithmBests> {
     this.options.limiter.spend(COST_PER_B50 - 1, this.label);
-    return this.client().getChunithmBests(friendCode);
+    return this.client().getChunithmBests(query.friendCode as number);
   }
 }
 

@@ -20,6 +20,7 @@ import { createGuard } from './guard.js';
 import { sendJson, serveStatic } from './http.js';
 import { createRouter, notFound } from './routes.js';
 import { LxnsSource } from './sources/lxns.js';
+import { AstraNetSource } from './sources/astra-net.js';
 import { SourceRegistry } from './sources/registry.js';
 
 const config = readConfig();
@@ -30,8 +31,8 @@ assertDeploymentSafety(config);
 /**
  * 数据源注册表。
  *
- * 目前只有落雪。接入别的查分站时在这里 register 一个实现 `DataSource` 的对象即可，
- * 路由和客户端都不用改。
+ * 接入别的查分站时在这里 register 一个实现 `DataSource` 的对象即可，
+ * 路由和客户端都不用改——**这正是「不在一棵树上吊死」的落点**。
  */
 const registry = new SourceRegistry(config.upstreamLimitPerMinute);
 registry.register(
@@ -42,6 +43,17 @@ registry.register(
   }),
   true,
 );
+
+// 自建 net：配了地址才注册。没配就不出现在 /api/v1/sources 里，
+// 免得玩家选到一个点了就报错的数据源。
+if (config.astraNetBase) {
+  registry.register(
+    new AstraNetSource({
+      baseUrl: config.astraNetBase,
+      limiter: registry.limiterFor('astra-net'),
+    }),
+  );
+}
 
 const service = new GatewayService(config, registry);
 // 端上报诊断：真机拿不到日志，只能让 App 自己打回来

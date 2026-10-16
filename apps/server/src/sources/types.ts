@@ -25,10 +25,22 @@ import type {
   MaimaiSongList,
 } from '@astramai/core';
 
-/** 定位一个玩家。好友码与 QQ 号二选一。 */
+/**
+ * 定位一个玩家。三种标识各有各的适用源，具体支持哪种由源自己声明。
+ *
+ *   friendCode —— 落雪（国服），15 位好友码
+ *   qq         —— 落雪，部分国服玩家的 QQ 号
+ *   username   —— **自建 net**（AquaDX/AquaNet），用户名
+ *
+ * 之所以要三种而不是统一成一种：**上游就是不一样**。
+ * 硬要归一就得让某个源去维护一张映射表，那是把上游的差异搬到我们这边来，
+ * 换源时反而更麻烦。让源用 `supports()` 自述，调用方负责选。
+ */
 export interface PlayerQuery {
   friendCode?: number | undefined;
   qq?: number | undefined;
+  /** 自建 net 的用户名。 */
+  username?: string | undefined;
 }
 
 /** 曲库原始数据。缓存由服务端负责。 */
@@ -69,7 +81,16 @@ export interface DataSource {
   supports(query: PlayerQuery): boolean;
 
   getPlayer(query: PlayerQuery): Promise<MaimaiPlayer>;
-  getBests(friendCode: number): Promise<MaimaiBests>;
+
+  /**
+   * 取 Best 50。
+   *
+   * 收 `PlayerQuery` 而不是好友码——原来那个签名是**落雪的形状**
+   * （先 `getPlayer` 拿到 `friend_code`，再拿它来查）。
+   * 自建 net 用用户名、没有好友码，硬套会变成「把用户名塞进 number 参数」。
+   * 改成收 query 之后两种源都能自然表达。
+   */
+  getBests(query: PlayerQuery): Promise<MaimaiBests>;
 
   /** 取一次曲库。不要在这里做缓存。 */
   fetchLibrary(): Promise<RawLibrary>;
@@ -88,13 +109,16 @@ export interface DataSource {
   getChunithmPlayer?(query: PlayerQuery): Promise<ChunithmPlayer>;
 
   /** 中二节奏成绩（B30 + Selection10 + Recent10）。 */
-  getChunithmBests?(friendCode: number): Promise<ChunithmBests>;
+  getChunithmBests?(query: PlayerQuery): Promise<ChunithmBests>;
 }
 
 /** 判断一个查询是否可用该源处理，并在不可用时给出人能看懂的原因。 */
 export function explainUnsupported(source: DataSource, query: PlayerQuery): string {
   if (query.qq !== undefined && !source.supports(query)) {
     return `${source.label} 不支持用 QQ 号查询，请改用好友码。`;
+  }
+  if (query.username !== undefined && !source.supports(query)) {
+    return `${source.label} 不支持用用户名查询，请改用好友码。`;
   }
   return `${source.label} 无法处理这个查询。`;
 }

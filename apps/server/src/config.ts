@@ -76,6 +76,13 @@ export interface ServerConfig {
    * 密钥不通用，配置也应该能分别开关。
    */
   phigrosApiKey: string | undefined;
+  /**
+   * 自建 net 的站点地址（AquaDX + AquaNet）。
+   *
+   * 配了就注册成数据源；没配就不注册，`/api/v1/sources` 也不列出。
+   * 玩家的标识是**用户名**，不是好友码——契约见 `docs/astra-net-api.md`。
+   */
+  astraNetBase: string | undefined;
   /** 是否允许浏览器临时递交密钥。 */
   allowClientKey: boolean;
   /**
@@ -208,7 +215,9 @@ export function readConfig(): ServerConfig {
     port: Number.parseInt(process.env.PORT ?? '8787', 10) || 8787,
     modeConfig,
     apiKey: process.env.LXNS_API_KEY?.trim() || undefined,
-  phigrosApiKey: process.env.PHIGROS_API_KEY?.trim() || undefined,
+    phigrosApiKey: process.env.PHIGROS_API_KEY?.trim() || undefined,
+    // 去掉结尾斜杠，免得拼出 `//aqua/api/v2`
+    astraNetBase: process.env.ASTRA_NET_BASE?.trim().replace(/\/+$/, '') || undefined,
     allowClientKey: (process.env.ALLOW_CLIENT_KEY ?? 'true').trim().toLowerCase() !== 'false',
     apiTokens: parseTokenList(process.env.API_TOKENS, process.env.API_TOKEN),
     authMode: (process.env.AUTH_MODE ?? '').trim().toLowerCase() === 'open' ? 'open' : 'key',
