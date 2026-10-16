@@ -334,14 +334,56 @@
       mark('Search:onReady');
     },
 
+    /**
+     * 每次回到这个页面都重新对一次当前游戏。
+     *
+     * 不这么做的话：用户进搜索页 → 去设置换游戏 → 回来，
+     * 页面被复用、`onInit` 不重跑，就还在拿旧游戏查。
+     */
+    onShow() {
+      this.syncGame();
+    },
+
     onInit() {
       mark('Search:onInit');
       console.debug('[AstraMai] Search onInit');
-      // 详情数据要写进本地存储，先把存储模块热起来
-      this.gameId = gameById(readCurrentGame(readSetting)).id;
-      warmUp([STORAGE_KEY]).catch((error) =>
-        console.warn('[AstraMai] 存储预热失败：', error),
-      );
+
+      // ⚠️ 顺序很关键，这里踩过坑：
+      //
+      // `readSetting` 在**没预热时直接返回 fallback**，不报错。
+      // 原来是在 warmUp 之前就读 `currentGame`，而且 warmUp 列表里根本没有它，
+      // 于是永远拿到 '' → gameById 回退到默认游戏 →
+      // **不管你在设置里选了哪个游戏，搜索页都当自己是舞萌 DX**。
+      // 用户报的「中二节奏的乐曲源还是舞萌的、搜不到中二曲子」就是这个。
+      //
+      // 所以改成：**先预热、再读**。
+      warmUp([STORAGE_KEY, 'currentGame'])
+        .then(() => this.syncGame())
+        .catch((error) => {
+          console.warn('[AstraMai] 存储预热失败：', error);
+          // 预热失败也要定一次游戏，否则 gameId 停在初始值
+          this.syncGame();
+        });
+    },
+
+    /**
+     * 从存储同步当前游戏。
+     *
+     * 单独抽出来是因为 `onShow` 也要调：页面可能被复用，
+     * 用户去设置里换了游戏再回来时不会重跑 `onInit`，
+     * 不重读就会继续用旧游戏查。
+     */
+    syncGame() {
+      const id = gameById(readCurrentGame(readSetting)).id;
+      if (id !== this.gameId) {
+        console.debug('[AstraMai] Search 切换游戏：', this.gameId, '→', id);
+        this.gameId = id;
+        // 换了游戏，上一次的结果就不属于当前游戏了，清掉免得误导
+        this.results.length = 0;
+        this.statusText = '支持日文曲名、中文别名与罗马音';
+      } else {
+        this.gameId = id;
+      }
     },
 
     /**

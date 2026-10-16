@@ -5,7 +5,10 @@
   "description": "AstraMai · 小米手表（Vela JS 应用）端",
   "scripts": {
     "start": "aiot start",
+    "icon": "node ../../scripts/make-vela-icon.mjs 192",
+    "prebuild": "npm run icon",
     "build": "aiot build",
+    "prerelease": "npm run icon",
     "release": "aiot release",
     "test": "node --experimental-default-type=module --test",
     "bundle:core": "node ../../scripts/bundle-core.mjs"
