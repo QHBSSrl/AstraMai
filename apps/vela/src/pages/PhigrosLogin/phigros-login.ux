@@ -31,12 +31,14 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
   .phi-page {
     flex-direction: column;
     align-items: center;
     padding: 14px;
-    background-color: #070b16;
+    background-color: @md-surface;
   }
 
   .topbar {
@@ -49,17 +51,17 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .title {
     font-size: 24px;
-    color: #e8eefc;
+    color: @md-on-surface;
     margin-top: 2px;
   }
 
@@ -85,7 +87,7 @@
 
   .hint {
     font-size: 14px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     text-align: center;
     margin-top: 6px;
     line-height: 1.6;
@@ -102,22 +104,22 @@
     padding: 0 18px;
     margin: 0 4px;
     border-radius: 28px;
-    background-color: #ff5f9e;
+    background-color: @md-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .action__text {
     font-size: 20px;
-    color: #1a0710;
+    color: @md-on-primary;
   }
 
   .action--ghost .action__text {
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   /*

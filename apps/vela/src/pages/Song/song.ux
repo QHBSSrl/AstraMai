@@ -43,11 +43,13 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
   .song-page {
     flex-direction: column;
     padding: 14px;
-    background-color: #070b16;
+    background-color: @md-surface;
   }
 
   .topbar {
@@ -59,12 +61,12 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .head {
@@ -76,7 +78,7 @@
     width: 110px;
     height: 110px;
     border-radius: 10px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .head__main {
@@ -87,18 +89,18 @@
 
   .title {
     font-size: 26px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .aliases {
     font-size: 16px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     margin-top: 4px;
   }
 
   .meta {
     font-size: 16px;
-    color: #f2a33c;
+    color: @md-warning;
     margin-top: 3px;
   }
 
@@ -113,27 +115,27 @@
     padding: 0 30px;
     margin: 0 5px;
     border-radius: 30px;
-    background-color: #ff5f9e;
+    background-color: @md-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .action__text {
     font-size: 22px;
-    color: #1a0710;
+    color: @md-on-primary;
   }
 
   .action--ghost .action__text {
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .hint {
     font-size: 16px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     text-align: center;
     margin-top: 6px;
   }
@@ -171,18 +173,18 @@
 
   .chart__total {
     font-size: 18px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .chart__breakdown {
     font-size: 13px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     margin-top: 2px;
   }
 
   .chart__designer {
     font-size: 14px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     margin-top: 2px;
   }
 

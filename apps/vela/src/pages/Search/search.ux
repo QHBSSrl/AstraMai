@@ -95,11 +95,13 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
   .search-page {
     flex-direction: column;
     padding: 14px;
-    background-color: #070b16;
+    background-color: @md-surface;
   }
 
   .query {
@@ -107,18 +109,18 @@
     align-items: center;
     padding: 14px;
     border-radius: 14px;
-    background-color: #141d30;
+    background-color: @md-surface-container-high;
   }
 
   .query__text {
     font-size: 28px;
-    color: #e8eefc;
+    color: @md-on-surface;
     text-align: center;
   }
 
   .query__hint {
     font-size: 16px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     margin-top: 6px;
   }
 
@@ -134,30 +136,30 @@
     padding: 0 16px;
     margin: 0 4px;
     border-radius: 30px;
-    background-color: #ff5f9e;
+    background-color: @md-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .action--disabled {
-    background-color: #2a2f42;
+    background-color: @md-outline-variant;
   }
 
   .action__text {
     font-size: 21px;
-    color: #1a0710;
+    color: @md-on-primary;
   }
 
   .action--ghost .action__text {
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .action--disabled .action__text {
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   /*
@@ -171,18 +173,18 @@
     margin-bottom: 8px;
     padding: 0 20px;
     border-radius: 14px;
-    background-color: #141d30;
+    background-color: @md-surface-container-high;
   }
 
   .cat__name {
     flex: 1;
     font-size: 24px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .cat__mark {
     font-size: 22px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   .list {
@@ -207,7 +209,7 @@
   .row__cover {
     width: 68px;
     height: 68px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .row__main {
@@ -226,7 +228,7 @@
   .set__label {
     width: 34px;
     font-size: 14px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   .set__cell {
@@ -245,24 +247,24 @@
 
   .row__more-text {
     font-size: 28px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   .row__title {
     font-size: 21px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .row__sub {
     font-size: 16px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   /* 版本单独一行并带标签。之前混在副标题里，用户反馈「版本显示呢」——
      实际是有的，只是认不出来。 */
   .row__version {
     font-size: 16px;
-    color: #f2a33c;
+    color: @md-warning;
     margin-top: 2px;
   }
 

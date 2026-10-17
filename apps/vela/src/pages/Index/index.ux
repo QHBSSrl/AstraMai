@@ -42,13 +42,31 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
+  /*
+   * 首页 · MD3 参考实现
+   *
+   * 采用的三条 MD3 原则：
+   *
+   *   1. **色调海拔**（tonal elevation）——层级靠**表面亮度**表达，不靠阴影。
+   *      surface → surface-container → surface-container-high 依次变亮。
+   *      这在手表上尤其对：Vela 的 box-shadow 要 APILevel 3，而我们是 2。
+   *
+   *   2. **颜色角色**——不直接写色号，一律用 token。
+   *      「当前游戏」用 primary-container（强强调），功能入口用 surface-container。
+   *
+   *   3. **型阶**——字号从 display 到 caption 有明确层级，不再随手取值。
+   */
+
   .page {
     flex-direction: column;
-    padding: 16px 20px;
-    background-color: #070b16;
+    padding: @md-space-4 @md-space-5;
+    background-color: @md-surface;
   }
 
+  /* MD3 小号顶栏（small top app bar）：标题 + 一个动作 */
   .topbar {
     flex-direction: row;
     align-items: center;
@@ -56,81 +74,95 @@
     height: 56px;
   }
 
-  /* 标题占满剩余宽度，设置按钮固定 —— 比 space-between 稳妥 */
+  /* 品牌字：display 型阶 + 主色 */
   .brand {
     flex: 1;
-    font-size: 32px;
+    font-size: @md-font-display;
     font-weight: bold;
-    color: #ff5f9e;
+    color: @md-primary;
   }
 
+  /*
+   * MD3 **描边按钮**（outlined button）——次要动作的形态。
+   * 透明底 + outline 描边 + primary 文字，和实心按钮形成层级差。
+   */
   .settings-btn {
-    padding: 8px 18px;
-    border-radius: 20px;
-    background-color: #1c2740;
+    padding: @md-space-2 @md-space-4;
+    border-radius: @md-shape-full;
+    border-width: 1px;
+    border-color: @md-outline;
+    background-color: transparent;
   }
 
   .settings-btn__text {
-    font-size: 20px;
-    color: #e8eefc;
+    font-size: @md-font-label;
+    color: @md-primary;
   }
 
+  /*
+   * MD3 **主色容器卡片** ——「当前游戏」是这页最重要的状态，
+   * 用 primary-container 让它一眼跳出来。选中态用主色容器是 MD3 的标准做法。
+   */
   .game {
     flex-direction: column;
     width: 100%;
-    padding: 14px 18px;
-    margin-top: 8px;
-    border-radius: 14px;
-    background-color: #141d30;
+    padding: @md-space-3 @md-space-4;
+    margin-top: @md-space-2;
+    border-radius: @md-shape-lg;
+    background-color: @md-primary-container;
   }
 
   .game__name {
-    font-size: 24px;
-    color: #4fd6ff;
+    font-size: @md-font-title;
+    font-weight: bold;
+    color: @md-on-primary-container;
   }
 
+  /* 次要信息用透明度降权——MD3 处理 supporting text 的常规手法 */
   .game__hint {
-    font-size: 15px;
-    color: #6d7fa3;
+    font-size: @md-font-label;
+    color: @md-on-primary-container;
+    opacity: 0.72;
     margin-top: 2px;
   }
 
   .menu {
     flex-direction: column;
     width: 100%;
-    margin-top: 14px;
+    margin-top: @md-space-3;
   }
 
+  /* MD3 filled card：比底色亮一档，靠亮度而不是边框分层 */
   .entry {
     flex-direction: column;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-    border-radius: 16px;
-    background-color: #141d30;
+    padding: @md-space-4;
+    margin-bottom: @md-space-3;
+    border-radius: @md-shape-lg;
+    background-color: @md-surface-container-high;
   }
 
   .entry__title {
-    font-size: 28px;
-    color: #e8eefc;
+    font-size: @md-font-headline;
+    color: @md-on-surface;
   }
 
   .entry__sub {
-    font-size: 16px;
-    color: #9bacd0;
-    margin-top: 4px;
+    font-size: @md-font-label;
+    color: @md-on-surface-variant;
+    margin-top: 2px;
   }
 
   .empty {
-    font-size: 17px;
-    color: #6d7fa3;
+    font-size: @md-font-body;
+    color: @md-on-surface-variant;
     text-align: center;
-    margin-top: 20px;
+    margin-top: @md-space-5;
   }
 
   .foot {
-    font-size: 15px;
-    color: #6d7fa3;
-    margin-top: 8px;
+    font-size: @md-font-caption;
+    color: @md-on-surface-variant;
+    margin-top: @md-space-2;
   }
 
   /*
@@ -160,7 +192,7 @@
 
     /* 返回键/标题不再靠边，改为居中并留出上下间距 */
     .back {
-      margin-bottom: 8px;
+      margin-bottom: @md-space-2;
     }
   }
 </style>

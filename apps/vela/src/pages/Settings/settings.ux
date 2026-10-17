@@ -47,11 +47,13 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
   .page {
     flex-direction: column;
     padding: 14px 20px;
-    background-color: #070b16;
+    background-color: @md-surface;
   }
 
   .topbar {
@@ -64,24 +66,24 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .title {
     font-size: 30px;
     font-weight: bold;
-    color: #e8eefc;
+    color: @md-on-surface;
     margin-top: 4px;
   }
 
   .section {
     font-size: 16px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     margin-top: 20px;
     margin-bottom: 8px;
   }
@@ -90,7 +92,7 @@
     flex-direction: column;
     width: 100%;
     border-radius: 14px;
-    background-color: #141d30;
+    background-color: @md-surface-container-high;
   }
 
   .row {
@@ -108,12 +110,12 @@
   .row__label {
     flex: 1;
     font-size: 22px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .row__value {
     font-size: 16px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
   }
 
   .row__mark {
@@ -127,23 +129,23 @@
   }
 
   .row__label--off {
-    color: #9bacd0;
+    color: @md-on-surface-variant;
   }
 
   .hint--warn {
-    color: #f2a33c;
+    color: @md-warning;
   }
 
   .hint {
     font-size: 14px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     margin-top: 8px;
     line-height: 1.5;
   }
 
   .foot {
     font-size: 14px;
-    color: #4a5a78;
+    color: @md-outline;
     text-align: center;
     margin-top: 24px;
   }

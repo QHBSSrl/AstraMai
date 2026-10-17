@@ -37,12 +37,14 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
   .sync-page {
     flex-direction: column;
     align-items: center;
     padding: 14px;
-    background-color: #070b16;
+    background-color: @md-surface;
   }
 
   .topbar {
@@ -55,17 +57,17 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .lead {
     font-size: 17px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     text-align: center;
     margin-top: 4px;
     line-height: 1.5;
@@ -75,7 +77,7 @@
     margin-top: 18px;
     padding: 14px 26px;
     border-radius: 16px;
-    background-color: #16203a;
+    background-color: @md-surface-container-low;
   }
 
   /* 配对码要一眼看清，字号给足、字距拉开 */
@@ -87,7 +89,7 @@
 
   .countdown {
     font-size: 16px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     margin-top: 10px;
   }
 
@@ -110,27 +112,27 @@
     padding: 0 18px;
     margin: 0 4px;
     border-radius: 28px;
-    background-color: #ff5f9e;
+    background-color: @md-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .action__text {
     font-size: 20px;
-    color: #1a0710;
+    color: @md-on-primary;
   }
 
   .action--ghost .action__text {
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .hint {
     font-size: 15px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     text-align: center;
     margin-top: 16px;
     line-height: 1.6;

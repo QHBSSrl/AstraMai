@@ -47,17 +47,19 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
   .page {
     flex-direction: column;
     align-items: center;
     padding: 16px 20px;
-    background-color: #070b16;
+    background-color: @md-surface;
   }
 
   .title {
     font-size: 26px;
-    color: #e8eefc;
+    color: @md-on-surface;
     margin-bottom: 12px;
   }
 
@@ -72,32 +74,32 @@
   .code {
     width: 340px;
     height: 340px;
-    color: #0a0e1a;
+    color: @md-surface;
     background-color: #ffffff;
   }
 
   .validity {
     font-size: 20px;
     margin-top: 14px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     text-align: center;
   }
 
   .validity--valid {
-    color: #34d399;
+    color: @md-success;
   }
 
   .validity--expired {
-    color: #f87171;
+    color: @md-error;
   }
 
   .validity--unknown {
-    color: #fbbf24;
+    color: @md-warning;
   }
 
   .hint {
     font-size: 17px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     margin-top: 8px;
     text-align: center;
   }
@@ -118,12 +120,12 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .btn {
@@ -131,15 +133,15 @@
     padding: 0 26px;
     margin: 0 6px;
     border-radius: 32px;
-    background-color: #ff5f9e;
-    color: #1a0710;
+    background-color: @md-primary;
+    color: @md-on-primary;
     font-size: 22px;
     text-align: center;
   }
 
   .btn--ghost {
-    background-color: #1c2740;
-    color: #e8eefc;
+    background-color: @md-surface-container;
+    color: @md-on-surface;
   }
 
   .input {
@@ -148,14 +150,14 @@
     padding: 0 16px;
     margin-top: 12px;
     border-radius: 12px;
-    background-color: #0d1424;
-    color: #e8eefc;
+    background-color: @md-surface-container-low;
+    color: @md-on-surface;
     font-size: 18px;
   }
 
   .error {
     font-size: 18px;
-    color: #f87171;
+    color: @md-error;
     margin-top: 10px;
   }
 

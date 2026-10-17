@@ -101,11 +101,13 @@
   </div>
 </template>
 
-<style>
+<style lang="less">
+  @import '../../common/md3-tokens.less';
+
   .b50-page {
     flex-direction: column;
     padding: 14px;
-    background-color: #070b16;
+    background-color: @md-surface;
   }
 
   /* 返回键。做够大，手表上要好点。 */
@@ -119,17 +121,17 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .topbar__title {
     font-size: 22px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     margin-left: 14px;
   }
 
@@ -142,20 +144,20 @@
     padding: 10px 26px;
     margin: 0 6px;
     border-radius: 24px;
-    background-color: #141d30;
+    background-color: @md-surface-container-high;
   }
 
   .kind--on {
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .kind__text {
     font-size: 22px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
   }
 
   .kind--on .kind__text {
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .target {
@@ -164,17 +166,17 @@
     margin-top: 12px;
     padding: 14px;
     border-radius: 14px;
-    background-color: #141d30;
+    background-color: @md-surface-container-high;
   }
 
   .target__value {
     font-size: 32px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .target__hint {
     font-size: 17px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
     margin-top: 4px;
   }
 
@@ -189,35 +191,35 @@
     padding: 0 34px;
     margin: 0 6px;
     border-radius: 34px;
-    background-color: #ff5f9e;
+    background-color: @md-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .action--disabled {
-    background-color: #2a2f42;
+    background-color: @md-outline-variant;
   }
 
   .action__text {
     font-size: 26px;
-    color: #1a0710;
+    color: @md-on-primary;
   }
 
   .action--ghost .action__text {
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .action--disabled .action__text {
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   .error {
     font-size: 18px;
-    color: #f87171;
+    color: @md-error;
     margin-top: 8px;
     text-align: center;
   }
@@ -228,7 +230,7 @@
     margin-top: 14px;
     padding: 16px;
     border-radius: 14px;
-    background-color: #141d30;
+    background-color: @md-surface-container-high;
   }
 
   .summary__main {
@@ -264,7 +266,7 @@
 
   .line {
     font-size: 18px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
     margin-bottom: 4px;
   }
 
@@ -287,13 +289,13 @@
     width: 58px;
     height: 58px;
     margin-left: 6px;
-    background-color: #1c2740;
+    background-color: @md-surface-container;
   }
 
   .row__rank {
     width: 40px;
     font-size: 18px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   .row__main {
@@ -303,18 +305,18 @@
 
   .row__title {
     font-size: 20px;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .row__sub {
     font-size: 16px;
-    color: #6d7fa3;
+    color: @md-on-surface-variant;
   }
 
   /* 版本单独一行并带标签 */
   .row__version {
     font-size: 15px;
-    color: #f2a33c;
+    color: @md-warning;
     margin-top: 2px;
   }
 
@@ -327,12 +329,12 @@
   .row__rating {
     font-size: 24px;
     font-weight: bold;
-    color: #e8eefc;
+    color: @md-on-surface;
   }
 
   .row__ach {
     font-size: 15px;
-    color: #9bacd0;
+    color: @md-on-surface-variant;
   }
 
   /*
