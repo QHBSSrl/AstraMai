@@ -422,6 +422,24 @@
   /** 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。 */
   const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
 
+  /**
+   * 把时间戳格式化成「10月18日 14:32」。
+   *
+   * 只用来标注「这是什么时候的数据」，不需要秒、不需要年份。
+   *
+   * ⚠️ 必须放在**模块作用域**，不能放在 `export default { ... }` 里面——
+   * 那是对象字面量，里面只能有属性/方法，`function` 声明会直接语法错误
+   * （构建报 `Parsing error: Unexpected keyword 'function'`）。
+   */
+  function formatCachedTime(timestamp) {
+    const d = new Date(timestamp);
+    if (Number.isNaN(d.getTime())) return '之前';
+    const pad = (n) => (n < 10 ? '0' + n : String(n));
+    return (
+      d.getMonth() + 1 + '月' + d.getDate() + '日 ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+    );
+  }
+
   export default {
     private: {
       kind: 'friendCode',
@@ -609,6 +627,9 @@
     queryPhigros() {
       const session = readSetting('phigrosSession', '');
       if (!session) {
+        // 没登录也要试一次缓存——过期之后凭证会被清掉，
+        // 但上次的成绩还留着，别让用户对着空白页
+        if (this.showCachedPhigros('还没登录 Phigros。')) return;
         this.errorText = '还没登录 Phigros。请到「设置 → Phigros 登录」用 TapTap 扫码。';
         this.hasResult = false;
         return;
@@ -620,14 +641,73 @@
 
       fetchPhigrosBests(session)
         .then((view) => {
+          if (!view) throw new Error('查询失败');
+          // 存一份：平台会话约 1 天就过期，但成绩本身不会变
+          try {
+            writeSetting('phigrosLastView', JSON.stringify(view));
+            writeSetting('phigrosLastAt', String(Date.now()));
+          } catch (error) {
+            console.warn('[AstraMai] 缓存 Phigros 成绩失败：', error);
+          }
           this.apply(view);
           this.saving = '';
         })
         .catch((error) => {
+          this.saving = '';
+          const status = error && error.status;
+
+          if (status === 401) {
+            /*
+             * 会话过期。平台的有效期是对方定的，我们改不了——
+             * 所以做三件事：
+             *   1. 清掉本地凭证，免得每次查询都拿死 token 重试
+             *   2. 把上次的结果显示出来并**标注时间**
+             *   3. 明确告诉用户去哪儿重新扫码
+             */
+            try {
+              writeSetting('phigrosSession', '');
+            } catch (writeError) {
+              console.warn('[AstraMai] 清除过期凭证失败：', writeError);
+            }
+            if (this.showCachedPhigros('登录已过期。')) return;
+
+            this.errorText = '登录已过期，请到「设置 → Phigros 登录」重新扫码。';
+            this.hasResult = false;
+            return;
+          }
+
           this.errorText = error && error.message ? error.message : '查询失败';
           this.hasResult = false;
-          this.saving = '';
         });
+    },
+
+    /**
+     * 把缓存的成绩显示出来，并在顶部说明这是旧数据。
+     *
+     * **宁可显示带时间标注的旧数据，也不要一片空白**——
+     * 成绩是玩家自己的历史记录，不会因为会话过期就失效。
+     *
+     * @returns 是否成功显示了缓存
+     */
+    showCachedPhigros(reason) {
+      let cached = null;
+      let at = 0;
+      try {
+        const raw = readSetting('phigrosLastView', '');
+        if (raw) cached = JSON.parse(raw);
+        at = Number(readSetting('phigrosLastAt', '0')) || 0;
+      } catch (error) {
+        console.warn('[AstraMai] 读取 Phigros 缓存失败：', error);
+        return false;
+      }
+      if (!cached || typeof cached !== 'object') return false;
+
+      this.apply(cached);
+      this.errorText =
+        reason +
+        (at > 0 ? `下面显示的是 ${formatCachedTime(at)} 的数据，` : '') +
+        '请到「设置 → Phigros 登录」重新扫码以获取最新成绩。';
+      return true;
     },
 
     /** Phigros：RKS + B30。 */

@@ -36,16 +36,25 @@ test('至少包含舞萌与中二', () => {
   assert.ok(ids.includes('chunithm'));
 });
 
-test('Phigros 只保留查分，曲目查询已砍', () => {
-  // 用户原话：「头疼砍头不是让你全砍了的，只需要把 phigros 的曲目查询砍了就行」。
-  // 曲目查询那条路一直没修干净（搜出来恒 0 条），先砍掉——
-  // 首页不显示「曲目搜索」入口，也就不可能点进去看到空列表。
-  //
-  // 这条测试是**故意的**：如果哪天有人把 'search' 加回来却没把搜索修好，
-  // 这里会红，逼着做决定。真要恢复时连同这条断言一起改。
+test('Phigros 查分与曲目查询都开着（搜索已恢复）', () => {
+  /*
+   * 曲目查询曾被砍掉（「搜出来恒 0 条」），现在已恢复。
+   *
+   * 恢复前**重新验过整条链路**（取数 → 归一 → 映射，18/18）：
+   *   Spasmodic / 君往何处 / 云 都能搜到，定数正确
+   *   反向验证：形状没归一的话就是当初那个 bug
+   *
+   * 当初的两个根因都已修：
+   *   1. 平台返回 { items }，页面读 payload.results → 在 api.js 里归一成 { results }
+   *   2. gameId 在存储预热之前就读了 → 改成预热之后再读
+   *
+   * ⚠️ 这条断言的**方向反过来了**：以前守着「别再打开」，
+   * 现在守着「别再关掉」——如果哪天有人又把 'search' 拿掉，
+   * 说明搜索又出问题了，这里会红，逼着说明原因。
+   */
   const phigros = gameById('phigros');
-  assert.equal(gameHasFeature(phigros, 'b50'), true, '查分应当保留');
-  assert.equal(gameHasFeature(phigros, 'search'), false, '曲目查询应当已砍掉');
+  assert.equal(gameHasFeature(phigros, 'b50'), true, '查分应当可用');
+  assert.equal(gameHasFeature(phigros, 'search'), true, '曲目查询已恢复，不该再关掉');
 });
 
 test('Phigros 在可选列表里（查分是可用的）', () => {

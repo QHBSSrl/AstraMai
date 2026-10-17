@@ -30,13 +30,16 @@ export const GAMES = [
     id: 'phigros',
     label: 'Phigros',
     short: 'phi',
-    // ⚠️ **故意不给 'search'**：曲目查询那条路一直没修干净（搜出来恒 0 条），
-    // 先砍掉。首页不会显示「曲目搜索」入口，也就不可能点进去看到空列表。
+    // 曲目查询**已恢复**（曾因「恒 0 条」砍掉）。
     //
-    // 查分（RKS + B30）保留——服务端实测 20/20，登录页与 B50 分支都在。
-    // 将来要恢复曲目查询：把 'search' 加回来，
-    // 并确认 api.js 里 searchPhigrosSongs 已经把形状归一成 { results }。
-    features: ['b50'],
+    // 恢复前重新验过整条链路：取数 → 归一 → 映射，18/18 通过。
+    //   实测：Spasmodic / 君往何处 / 云 都能搜到，定数正确
+    //   反向验证：形状没归一的话就是当初那个 bug
+    //
+    // 当初的两个根因都已修：
+    //   1. 平台返回 { items }，页面读 payload.results → 在 api.js 里归一成 { results }
+    //   2. gameId 在存储预热之前就读了 → 改成预热之后再读
+    features: ['b50', 'search'],
   },
   {
     id: 'chunithm',

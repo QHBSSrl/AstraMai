@@ -186,6 +186,31 @@ async function jsonRequest(path, init) {
     throw new Error(`服务端返回了无法解析的内容（HTTP ${response.status}）`);
   }
   if (!parsed) throw new Error(`服务端返回了空内容（HTTP ${response.status}）`);
+
+  /*
+   * ⚠️ **非 2xx 必须抛错。**
+   *
+   * 原来这里是直接 `return parsed`——把错误体当成正常响应交给调用方。
+   * 后果：401 时 `fetchPhigrosBests` 返回 null，调用方的 `.catch` 根本不触发，
+   * 接着 `apply(null)` 里读 `null.stats` 直接抛 TypeError。
+   *
+   * 而 `jsonRequest` 的所有调用方都是「拿 payload.data + 兜底」的写法，
+   * 所以改成抛错之后它们的 `.catch` 会正常接管——**严格更正确**。
+   *
+   * 错误对象上带 `status`，调用方据此区分「登录过期」和「网络故障」。
+   */
+  if (!response.ok) {
+    const message =
+      parsed && typeof parsed === 'object' && typeof parsed.message === 'string' && parsed.message
+        ? parsed.message
+        : `服务端返回 HTTP ${response.status}`;
+    const error = new Error(message);
+    // 用自定义属性而不是子类：Vela 的 Error 子类行为不一定可靠
+    error.status = response.status;
+    error.serverCode = parsed && typeof parsed === 'object' ? parsed.code : undefined;
+    throw error;
+  }
+
   return parsed;
 }
 
