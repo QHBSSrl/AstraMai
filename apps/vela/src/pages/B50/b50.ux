@@ -1,7 +1,8 @@
 <import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
 
 <template>
-  <div class="b50-page">
+  <div class="page-root">
+    <div class="b50-page">
     <!--
       显式返回键。
       手表上没有可见的返回入口，用户得先知道「从边缘侧滑」这个隐藏手势才能回去；
@@ -89,6 +90,10 @@
       完整输入法。好友码是纯数字，用它的「123」数字键盘即可；
       这样全应用只有一套输入组件，不必为不同输入各写一个键盘。
     -->
+    </div>
+
+    <!-- 键盘提到根容器下：它靠 position:absolute 的 left:0/width:100% 定位，
+         父容器一旦有 padding 就会缩进去，真机上右边留一条缝。 -->
     <input-method
       hide="{{ keyboardHidden }}"
       keyboardtype="QWERTY"
@@ -102,12 +107,25 @@
 </template>
 
 <style lang="less">
-  @import '../../common/md3-tokens.less';
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 页面根容器：**全幅、零内边距**。
+   * 输入法是它的直接子元素，靠 position:absolute 的 left:0/width:100% 定位，
+   * 父容器有内边距的话键盘就会跟着缩进去——真机上右边会留一条缝。
+   * 所以内边距放在内层的 .b50-page 上，这一层专门给键盘当定位基准。
+   */
+  .page-root {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
 
   .b50-page {
     flex-direction: column;
     padding: 14px;
-    background-color: @md-surface;
+    background-color: @ui-surface;
   }
 
   /* 返回键。做够大，手表上要好点。 */
@@ -121,17 +139,17 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .topbar__title {
     font-size: 22px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-left: 14px;
   }
 
@@ -144,20 +162,20 @@
     padding: 10px 26px;
     margin: 0 6px;
     border-radius: 24px;
-    background-color: @md-surface-container-high;
+    background-color: @ui-surface-card;
   }
 
   .kind--on {
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .kind__text {
     font-size: 22px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .kind--on .kind__text {
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .target {
@@ -166,17 +184,17 @@
     margin-top: 12px;
     padding: 14px;
     border-radius: 14px;
-    background-color: @md-surface-container-high;
+    background-color: @ui-surface-card;
   }
 
   .target__value {
     font-size: 32px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .target__hint {
     font-size: 17px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 4px;
   }
 
@@ -191,35 +209,35 @@
     padding: 0 34px;
     margin: 0 6px;
     border-radius: 34px;
-    background-color: @md-primary;
+    background-color: @ui-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .action--disabled {
-    background-color: @md-outline-variant;
+    background-color: @ui-outline;
   }
 
   .action__text {
     font-size: 26px;
-    color: @md-on-primary;
+    color: @ui-on-primary;
   }
 
   .action--ghost .action__text {
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .action--disabled .action__text {
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .error {
     font-size: 18px;
-    color: @md-error;
+    color: @ui-error;
     margin-top: 8px;
     text-align: center;
   }
@@ -230,7 +248,7 @@
     margin-top: 14px;
     padding: 16px;
     border-radius: 14px;
-    background-color: @md-surface-container-high;
+    background-color: @ui-surface-card;
   }
 
   .summary__main {
@@ -266,7 +284,7 @@
 
   .line {
     font-size: 18px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-bottom: 4px;
   }
 
@@ -289,13 +307,13 @@
     width: 58px;
     height: 58px;
     margin-left: 6px;
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .row__rank {
     width: 40px;
     font-size: 18px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .row__main {
@@ -305,18 +323,18 @@
 
   .row__title {
     font-size: 20px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .row__sub {
     font-size: 16px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   /* 版本单独一行并带标签 */
   .row__version {
     font-size: 15px;
-    color: @md-warning;
+    color: @ui-warning;
     margin-top: 2px;
   }
 
@@ -329,12 +347,12 @@
   .row__rating {
     font-size: 24px;
     font-weight: bold;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .row__ach {
     font-size: 15px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   /*

@@ -43,7 +43,7 @@
 </template>
 
 <style lang="less">
-  @import '../../common/md3-tokens.less';
+  @import '../../common/theme-tokens.less';
 
   /*
    * 首页 · MD3 参考实现
@@ -62,8 +62,8 @@
 
   .page {
     flex-direction: column;
-    padding: @md-space-4 @md-space-5;
-    background-color: @md-surface;
+    padding: @ui-space-4 @ui-space-5;
+    background-color: @ui-surface;
   }
 
   /* MD3 小号顶栏（small top app bar）：标题 + 一个动作 */
@@ -77,26 +77,29 @@
   /* 品牌字：display 型阶 + 主色 */
   .brand {
     flex: 1;
-    font-size: @md-font-display;
+    font-size: @ui-font-display;
     font-weight: bold;
-    color: @md-primary;
+    color: @ui-primary;
   }
 
   /*
-   * MD3 **描边按钮**（outlined button）——次要动作的形态。
-   * 透明底 + outline 描边 + primary 文字，和实心按钮形成层级差。
+   * 设置按钮：**实心胶囊**。
+   *
+   * 上一版是 MD3 的描边按钮（透明底 + 1px 描边 + 主色文字）。
+   * 那种做法在手机上是为了区分「主/次动作」，但在一块只有三个入口的手表上，
+   * 一个描边按钮会让顶栏显得比内容还讲究——这就是「设计感过强」的一部分。
+   *
+   * 现在：实心胶囊 + 中性底，靠亮度差和标题分开，不靠描边。
    */
   .settings-btn {
-    padding: @md-space-2 @md-space-4;
-    border-radius: @md-shape-full;
-    border-width: 1px;
-    border-color: @md-outline;
-    background-color: transparent;
+    padding: @ui-space-2 @ui-space-4;
+    border-radius: @ui-radius-full;
+    background-color: @ui-surface-container;
   }
 
   .settings-btn__text {
-    font-size: @md-font-label;
-    color: @md-primary;
+    font-size: @ui-font-label;
+    color: @ui-on-surface;
   }
 
   /*
@@ -106,22 +109,22 @@
   .game {
     flex-direction: column;
     width: 100%;
-    padding: @md-space-3 @md-space-4;
-    margin-top: @md-space-2;
-    border-radius: @md-shape-lg;
-    background-color: @md-primary-container;
+    padding: @ui-space-3 @ui-space-4;
+    margin-top: @ui-space-2;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-emphasis;
   }
 
   .game__name {
-    font-size: @md-font-title;
+    font-size: @ui-font-title;
     font-weight: bold;
-    color: @md-on-primary-container;
+    color: @ui-on-surface;
   }
 
   /* 次要信息用透明度降权——MD3 处理 supporting text 的常规手法 */
   .game__hint {
-    font-size: @md-font-label;
-    color: @md-on-primary-container;
+    font-size: @ui-font-label;
+    color: @ui-on-surface;
     opacity: 0.72;
     margin-top: 2px;
   }
@@ -129,40 +132,40 @@
   .menu {
     flex-direction: column;
     width: 100%;
-    margin-top: @md-space-3;
+    margin-top: @ui-space-3;
   }
 
   /* MD3 filled card：比底色亮一档，靠亮度而不是边框分层 */
   .entry {
     flex-direction: column;
-    padding: @md-space-4;
-    margin-bottom: @md-space-3;
-    border-radius: @md-shape-lg;
-    background-color: @md-surface-container-high;
+    padding: @ui-space-4;
+    margin-bottom: @ui-space-3;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
   }
 
   .entry__title {
-    font-size: @md-font-headline;
-    color: @md-on-surface;
+    font-size: @ui-font-headline;
+    color: @ui-on-surface;
   }
 
   .entry__sub {
-    font-size: @md-font-label;
-    color: @md-on-surface-variant;
+    font-size: @ui-font-label;
+    color: @ui-on-surface-variant;
     margin-top: 2px;
   }
 
   .empty {
-    font-size: @md-font-body;
-    color: @md-on-surface-variant;
+    font-size: @ui-font-body;
+    color: @ui-on-surface-variant;
     text-align: center;
-    margin-top: @md-space-5;
+    margin-top: @ui-space-5;
   }
 
   .foot {
-    font-size: @md-font-caption;
-    color: @md-on-surface-variant;
-    margin-top: @md-space-2;
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-variant;
+    margin-top: @ui-space-2;
   }
 
   /*
@@ -192,7 +195,7 @@
 
     /* 返回键/标题不再靠边，改为居中并留出上下间距 */
     .back {
-      margin-bottom: @md-space-2;
+      margin-bottom: @ui-space-2;
     }
   }
 </style>

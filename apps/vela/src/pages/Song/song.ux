@@ -44,12 +44,12 @@
 </template>
 
 <style lang="less">
-  @import '../../common/md3-tokens.less';
+  @import '../../common/theme-tokens.less';
 
   .song-page {
     flex-direction: column;
     padding: 14px;
-    background-color: @md-surface;
+    background-color: @ui-surface;
   }
 
   .topbar {
@@ -61,12 +61,12 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .head {
@@ -78,7 +78,7 @@
     width: 110px;
     height: 110px;
     border-radius: 10px;
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .head__main {
@@ -89,18 +89,18 @@
 
   .title {
     font-size: 26px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .aliases {
     font-size: 16px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 4px;
   }
 
   .meta {
     font-size: 16px;
-    color: @md-warning;
+    color: @ui-warning;
     margin-top: 3px;
   }
 
@@ -115,27 +115,27 @@
     padding: 0 30px;
     margin: 0 5px;
     border-radius: 30px;
-    background-color: @md-primary;
+    background-color: @ui-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .action__text {
     font-size: 22px;
-    color: @md-on-primary;
+    color: @ui-on-primary;
   }
 
   .action--ghost .action__text {
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .hint {
     font-size: 16px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     text-align: center;
     margin-top: 6px;
   }
@@ -173,18 +173,18 @@
 
   .chart__total {
     font-size: 18px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .chart__breakdown {
     font-size: 13px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 2px;
   }
 
   .chart__designer {
     font-size: 14px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 2px;
   }
 

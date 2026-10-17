@@ -48,18 +48,18 @@
 </template>
 
 <style lang="less">
-  @import '../../common/md3-tokens.less';
+  @import '../../common/theme-tokens.less';
 
   .page {
     flex-direction: column;
     align-items: center;
     padding: 16px 20px;
-    background-color: @md-surface;
+    background-color: @ui-surface;
   }
 
   .title {
     font-size: 26px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
     margin-bottom: 12px;
   }
 
@@ -74,32 +74,32 @@
   .code {
     width: 340px;
     height: 340px;
-    color: @md-surface;
+    color: @ui-surface;
     background-color: #ffffff;
   }
 
   .validity {
     font-size: 20px;
     margin-top: 14px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     text-align: center;
   }
 
   .validity--valid {
-    color: @md-success;
+    color: @ui-success;
   }
 
   .validity--expired {
-    color: @md-error;
+    color: @ui-error;
   }
 
   .validity--unknown {
-    color: @md-warning;
+    color: @ui-warning;
   }
 
   .hint {
     font-size: 17px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 8px;
     text-align: center;
   }
@@ -120,12 +120,12 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .btn {
@@ -133,15 +133,15 @@
     padding: 0 26px;
     margin: 0 6px;
     border-radius: 32px;
-    background-color: @md-primary;
-    color: @md-on-primary;
+    background-color: @ui-primary;
+    color: @ui-on-primary;
     font-size: 22px;
     text-align: center;
   }
 
   .btn--ghost {
-    background-color: @md-surface-container;
-    color: @md-on-surface;
+    background-color: @ui-surface-container;
+    color: @ui-on-surface;
   }
 
   .input {
@@ -150,14 +150,14 @@
     padding: 0 16px;
     margin-top: 12px;
     border-radius: 12px;
-    background-color: @md-surface-container-low;
-    color: @md-on-surface;
+    background-color: @ui-surface;
+    color: @ui-on-surface;
     font-size: 18px;
   }
 
   .error {
     font-size: 18px;
-    color: @md-error;
+    color: @ui-error;
     margin-top: 10px;
   }
 

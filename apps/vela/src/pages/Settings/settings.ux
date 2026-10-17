@@ -48,12 +48,12 @@
 </template>
 
 <style lang="less">
-  @import '../../common/md3-tokens.less';
+  @import '../../common/theme-tokens.less';
 
   .page {
     flex-direction: column;
     padding: 14px 20px;
-    background-color: @md-surface;
+    background-color: @ui-surface;
   }
 
   .topbar {
@@ -66,24 +66,24 @@
   .back {
     padding: 8px 20px;
     border-radius: 22px;
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .back__text {
     font-size: 22px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .title {
     font-size: 30px;
     font-weight: bold;
-    color: @md-on-surface;
+    color: @ui-on-surface;
     margin-top: 4px;
   }
 
   .section {
     font-size: 16px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 20px;
     margin-bottom: 8px;
   }
@@ -92,7 +92,7 @@
     flex-direction: column;
     width: 100%;
     border-radius: 14px;
-    background-color: @md-surface-container-high;
+    background-color: @ui-surface-card;
   }
 
   .row {
@@ -110,12 +110,12 @@
   .row__label {
     flex: 1;
     font-size: 22px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .row__value {
     font-size: 16px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .row__mark {
@@ -129,23 +129,23 @@
   }
 
   .row__label--off {
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .hint--warn {
-    color: @md-warning;
+    color: @ui-warning;
   }
 
   .hint {
     font-size: 14px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 8px;
     line-height: 1.5;
   }
 
   .foot {
     font-size: 14px;
-    color: @md-outline;
+    color: @ui-outline;
     text-align: center;
     margin-top: 24px;
   }

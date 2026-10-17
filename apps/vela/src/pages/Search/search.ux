@@ -1,7 +1,8 @@
 <import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
 
 <template>
-  <div class="search-page">
+  <div class="page-root">
+    <div class="search-page">
     <div class="query">
       <text class="query__text">{{ keyword ? keyword : '输入曲名 / 别名 / 艺术家' }}</text>
       <text class="query__hint">{{ statusText }}</text>
@@ -83,6 +84,10 @@
       完整输入法：支持中文拼音、英文、日文罗马字。
       日文是刚需——maimai 的曲名大量是日文，没有它就搜不了歌。
     -->
+    </div>
+
+    <!-- 键盘提到根容器下：它靠 position:absolute 的 left:0/width:100% 定位，
+         父容器一旦有 padding 就会缩进去，真机上右边留一条缝。 -->
     <input-method
       hide="{{ keyboardHidden }}"
       keyboardtype="QWERTY"
@@ -96,12 +101,25 @@
 </template>
 
 <style lang="less">
-  @import '../../common/md3-tokens.less';
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 页面根容器：**全幅、零内边距**。
+   * 输入法是它的直接子元素，靠 position:absolute 的 left:0/width:100% 定位，
+   * 父容器有内边距的话键盘就会跟着缩进去——真机上右边会留一条缝。
+   * 所以内边距放在内层的 .search-page 上，这一层专门给键盘当定位基准。
+   */
+  .page-root {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
 
   .search-page {
     flex-direction: column;
     padding: 14px;
-    background-color: @md-surface;
+    background-color: @ui-surface;
   }
 
   .query {
@@ -109,18 +127,18 @@
     align-items: center;
     padding: 14px;
     border-radius: 14px;
-    background-color: @md-surface-container-high;
+    background-color: @ui-surface-card;
   }
 
   .query__text {
     font-size: 28px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
     text-align: center;
   }
 
   .query__hint {
     font-size: 16px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
     margin-top: 6px;
   }
 
@@ -136,30 +154,30 @@
     padding: 0 16px;
     margin: 0 4px;
     border-radius: 30px;
-    background-color: @md-primary;
+    background-color: @ui-primary;
     align-items: center;
     justify-content: center;
   }
 
   .action--ghost {
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .action--disabled {
-    background-color: @md-outline-variant;
+    background-color: @ui-outline;
   }
 
   .action__text {
     font-size: 21px;
-    color: @md-on-primary;
+    color: @ui-on-primary;
   }
 
   .action--ghost .action__text {
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .action--disabled .action__text {
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   /*
@@ -173,18 +191,18 @@
     margin-bottom: 8px;
     padding: 0 20px;
     border-radius: 14px;
-    background-color: @md-surface-container-high;
+    background-color: @ui-surface-card;
   }
 
   .cat__name {
     flex: 1;
     font-size: 24px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .cat__mark {
     font-size: 22px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .list {
@@ -209,7 +227,7 @@
   .row__cover {
     width: 68px;
     height: 68px;
-    background-color: @md-surface-container;
+    background-color: @ui-surface-container;
   }
 
   .row__main {
@@ -228,7 +246,7 @@
   .set__label {
     width: 34px;
     font-size: 14px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .set__cell {
@@ -247,24 +265,24 @@
 
   .row__more-text {
     font-size: 28px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   .row__title {
     font-size: 21px;
-    color: @md-on-surface;
+    color: @ui-on-surface;
   }
 
   .row__sub {
     font-size: 16px;
-    color: @md-on-surface-variant;
+    color: @ui-on-surface-variant;
   }
 
   /* 版本单独一行并带标签。之前混在副标题里，用户反馈「版本显示呢」——
      实际是有的，只是认不出来。 */
   .row__version {
     font-size: 16px;
-    color: @md-warning;
+    color: @ui-warning;
     margin-top: 2px;
   }
 
