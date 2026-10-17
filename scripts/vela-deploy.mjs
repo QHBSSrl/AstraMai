@@ -28,7 +28,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ADB =
@@ -41,7 +41,26 @@ const PKG = 'com.astranexus.astramai';
 // 于是这个脚本从写下来就是坏的——一直没人发现，
 // 因为实际用的是 .probe/verify/deploy-and-log.mjs。
 const projectRoot = resolve(import.meta.dirname, '../apps/vela');
-const rpk = resolve(projectRoot, `dist/${PKG}.debug.0.1.0.rpk`);
+
+/**
+ * 找 RPK。
+ *
+ * **不写死版本号**——原来写的是 `...debug.0.1.0.rpk`，升到 0.1.1 就失配了，
+ * 而这类失配的报错是「找不到 RPK」，很容易被当成构建失败去查错方向。
+ *
+ * 优先用 `dist/` 里 mtime 最新的那个；没有就报清楚缺什么。
+ */
+function findRpk() {
+  const distDir = resolve(projectRoot, 'dist');
+  if (!existsSync(distDir)) return null;
+  const candidates = readdirSync(distDir)
+    .filter((f) => f.startsWith(`${PKG}.`) && f.endsWith('.rpk'))
+    .map((f) => resolve(distDir, f))
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  return candidates[0] ?? null;
+}
+
+let rpk = findRpk();
 const REMOTE_DIR = `/data/quickapp/app/${PKG}`;
 const REMOTE_RPK = `/data/quickapp/app/${PKG}.rpk`;
 

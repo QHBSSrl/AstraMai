@@ -1,6 +1,6 @@
 {
   "name": "astramai",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "AstraMai —— 面向小米 Vela 端的街机音游工具（落雪查分器对接）基础工程与 Web 测试站",

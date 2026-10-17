@@ -1,6 +1,6 @@
 {
   "name": "@astramai/server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "AstraMai 测试站服务端：持有落雪开发者密钥，向浏览器只暴露聚合后的结果。",

@@ -1,6 +1,6 @@
 {
   "name": "@astramai/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "AstraMai 核心层：落雪 API 类型、DX Rating 计算、B50 组装。零运行时依赖，可移植到 Vela QuickApp。",

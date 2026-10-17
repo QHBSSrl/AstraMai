@@ -2,8 +2,8 @@
   "package": "com.astranexus.astramai",
   "name": "AstraMai",
   "icon": "/common/icon.png",
-  "versionName": "0.1.0",
-  "versionCode": 1,
+  "versionName": "0.1.1",
+  "versionCode": 101,
   "minAPILevel": 2,
   "deviceTypeList": [
     "watch"
