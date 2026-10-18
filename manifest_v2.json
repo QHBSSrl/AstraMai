@@ -3,7 +3,7 @@
     "id": "com.astranexus.astramai",
     "restype": "quick_app",
     "name": "AstraMai",
-    "description": "AstraMai是AstraNexus团队开发的一款音乐游戏工具软件，可以在腕上查询自己的Best数据，曲目信息，获取玩家登录二维码等功能，一切基础功能均为免费，设计上仅支持eSIM设备（因为非eSIM用这个好像没啥意义）。目前仅为测试版，欢迎加入交流群帮助我们改进项目：308532898 （UI是deepseek写的，测试版先不要求UI了）",
+    "description": "AstraMai是AstraNexus团队开发的一款音乐游戏工具软件，可以在腕上查询自己的Best数据，曲目信息，获取玩家登录二维码等功能，一切基础功能均为免费，软件需要连接互联网。目前为v0测试版，欢迎加入交流群帮助我们改进项目：308532898",
     "preview": [
       "media/redmi_watch-2026-10-11-10-22-44.png",
       "media/redmi_watch-2026-10-11-10-22-08.png",
@@ -22,9 +22,37 @@
   "links": [],
   "downloads": {
     "xmrw5xring": {
-      "version": "0.1.0",
-      "file_name": "downloads/com.astranexus.astramai.release.0.1.0.rpk",
-      "versionCode": 1
+      "version": "0.1.1",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.1.rpk",
+      "versionCode": 101,
+      "updatelogs": [
+        {
+          "version": "0.1.1",
+          "content": "10月18日v0.1.1测试版更新内容\n1.更新了UI及其颜色搭配（虽然还是有点丑丑的）\n2.更新了乐曲分类功能，（目前）适用于舞萌DX和中二节奏\n3.修复了Phigros和中二节奏搜索曲目出来的结果是舞萌DX的歌的问题"
+        }
+      ]
+    },
+    "xmrw5": {
+      "version": "0.1.1",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.1.rpk",
+      "versionCode": 101,
+      "updatelogs": [
+        {
+          "version": "0.1.1",
+          "content": "首个支持REDMI Watch5标准版的版本"
+        }
+      ]
+    },
+    "xmrw6": {
+      "version": "0.1.1",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.1.rpk",
+      "versionCode": 101,
+      "updatelogs": [
+        {
+          "version": "0.1.1",
+          "content": "首个支持REDMI Watch6的版本"
+        }
+      ]
     }
   },
   "ext": {}
