@@ -170,19 +170,39 @@ export class OsuSource implements DataSource {
   async getOsuBests(query: PlayerQuery): Promise<OsuBests> {
     const username = this.requireUsername(query);
 
-    /*
-     * 两个请求：玩家资料 + 成绩列表。
-     * **先花预算再发请求**——超限时直接拒绝，不给上游造成压力。
-     */
     this.options.limiter.spend(2, this.label);
 
     const encoded = encodeURIComponent(username);
-    const [playerRaw, scoresRaw] = await Promise.all([
-      this.api(`/users/${encoded}/${this.ruleset}`),
-      this.api(`/users/${encoded}/scores/best?mode=${this.ruleset}&limit=${this.bestLimit}`),
-    ]);
 
+    /*
+     * ⚠️ **必须分两步，不能并发。**
+     *
+     * 实测（2026-10-18）：
+     *   GET /users/mrekk/osu               → 200   ← 资料认可用户名
+     *   GET /users/mrekk/scores/best       → 404   ← 成绩**不认用户名**
+     *   GET /users/@mrekk/scores/best      → 404   ← @ 前缀也不行
+     *   GET /users/7562902/scores/best     → 200   ← 只认数字 ID
+     *
+     * 所以先查资料拿 `id`，再用 id 查成绩。两次请求，但**有先后依赖**，
+     * 不能像原来那样 `Promise.all` 并发。
+     *
+     * 这个差异文档里没写清楚（也可能写在被截断的部分），是靠试探端点发现的。
+     */
+    const playerRaw = await this.api(`/users/${encoded}/${this.ruleset}`);
     const player = mapPlayer(playerRaw, this.ruleset);
+
+    if (!player.id) {
+      // 没有 ID 就没法查成绩。正常不会发生（资料里一定有 id），
+      // 但真发生了要给出人话而不是拼一个 `/users/0/scores/best` 去打 404。
+      throw new LxnsError('server', 'osu! 玩家资料里没有 id', {
+        friendly: 'osu! 返回的玩家资料不完整，请稍后再试。',
+      });
+    }
+
+    const scoresRaw = await this.api(
+      `/users/${player.id}/scores/best?mode=${this.ruleset}&limit=${this.bestLimit}`,
+    );
+
     const scores = Array.isArray(scoresRaw)
       ? scoresRaw.map((item) => mapScore(item)).filter((item) => item !== null)
       : [];
@@ -389,7 +409,7 @@ export function mapPlayer(raw: unknown, ruleset: OsuRuleset): OsuPlayer {
  *   mods          缩写数组
  *   score         游戏内分数
  *   max_combo
- *   weight        { percent, pp } 加权信息
+ *   weight        { percentage, pp } 加权信息
  *   beatmap       { id, version, difficulty_rating }
  *   beatmapset    { title, artist, covers: { cover } }
  *
@@ -412,7 +432,7 @@ export function mapScore(raw: unknown): OsuScore | null {
   return {
     pp,
     weightedPp: num(weight.pp),
-    weightPercent: num(weight.percent),
+    weightPercent: num(weight.percentage),
     accuracy: num(raw.accuracy),
     rank: str(raw.rank, '-'),
     mods: Array.isArray(raw.mods)

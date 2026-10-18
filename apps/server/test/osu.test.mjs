@@ -3,20 +3,22 @@
  *
  * ── 关于样本数据 ────────────────────────────────────────────────────
  *
- * ⚠️ **这里的响应样本是按官方文档的字段形状造的，不是抓取的。**
+ * 响应样本**已按真实接口校准**（2026-10-18，用 mrekk 的公开数据打的）。
  *
- * 为什么不像 astra-net 那样用真实样本：**这个源需要 OSU_CLIENT_ID /
- * OSU_CLIENT_SECRET 才能调用**，写这段时还没有凭据。
+ * 校准过程中发现并修正了两处：
  *
- * 所以这批测试覆盖的是：
- *   ✅ 字段缺失时的容错（上游很多字段可为 null）
- *   ✅ token 缓存与失效逻辑（不依赖上游）
- *   ✅ 限流计数（不依赖上游）
- *   ✅ 错误分类（404 / 401 / 5xx）
- *   ❌ **不覆盖**「上游真实字段名和我们对不对得上」
+  *   1. 成绩端点 `/scores/best` **不认用户名，只认数字 ID**
+ *      /users/mrekk/scores/best      → 404
+ *      /users/@mrekk/scores/best     → 404
+ *      /users/7562902/scores/best    → 200
+ *      所以必须**先查资料拿 id，再查成绩**，两步有依赖、不能并发。
  *
- * 拿到凭据后必须补一条对真实接口的集成测试——**这是已知的验证缺口**，
- * 不要因为这里全绿就认为映射一定对。
+ *   2. **权重字段叫 percentage 不是 percent**
+ *      真实值 { "percentage": 100, "pp": 1857.11 }，
+ *      写成 percent 会静默变 0——**类型系统抓不到这类错**。
+ *
+ * 教训：这两个错在「照文档猜的样本」下测试全绿。
+ * 只有打真实接口才能发现。
  */
 
 import assert from 'node:assert/strict';
@@ -51,7 +53,7 @@ const SCORE_SAMPLE = {
   max_combo: 1337,
   rank: 'S',
   pp: 456.78,
-  weight: { percent: 100, pp: 456.78 },
+  weight: { percentage: 100, pp: 456.78 },
   beatmap: { id: 12345, version: 'Insane', difficulty_rating: 6.12 },
   beatmapset: {
     title: 'Blue Zenith',
@@ -208,6 +210,58 @@ test('查成绩：两个请求，且用上了缓存 token', async () => {
 
   // 后续请求复用 token，不再打 /oauth/token
   assert.equal(calls[1].init.headers.Authorization, 'Bearer fake-token');
+});
+
+test('成绩用数字 ID 查，不是用户名（真实接口只认 ID）', async () => {
+  /*
+   * 实测（2026-10-18）：
+   *   /users/mrekk/scores/best    → 404
+   *   /users/@mrekk/scores/best   → 404
+   *   /users/7562902/scores/best  → 200
+   *
+   * 所以顺序必须是「先资料拿 id → 再成绩」。这条测试锁住这个依赖，
+   * 防止以后有人把它改回并发或改回用户名。
+   */
+  const { source, calls } = makeSource((url) => {
+    if (url.includes('/oauth/token')) return tokenResponse();
+    if (url.includes('/scores/best')) return jsonResponse([SCORE_SAMPLE]);
+    return jsonResponse(PLAYER_SAMPLE);
+  });
+
+  await source.getOsuBests({ username: 'Cookiezi' });
+
+  const scoreCall = calls.find((c) => c.url.includes('/scores/best'));
+  assert.ok(scoreCall, '应当请求过成绩接口');
+  assert.ok(
+    scoreCall.url.includes(`/users/${PLAYER_SAMPLE.id}/scores/best`),
+    `成绩必须用数字 ID 查，实际请求了：${scoreCall.url}`,
+  );
+  assert.ok(
+    !scoreCall.url.includes('/users/Cookiezi/scores'),
+    '不能把用户名拼进成绩端点——上游会返回 404',
+  );
+});
+
+test('资料里没有 id 时给明确错误，不去打 404', async () => {
+  const { source, calls } = makeSource((url) => {
+    if (url.includes('/oauth/token')) return tokenResponse();
+    if (url.includes('/scores/best')) return jsonResponse([SCORE_SAMPLE]);
+    // 资料里没有 id
+    return jsonResponse({ username: 'ghost', statistics: { pp: 1 } });
+  });
+
+  await assert.rejects(
+    () => source.getOsuBests({ username: 'ghost' }),
+    (error) => {
+      assert.equal(error.kind, 'server');
+      return true;
+    },
+  );
+  assert.equal(
+    calls.filter((c) => c.url.includes('/scores/best')).length,
+    0,
+    '没有 id 就不该去查成绩',
+  );
 });
 
 test('token 会被缓存：第二次查询不再换 token', async () => {
