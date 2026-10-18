@@ -56,8 +56,16 @@
             「我看的是谁的」，否则查出一堆成绩也不知道对不对。
           -->
           <text class="player" if="{{ playerName }}">{{ playerName }}</text>
-          <text class="rating">{{ ratingText }}</text>
-          <text class="tier">{{ tierText }}</text>
+          <!--
+            Phigros 的 RKS 是小数（如 15.7888），整数部分放大、小数部分缩小。
+            其余两个游戏是整数评级，走下面的单行分支。
+          -->
+          <div class="rating-group" if="{{ ratingDec }}">
+            <text class="rating">{{ ratingInt }}</text>
+            <text class="rating-dec">{{ ratingDec }}</text>
+          </div>
+          <text class="rating" if="{{ !ratingDec }}">{{ ratingText }}</text>
+          <text class="tier" if="{{ tierText }}">{{ tierText }}</text>
         </div>
         <div class="summary__side">
           <text class="line">{{ statLine1 }}</text>
@@ -278,23 +286,59 @@
     width: 150px;
   }
 
-  /* 玩家名：可能是全角，给它单独一行并适当限宽 */
+  /*
+   * 玩家名。
+   *
+   * `.summary__main` 固定 150px，"CHUNITHM" 这种长名字在 20px 下放不下，
+   * 会折成两行、把下面的评级挤下去——看起来就是「内容往里缩」。
+   *
+   * `lines: 1` + 省略号：宁可截断，也不要换行改变布局。
+   */
   .player {
     font-size: 20px;
     color: #4fd6ff;
     margin-bottom: 4px;
     text-align: center;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .rating {
     font-size: 40px;
     font-weight: bold;
     color: #f5c542;
+    lines: 1;
+  }
+
+  /*
+   * 小数部分：和整数同一行、靠底对齐。
+   *
+   * 成绩类 UI 的常见做法——整数是主信息、要大；小数是细节、要小。
+   * 两个都 40px 的话，"15.7888" 需要约 190px，150px 的列放不下。
+   */
+  .rating-group {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .rating-dec {
+    font-size: 22px;
+    font-weight: bold;
+    color: #f5c542;
+    /*
+     * 补偿字号差：40px 和 22px 的基线不同，直接 flex-end 对齐会显得小数偏高。
+     * 往下推一点点，视觉上落在大数字底部。
+     */
+    margin-bottom: 4px;
+    lines: 1;
   }
 
   .tier {
     font-size: 18px;
     color: #f5c542;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .summary__side {
@@ -498,6 +542,10 @@
 
       hasResult: false,
       ratingText: '',
+      /** Phigros 专用：整数部分（放大显示）。 */
+      ratingInt: '',
+      /** Phigros 专用：小数部分（缩小显示），空字符串表示不走拆分分支。 */
+      ratingDec: '',
       tierText: '',
       /** 玩家名。多号玩家靠它确认「看的是谁的」。 */
       playerName: '',
@@ -759,8 +807,34 @@
       const stats = view.stats || {};
       const best30 = view.best30 || [];
 
-      this.ratingText = String(view.rks);
-      this.tierText = view.nickname || '';
+      /*
+       * RKS 是浮点数，原始值形如 15.7887875979519——
+       * 这串精度对玩家没意义，而且 16 个字符会把 150px 的列撑爆（逐字折行）。
+       *
+       * 格式化到 4 位小数（Phigros 玩家熟悉的精度），并拆成两段：
+       * 整数 40px、小数 22px。成绩类 UI 的常规做法。
+       */
+      const rks = Number(view.rks);
+      if (Number.isFinite(rks)) {
+        const fixed = rks.toFixed(4); // "15.7888"
+        const dot = fixed.indexOf('.');
+        this.ratingInt = fixed.slice(0, dot);
+        this.ratingDec = fixed.slice(dot); // ".7888"，带小数点
+        this.ratingText = fixed;
+      } else {
+        this.ratingInt = '';
+        this.ratingDec = '';
+        this.ratingText = String(view.rks);
+      }
+
+      /*
+       * ⚠️ **不要给 tierText 塞昵称。**
+       * 原来这里是 `this.tierText = view.nickname`，和 playerName 同一个值，
+       * 模板里两处都渲染 → 屏幕上出现两个玩家名字。
+       *
+       * Phigros 没有「段位」概念，留空即可（模板有 `if` 判断）。
+       */
+      this.tierText = '';
       this.playerName = view.nickname || '';
       this.statLine1 = 'B30　' + (stats.best30Count ?? best30.length);
       this.statLine2 = '成绩总数　' + (stats.recordCount ?? 0);
@@ -793,6 +867,8 @@
       const player = view.player;
 
       this.ratingText = String(player.rating);
+      this.ratingInt = '';
+      this.ratingDec = '';
       this.tierText = player.tier ? player.tier.label : '';
       this.playerName = player.name || '';
       this.statLine1 = '旧曲 B35　' + stats.standardTotal;
@@ -835,6 +911,8 @@
       const player = view.player;
 
       this.ratingText = String(player.rating);
+      this.ratingInt = '';
+      this.ratingDec = '';
       // 中二没有「段位」这种概念，玩家等级才是名片上的东西
       this.tierText = player.level ? '等级 ' + player.level : '';
       // 中二的玩家名可能是全角（游戏内输入法打出来的），原样显示不转换
