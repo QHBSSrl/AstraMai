@@ -25,7 +25,7 @@
  *
  * 留空 = 不显示任何加群入口。
  */
-export const QQ_GROUP = '';
+export const QQ_GROUP = '308532898';
 
 /**
  * 加群链接的 key（可选）。
