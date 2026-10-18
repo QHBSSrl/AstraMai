@@ -75,6 +75,10 @@
       "pages/PhigrosLogin": {
         "component": "phigros-login",
         "path": "/phigros-login"
+      },
+      "pages/Welcome": {
+        "component": "welcome",
+        "path": "/welcome"
       }
     }
   },

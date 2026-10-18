@@ -229,8 +229,20 @@
     onInit() {
       mark('Index:onInit');
       console.debug('[AstraMai] Index onInit');
-      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame'])
-        .then(() => this.refresh())
+      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame', 'oobeDone'])
+        .then(() => {
+          this.refresh();
+          /*
+           * 首次启动进引导。
+           *
+           * 为什么放在这里而不是 app.ux：首页是入口页，等存储预热完
+           * 再判断最稳（`readSetting` 在预热之前会静默返回兜底值，
+           * 那样会把「已看过引导」读成空，每次启动都弹一遍）。
+           *
+           * 引导页自己会写 `oobeDone`，所以只会进一次。
+           */
+          if (!readSetting('oobeDone', '')) push('/welcome');
+        })
         .catch((error) => console.error('[AstraMai] Index 初始化失败：', error));
     },
 

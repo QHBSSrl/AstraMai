@@ -43,6 +43,24 @@
     <text class="hint hint--warn" if="{{ syncNotice }}">{{ syncNotice }}</text>
     <text class="hint">Phigros 需要先用 TapTap 扫码登录一次，之后就不用再扫。</text>
 
+    <!--
+      用户群入口。
+      **只在配置了群号时出现**（见 common/community.js）——
+      没配就显示一个空群号，比不显示更糟。
+
+      引导页里也有一步，但引导可以跳过，而且老版本装上的用户没有引导，
+      所以设置页必须留一个长期入口。
+    -->
+    <block if="{{ groupNumber }}">
+      <text class="section">反馈</text>
+      <div class="rows">
+        <div class="row" @click="showGroup">
+          <text class="row__label">加入用户群</text>
+          <text class="row__mark">{{ groupNumber }}</text>
+        </div>
+      </div>
+    </block>
+
     <text class="foot">AstraMai · 街机音游工具</text>
   </div>
 </template>
@@ -183,8 +201,9 @@
 </style>
 
 <script>
-  const { diag, games, navigation, store } = global.AstraMai;
+  const { community, diag, games, navigation, store } = global.AstraMai;
   const { mark } = diag;
+  const { groupNumber } = community;
   const { GAMES, readCurrentGame, writeCurrentGame } = games;
   const { goBack, push } = navigation;
   const { readSetting, warmUp, writeSetting } = store;
@@ -196,6 +215,8 @@
       syncNotice: '',
       /** Phigros 的登录状态。空串表示没登录过。 */
       phigrosStatus: '未登录',
+      /** 群号。没配置时为空串，模板里那一整块就不渲染。 */
+      groupNumber: '',
     },
 
     onReady() {
@@ -211,6 +232,8 @@
 
     refresh() {
       const current = readCurrentGame(readSetting);
+      // 群号是编译期常量，但每次 refresh 都重算一遍，免得漏掉
+      this.groupNumber = groupNumber();
       // 做成可直接渲染的行，模板里就不用再算
       this.gameRows = GAMES.map((game) => ({
         id: game.id,
@@ -250,6 +273,19 @@
 
     goPhigrosLogin() {
       push('/phigros-login');
+    },
+
+    /**
+     * 点群号时给出提示。
+     *
+     * 手表上**没法跳转到 QQ**（没有浏览器、没有深链支持），
+     * 所以能做的是把群号显示清楚，让用户用手机去搜。
+     * 假装能跳转只会让人点了没反应。
+     */
+    showGroup() {
+      if (!this.groupNumber) return;
+      // 复用同步功能的提示位，避免为一行字再开一个状态
+      this.syncNotice = `群号 ${this.groupNumber} · 用手机搜群号即可加入`;
     },
 
     onBack() {

@@ -1,0 +1,329 @@
+<template>
+  <div class="page-root">
+    <div class="page">
+      <!-- 进度：`2 / 3`。用文字而不是圆点，圆点在小屏上几乎看不见 -->
+      <text class="progress">{{ step + 1 }} / {{ total }}</text>
+
+      <!-- ── 欢迎 ───────────────────────────────────────────────── -->
+      <block if="{{ page === 'welcome' }}">
+        <text class="hero">AstraMai</text>
+        <text class="lead">街机音游查分工具</text>
+        <text class="body">舞萌 DX · 中二节奏 · Phigros</text>
+        <text class="body body--dim">一次配置，随时看成绩</text>
+      </block>
+
+      <!-- ── 选游戏 ─────────────────────────────────────────────── -->
+      <block if="{{ page === 'game' }}">
+        <text class="lead">你主要玩哪个？</text>
+        <div class="games">
+          <div class="game {{ $item.current ? 'game--on' : '' }}" for="{{ games }}" @click="pickGame($item.id)">
+            <text class="game__label">{{ $item.label }}</text>
+            <text class="game__mark" if="{{ $item.current }}">✓</text>
+          </div>
+        </div>
+        <text class="body body--dim">之后可以在设置里随时切换</text>
+      </block>
+
+      <!--
+        ── 加群 ───────────────────────────────────────────────────
+        只在配置了群号时出现（见 common/community.js）。
+        没配就整步跳过——**不显示一个空群号**。
+      -->
+      <block if="{{ page === 'community' }}">
+        <text class="lead">加入用户群</text>
+
+        <!-- 有链接就显示二维码：手表放桌上，手机扫一下最省事 -->
+        <div class="qr" if="{{ groupQr }}">
+          <qrcode value="{{ groupQr }}"></qrcode>
+        </div>
+
+        <text class="group" if="{{ groupNumber }}">{{ groupNumber }}</text>
+        <text class="body body--dim">更新通知 · 问题反馈 · 新功能投票</text>
+      </block>
+
+      <!-- ── 完成 ───────────────────────────────────────────────── -->
+      <block if="{{ page === 'done' }}">
+        <text class="hero hero--small">可以了</text>
+        <text class="body">在首页点「输入」，填一次好友码或 QQ 号</text>
+        <text class="body body--dim">下次打开直接就能查</text>
+      </block>
+
+      <div class="actions">
+        <div class="action" @click="next">
+          <text class="action__text action__text--filled">{{ primaryLabel }}</text>
+        </div>
+        <div class="action action--ghost" if="{{ !isLast }}" @click="skip">
+          <text class="action__text action__text--ghost">跳过</text>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 首次启动引导（OOBE）。
+   *
+   * ── 为什么要有这个页面 ──────────────────────────────────────────
+   *
+   * 上线第一天：1200 浏览 → 32 下载 → **1 个入群**。
+   * 用户下完就走，我们没有任何第二条触达路径。
+   *
+   * 这个页面就做两件事：**让用户配好第一个游戏**、**给出加群入口**。
+   * 两件都不强制——每一步都能跳过，跳过了设置页里还能再找到。
+   *
+   * ── 排版原则 ────────────────────────────────────────────────────
+   *
+   * 一屏只讲一件事。手表屏幕小，一屏塞两段话就没人看。
+   */
+
+  .page-root {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
+
+  .page {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    padding: @ui-space-4 @ui-space-5;
+    background-color: @ui-surface;
+  }
+
+  .progress {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-muted;
+    text-align: center;
+    margin-bottom: @ui-space-3;
+  }
+
+  .hero {
+    font-size: 40px;
+    font-weight: bold;
+    color: @ui-primary;
+    text-align: center;
+    lines: 1;
+    margin-top: @ui-space-4;
+  }
+
+  .hero--small {
+    font-size: 32px;
+  }
+
+  .lead {
+    font-size: @ui-font-title;
+    color: @ui-on-surface;
+    text-align: center;
+    margin-top: @ui-space-3;
+    lines: 2;
+  }
+
+  .body {
+    font-size: @ui-font-label;
+    color: @ui-on-surface-variant;
+    text-align: center;
+    margin-top: @ui-space-2;
+    lines: 2;
+  }
+
+  .body--dim {
+    color: @ui-on-surface-muted;
+  }
+
+  /* 游戏选择 */
+  .games {
+    flex-direction: column;
+    width: 100%;
+    margin-top: @ui-space-3;
+  }
+
+  .game {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 56px;
+    margin-bottom: @ui-space-2;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  /* 选中态用主色容器，一眼能看出选了哪个 */
+  .game--on {
+    background-color: @ui-primary;
+  }
+
+  .game__label {
+    font-size: @ui-font-body;
+    color: @ui-on-surface;
+  }
+
+  .game--on .game__label {
+    color: @ui-on-primary;
+  }
+
+  .game__mark {
+    font-size: @ui-font-label;
+    color: @ui-on-primary;
+    margin-left: @ui-space-2;
+  }
+
+  /*
+   * 二维码。
+   *
+   * ⚠️ 二维码**必须白底黑码**，放在深色底上扫不出来。
+   * 所以这里给它一个白底容器 + 内边距（静区）。
+   */
+  .qr {
+    width: 200px;
+    height: 200px;
+    padding: 8px;
+    margin-top: @ui-space-2;
+    border-radius: @ui-radius-md;
+    background-color: #ffffff;
+    align-self: center;
+  }
+
+  .group {
+    font-size: 32px;
+    font-weight: bold;
+    color: @ui-primary;
+    text-align: center;
+    margin-top: @ui-space-2;
+    lines: 1;
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: auto;
+    padding-top: @ui-space-3;
+  }
+</style>
+
+<script>
+  /*
+   * 引导页的依赖从 global 取（和别的页面一致）。
+   *
+   * 注意 `community` 是**有默认导出值的模块**，没配群号时
+   * `hasCommunity()` 返回 false，整个加群步骤不会出现在 steps 里。
+   */
+  const { community, games, navigation, store } = global.AstraMai;
+  const { hasCommunity, groupNumber, groupUrl } = community;
+  const { GAMES, gameById, readCurrentGame, writeCurrentGame } = games;
+  const { push } = navigation;
+  const { readSetting, warmUp, writeSetting } = store;
+
+  /**
+   * 引导的步骤序列。
+   *
+   * **动态生成**而不是写死：没配群号就不该出现「加群」这一屏，
+   * 否则用户会看到一个空白的群号。
+   */
+  function buildSteps() {
+    const steps = ['welcome', 'game'];
+    if (hasCommunity()) steps.push('community');
+    steps.push('done');
+    return steps;
+  }
+
+  const STEPS = buildSteps();
+
+  /** 引导完成标记。写了它以后就不再进这个页面。 */
+  const DONE_KEY = 'oobeDone';
+
+  export default {
+    private: {
+      step: 0,
+      total: STEPS.length,
+      page: STEPS[0],
+      /** 当前选中的游戏。 */
+      selected: 'maimai',
+      games: [],
+      groupNumber: '',
+      groupQr: '',
+      primaryLabel: '开始',
+      isLast: false,
+    },
+
+    onInit() {
+      console.debug('[AstraMai] Welcome onInit');
+      warmUp(['currentGame'])
+        .then(() => {
+          const current = readCurrentGame(readSetting);
+          this.selected = current;
+          this.games = GAMES.filter((game) => game.queryKinds.length > 0 || game.id === 'phigros').map(
+            (game) => ({
+              id: game.id,
+              label: game.label,
+              current: game.id === current,
+            }),
+          );
+          this.groupNumber = groupNumber();
+          this.groupQr = groupUrl();
+          this.syncStep();
+        })
+        .catch((error) => console.error('[AstraMai] Welcome 初始化失败：', error));
+    },
+
+    /** 把 step / page / 按钮文案一次算好，避免模板里写一堆条件。 */
+    syncStep() {
+      this.page = STEPS[this.step] || 'done';
+      this.isLast = this.step >= STEPS.length - 1;
+      if (this.isLast) {
+        this.primaryLabel = '进入应用';
+      } else if (this.page === 'community') {
+        // 加群这屏的目标就是「让人真的去加」，所以按钮写「加好了」
+        this.primaryLabel = '加好了';
+      } else {
+        this.primaryLabel = '继续';
+      }
+    },
+
+    pickGame(id) {
+      const game = gameById(id);
+      this.selected = game.id;
+      // 立刻落盘：即使中途退出，至少游戏选择保住了
+      writeCurrentGame(writeSetting, game.id);
+      this.games = this.games.map((item) => ({
+        ...item,
+        current: item.id === game.id,
+      }));
+    },
+
+    next() {
+      if (this.isLast) {
+        this.finish();
+        return;
+      }
+      this.step += 1;
+      this.syncStep();
+    },
+
+    /**
+     * 跳过当前及剩余步骤。
+     *
+     * **直接完成而不是「跳到下一步」**：用户点跳过就是想快点用起来，
+     * 一步步送他一屏屏跳过更烦人。
+     */
+    skip() {
+      this.finish();
+    },
+
+    finish() {
+      try {
+        writeSetting(DONE_KEY, '1');
+        // 游戏选择在 pickGame 里已经写了，这里兜一次底
+        writeCurrentGame(writeSetting, this.selected);
+      } catch (error) {
+        console.warn('[AstraMai] 保存引导状态失败：', error);
+      }
+      // replace 而不是 push：引导页不该留在返回栈里
+      push('/');
+    },
+  };
+</script>
