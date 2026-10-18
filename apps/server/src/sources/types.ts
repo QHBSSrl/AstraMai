@@ -23,6 +23,8 @@ import type {
   MaimaiBests,
   MaimaiPlayer,
   MaimaiSongList,
+  OsuBests,
+  OsuPlayer,
 } from '@astramai/core';
 
 /**
@@ -74,6 +76,16 @@ export interface DataSource {
   readonly label: string;
   readonly games: readonly string[];
 
+  /**
+   * 上游自己的**硬性**限流上限（每分钟）。
+   *
+   * 和全局 `UPSTREAM_LIMIT_PER_MINUTE` 取小：全局预算是我们自己的成本控制，
+   * 而这个值是上游 ToS 明写的红线（比如 osu! 是 60），两个都得守。
+   *
+   * 不填表示「没有额外上限」，只用全局预算。
+   */
+  readonly hardLimitPerMinute?: number;
+
   /** 当前是否可用 + 原因。 */
   describe(): SourceDescriptor;
 
@@ -110,6 +122,20 @@ export interface DataSource {
 
   /** 中二节奏成绩（B30 + Selection10 + Recent10）。 */
   getChunithmBests?(query: PlayerQuery): Promise<ChunithmBests>;
+
+  /**
+   * osu! 玩家信息。
+   *
+   * 为什么要单独一对方法，不复用 `getPlayer` / `getBests`：
+   * 那两个是**舞萌的形状**（`MaimaiBests` 里有 `standard_total` / `dx_total`），
+   * osu! 的评级是 pp、成绩是 play 列表，硬套只会让调用方拿到一堆假字段。
+   *
+   * 和中二那套 `getChunithmPlayer` / `getChunithmBests` 是同一个模式。
+   */
+  getOsuPlayer?(query: PlayerQuery): Promise<OsuPlayer>;
+
+  /** osu! 最好成绩（按 pp 降序）。 */
+  getOsuBests?(query: PlayerQuery): Promise<OsuBests>;
 }
 
 /** 判断一个查询是否可用该源处理，并在不可用时给出人能看懂的原因。 */

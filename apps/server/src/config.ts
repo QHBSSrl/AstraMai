@@ -83,6 +83,26 @@ export interface ServerConfig {
    * 玩家的标识是**用户名**，不是好友码——契约见 `docs/astra-net-api.md`。
    */
   astraNetBase: string | undefined;
+  /**
+   * osu! 官方 API 的 OAuth 应用凭据。
+   *
+   * osu! 用的是 **Client Credentials** 流程——不涉及用户授权，
+   * 拿 `public` scope 就能读任何公开玩家的资料和成绩。
+   * 所以服务端必须持有这两个值，**玩家只需要提供用户名**。
+   *
+   * 在哪里拿：https://osu.ppy.sh/home/account/edit#new-oauth-application
+   *
+   * ⚠️ 两个都给全才注册数据源。只配置一个视为配置错误，不注册。
+   */
+  osuClientId: string | undefined;
+  osuClientSecret: string | undefined;
+  /**
+   * osu! 的默认玩法（`osu` / `taiko` / `fruits` / `mania`）。
+   *
+   * osu! 的四个玩法的 rating 和成绩**互不相通**，必须选一个。
+   * 默认 `osu`（standard）——人最多。
+   */
+  osuRuleset: 'osu' | 'taiko' | 'fruits' | 'mania';
   /** 是否允许浏览器临时递交密钥。 */
   allowClientKey: boolean;
   /**
@@ -199,6 +219,26 @@ export function assertDeploymentSafety(config: ServerConfig): void {
   }
 }
 
+/**
+ * 解析 osu! 的默认玩法。
+ *
+ * 拼错时**回退到 osu 而不是抛错**——`osu!standard` 这种写法很常见，
+ * 为一个可选配置让整个服务起不来不值得。但会打一行警告，
+ * 免得配错了还不知道。
+ */
+export function parseOsuRuleset(raw: string | undefined): 'osu' | 'taiko' | 'fruits' | 'mania' {
+  const value = (raw ?? '').trim().toLowerCase();
+  if (!value) return 'osu';
+  if (value === 'osu' || value === 'taiko' || value === 'fruits' || value === 'mania') {
+    return value;
+  }
+  // 常见别名：catch → fruits，standard → osu
+  if (value === 'standard') return 'osu';
+  if (value === 'catch') return 'fruits';
+  console.warn(`[AstraMai] OSU_RULESET=${raw} 不认识，回退到 osu。可选：osu / taiko / fruits / mania`);
+  return 'osu';
+}
+
 export function readConfig(): ServerConfig {
   loadEnv();
   const modeRaw = (process.env.LXNS_MODE ?? 'auto').trim().toLowerCase();
@@ -218,6 +258,9 @@ export function readConfig(): ServerConfig {
     phigrosApiKey: process.env.PHIGROS_API_KEY?.trim() || undefined,
     // 去掉结尾斜杠，免得拼出 `//aqua/api/v2`
     astraNetBase: process.env.ASTRA_NET_BASE?.trim().replace(/\/+$/, '') || undefined,
+    osuClientId: process.env.OSU_CLIENT_ID?.trim() || undefined,
+    osuClientSecret: process.env.OSU_CLIENT_SECRET?.trim() || undefined,
+    osuRuleset: parseOsuRuleset(process.env.OSU_RULESET),
     allowClientKey: (process.env.ALLOW_CLIENT_KEY ?? 'true').trim().toLowerCase() !== 'false',
     apiTokens: parseTokenList(process.env.API_TOKENS, process.env.API_TOKEN),
     authMode: (process.env.AUTH_MODE ?? '').trim().toLowerCase() === 'open' ? 'open' : 'key',

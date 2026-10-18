@@ -24,11 +24,19 @@ export class SourceRegistry {
    *
    * 需要在 `register` **之前**就能拿到（源的构造函数要持有它），
    * 所以这里按需创建，而不是要求先注册。
+   *
+   * @param hardLimitPerMinute 上游自己声明的硬上限。传了就与全局预算**取小**——
+   *   全局预算管的是我们的成本，硬上限管的是上游 ToS（比如 osu! 的 60），
+   *   两个都得守住，所以不能互相覆盖。
    */
-  limiterFor(id: string): UpstreamLimiter {
+  limiterFor(id: string, hardLimitPerMinute?: number): UpstreamLimiter {
     const existing = this.limiters.get(id);
     if (existing) return existing;
-    const created = new UpstreamLimiter(this.upstreamLimitPerMinute);
+    const limit =
+      typeof hardLimitPerMinute === 'number' && hardLimitPerMinute > 0
+        ? Math.min(this.upstreamLimitPerMinute || hardLimitPerMinute, hardLimitPerMinute)
+        : this.upstreamLimitPerMinute;
+    const created = new UpstreamLimiter(limit);
     this.limiters.set(id, created);
     return created;
   }
@@ -39,7 +47,7 @@ export class SourceRegistry {
    */
   register(source: DataSource, makeDefault = false): void {
     this.sources.set(source.id, source);
-    this.limiterFor(source.id);
+    this.limiterFor(source.id, source.hardLimitPerMinute);
     if (makeDefault || this.defaultId === '') this.defaultId = source.id;
   }
 

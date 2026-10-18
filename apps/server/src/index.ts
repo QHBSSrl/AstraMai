@@ -21,7 +21,19 @@ import { sendJson, serveStatic } from './http.js';
 import { createRouter, notFound } from './routes.js';
 import { LxnsSource } from './sources/lxns.js';
 import { AstraNetSource } from './sources/astra-net.js';
+import { OsuSource } from './sources/osu.js';
 import { SourceRegistry } from './sources/registry.js';
+
+/**
+ * osu! 的**上游硬上限**（次/分钟）。
+ *
+ * 官方 ToS 原文：「no more than 60 requests per minute」，
+ * 超了可能被**吊销 token**。留 10 次余量给瞬时抖动——我们没法保证
+ * 自己的计数和上游完全同步。
+ *
+ * 这不是可调参数。全局预算再高，osu! 也只能走这个数。
+ */
+const HARD_OSU_LIMIT = 50;
 
 const config = readConfig();
 
@@ -52,6 +64,29 @@ if (config.astraNetBase) {
       baseUrl: config.astraNetBase,
       limiter: registry.limiterFor('astra-net'),
     }),
+  );
+}
+
+/*
+ * osu!：**两个凭据都给全**才注册。
+ *
+ * osu! 走 Client Credentials（不涉及用户授权），密钥只在服务端，
+ * 玩家只需提供用户名。只配一半视为配置错误——注册了也一定是坏的，
+ * 不如不注册，`/api/v1/sources` 里就不会出现一个点了就错的数据源。
+ */
+if (config.osuClientId && config.osuClientSecret) {
+  registry.register(
+    new OsuSource({
+      clientId: config.osuClientId,
+      clientSecret: config.osuClientSecret,
+      ruleset: config.osuRuleset,
+      // 硬上限传进注册表：与全局预算取小
+      limiter: registry.limiterFor('osu', HARD_OSU_LIMIT),
+    }),
+  );
+} else if (config.osuClientId || config.osuClientSecret) {
+  console.warn(
+    '[AstraMai] osu! 只配置了 OSU_CLIENT_ID / OSU_CLIENT_SECRET 中的一个，已跳过注册。两个都要填。',
   );
 }
 
