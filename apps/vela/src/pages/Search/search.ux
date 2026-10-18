@@ -15,20 +15,20 @@
     -->
     <div class="actions">
       <div class="action action--ghost" @click="onBack">
-        <text class="action__text">‹ 返回</text>
+        <text class="action__text action__text--ghost">‹ 返回</text>
       </div>
       <div class="action {{ keyword ? '' : 'action--disabled' }}" @click="runSearch">
-        <text class="action__text">搜索</text>
+        <text class="action__text {{ keyword ? 'action__text--filled' : 'action__text--disabled' }}">搜索</text>
       </div>
       <div class="action action--ghost" @click="clearAll">
-        <text class="action__text">清空</text>
+        <text class="action__text action__text--ghost">清空</text>
       </div>
       <!-- Phigros 平台没有分类概念，按钮对它隐藏 -->
       <div class="action action--ghost" if="{{ gameId !== 'phigros' }}" @click="toggleGenres">
-        <text class="action__text">{{ mode === 'genre' ? '曲目' : '分类' }}</text>
+        <text class="action__text action__text--ghost">{{ mode === 'genre' ? '曲目' : '分类' }}</text>
       </div>
       <div class="action action--ghost" @click="toggleKeyboard">
-        <text class="action__text">{{ keyboardHidden ? '输入' : '收起' }}</text>
+        <text class="action__text action__text--ghost">{{ keyboardHidden ? '输入' : '收起' }}</text>
       </div>
     </div>
 
@@ -178,17 +178,27 @@
   }
 
   .action__text {
+    /* 只留尺寸。**颜色必须拆到变体类上**——
+       写在基类里会和变体规则打架，谁赢取决于编译顺序。 */
     font-size: 21px;
+  }
+
+  /* 主按钮上的文字：深色，压在粉色底上 */
+  .action__text--filled {
     color: @ui-on-primary;
   }
 
-  .action--ghost .action__text {
+  /* 次要按钮上的文字：浅色，压在深色底上 */
+  .action__text--ghost {
     color: @ui-on-surface;
   }
 
-  .action--disabled .action__text {
+  /* 禁用态：中间灰。**不再借用 opacity**，手表上小字号容易糊 */
+  .action__text--disabled {
     color: @ui-on-surface-variant;
   }
+
+
 
   /*
    * 分类行。
@@ -281,6 +291,8 @@
   .row__title {
     font-size: 21px;
     color: @ui-on-surface;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .row__sub {

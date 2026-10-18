@@ -22,10 +22,10 @@
     <block if="{{ gameId !== 'phigros' }}">
       <div class="kinds">
         <div class="kind {{ kind === 'friendCode' ? 'kind--on' : '' }}" @click="setKind('friendCode')">
-          <text class="kind__text">好友码</text>
+          <text class="kind__text{{ kind === 'friendCode' ? ' kind__text--on' : '' }}">好友码</text>
         </div>
         <div class="kind {{ kind === 'qq' ? 'kind--on' : '' }}" @click="setKind('qq')">
-          <text class="kind__text">QQ 号</text>
+          <text class="kind__text{{ kind === 'qq' ? ' kind__text--on' : '' }}">QQ 号</text>
         </div>
       </div>
 
@@ -37,11 +37,11 @@
 
     <div class="actions">
       <div class="action {{ canSubmit || gameId === 'phigros' ? '' : 'action--disabled' }}" @click="query">
-        <text class="action__text">{{ gameId === 'phigros' ? '查询自己的成绩' : '查询' }}</text>
+        <text class="action__text {{ canSubmit || gameId === 'phigros' ? 'action__text--filled' : 'action__text--disabled' }}">{{ gameId === 'phigros' ? '查询自己的成绩' : '查询' }}</text>
       </div>
       <!-- 输入按钮对 Phigros 也没意义（没有要输入的码） -->
       <div class="action action--ghost" if="{{ gameId !== 'phigros' }}" @click="toggleKeyboard">
-        <text class="action__text">{{ keyboardHidden ? '输入' : '收起' }}</text>
+        <text class="action__text action__text--ghost">{{ keyboardHidden ? '输入' : '收起' }}</text>
       </div>
     </div>
 
@@ -180,13 +180,14 @@
   }
 
   .kind__text {
+    /* 只留尺寸，颜色拆到变体上——和后按钮同一个理由 */
     font-size: 22px;
-    color: @ui-on-surface-variant;
   }
 
-  .kind--on .kind__text {
-    color: @ui-on-surface;
+  .kind__text--on {
+    color: @ui-on-primary;
   }
+
 
   .target {
     flex-direction: column;
@@ -233,17 +234,27 @@
   }
 
   .action__text {
+    /* 只留尺寸。**颜色必须拆到变体类上**——
+       写在基类里会和变体规则打架，谁赢取决于编译顺序。 */
     font-size: 26px;
+  }
+
+  /* 主按钮上的文字：深色，压在粉色底上 */
+  .action__text--filled {
     color: @ui-on-primary;
   }
 
-  .action--ghost .action__text {
+  /* 次要按钮上的文字：浅色，压在深色底上 */
+  .action__text--ghost {
     color: @ui-on-surface;
   }
 
-  .action--disabled .action__text {
+  /* 禁用态：中间灰。**不再借用 opacity**，手表上小字号容易糊 */
+  .action__text--disabled {
     color: @ui-on-surface-variant;
   }
+
+
 
   .error {
     font-size: 18px;
@@ -300,16 +311,28 @@
 
   .list {
     width: 100%;
-    /* <list> 必须显式给高度，否则高度为 0，一条都画不出来 */
-    height: 190px;
-    margin-top: 12px;
+    /*
+     * **用 flex: 1 而不是固定高度。**
+     *
+     * 算一下 432×514 的竖直预算：页边距 28 + 顶栏 56 + 选项卡/输入框/按钮 ≈150
+     * + 成绩卡 ≈130 = 364。再塞一个固定 190 的列表就是 554，**超出 514**——
+     * 最后一行被切掉一半。
+     *
+     * flex: 1 让它只吃「剩下的高度」，屏幕多高都不溢出。
+     * 官方 list 示例也是这么用的；`min-height` 是兜底，
+     * 万一 flex 没生效至少还能看见两行。
+     */
+    flex: 1;
+    min-height: 110px;
+    margin-top: 10px;
   }
 
   .row {
     flex-direction: row;
     align-items: center;
-    height: 96px;
-    padding: 6px 8px;
+    /* 96 太高：一行只放三行文字（19 + 15 + 14），82 够了 */
+    height: 82px;
+    padding: 4px 8px;
   }
 
   /* 封面。定死尺寸，避免图片加载前后布局跳动。 */
@@ -332,30 +355,41 @@
   }
 
   .row__title {
-    font-size: 20px;
+    font-size: 19px;
     color: @ui-on-surface;
+    /*
+     * 日文曲名很长。行的横向预算只剩 174px（432 − 28 页边距 − 40 排名
+     * − 64 封面 − 110 右侧 − 16 内边距），不限制会换行把下面的定数压掉。
+     */
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .row__sub {
-    font-size: 16px;
+    font-size: 15px;
     color: @ui-on-surface-variant;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   /* 版本单独一行并带标签 */
   .row__version {
-    font-size: 15px;
+    font-size: 14px;
     color: @ui-warning;
-    margin-top: 2px;
+    margin-top: 1px;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .row__right {
     flex-direction: column;
     align-items: flex-end;
-    width: 110px;
+    /* 110 → 92：把横向预算让给曲名；评级字号也跟着降一点 */
+    width: 92px;
   }
 
   .row__rating {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: bold;
     color: @ui-on-surface;
   }

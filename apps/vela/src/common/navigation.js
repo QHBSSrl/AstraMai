@@ -32,29 +32,61 @@ export function getRouter() {
  * `back()` 在「没有上一页」时可能失败（比如页面被直接打开），
  * 所以兜底 replace 到首页——总比把用户困在页面上强。
  */
+/**
+ * 上一次成功返回的时间，用于防抖。
+ *
+ * 连点两下返回会 pop 两次——直接退回两级，用户会觉得「返回键抽风」。
+ * 700ms 足够挡住手抖，又不影响正常连续操作。
+ */
+let lastBackAt = 0;
+const BACK_DEBOUNCE_MS = 700;
+
 export function goBack(fallbackUri = '/') {
   const router = getRouter();
   if (!router) return false;
 
+  // 防抖：短时间内重复调用视为误触
+  const now = Date.now();
+  if (now - lastBackAt < BACK_DEBOUNCE_MS) return false;
+
+  /*
+   * ⚠️ **不能靠 try/catch 判断「有没有上一页」。**
+   *
+   * `router.back()` 在没有上一页时**不抛错**，只是什么都不做——
+   * 所以原来的兜底 replace 永远不会触发，用户会卡在页面上。
+   *
+   * 官方提供了 `router.getLength()`（页面栈数量），用它判断：
+   *   栈深 > 1 → 有上一页，back
+   *   栈深 = 1 → 自己是根页，replace 到 fallback
+   */
+  let depth = 2; // 拿不到就按「有上一页」处理，行为与旧版一致
   try {
-    if (typeof router.back === 'function') {
+    if (typeof router.getLength === 'function') {
+      const length = router.getLength();
+      if (typeof length === 'number' && length > 0) depth = length;
+    }
+  } catch (error) {
+    console.warn('[AstraMai] getLength 不可用，按有上一页处理：', error);
+  }
+
+  lastBackAt = now;
+
+  if (depth > 1 && typeof router.back === 'function') {
+    try {
       router.back();
       return true;
+    } catch (error) {
+      console.warn('[AstraMai] back 失败，改跳兜底页：', error);
     }
+  }
+
+  try {
     if (typeof router.replace === 'function') {
       router.replace({ uri: fallbackUri });
       return true;
     }
   } catch (error) {
-    console.warn('[AstraMai] 返回失败，改跳首页：', error);
-    try {
-      if (typeof router.replace === 'function') {
-        router.replace({ uri: fallbackUri });
-        return true;
-      }
-    } catch (nested) {
-      console.error('[AstraMai] 跳首页也失败了：', nested);
-    }
+    console.error('[AstraMai] replace 也失败了：', error);
   }
   return false;
 }
