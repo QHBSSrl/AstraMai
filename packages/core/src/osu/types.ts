@@ -51,6 +51,8 @@ export interface OsuPlayer {
   accuracy: number;
   playCount: number;
   ruleset: OsuRuleset;
+  /** 头像。上游一定有，但给空串兜底。 */
+  avatarUrl: string;
 }
 
 export interface OsuScore {
@@ -81,7 +83,16 @@ export interface OsuScore {
   version: string;
   /** 星数（难度评级）。 */
   starRating: number;
-  /** `艺术家 - 标题`。 */
+  /** 曲名（不含艺术家）。 */
+  songTitle: string;
+  /** 艺术家。 */
+  artist: string;
+  /**
+   * `艺术家 - 曲名` 的拼装结果。
+   *
+   * 单独留一份是因为**展示时才决定怎么拼**：一行放不下时用曲名 +
+   * 艺术家分两行，放得下才合并。让展示层去拼，而不是数据层定死。
+   */
   title: string;
   /** 曲绘。可能是空字符串（上游不给时）。 */
   coverUrl: string;

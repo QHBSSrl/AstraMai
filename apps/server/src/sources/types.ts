@@ -134,8 +134,12 @@ export interface DataSource {
    */
   getOsuPlayer?(query: PlayerQuery): Promise<OsuPlayer>;
 
-  /** osu! 最好成绩（按 pp 降序）。 */
-  getOsuBests?(query: PlayerQuery): Promise<OsuBests>;
+  /**
+   * osu! 最好成绩（按 pp 降序）。
+   *
+   * `limit` 是可选覆盖（调试/分页用），源自己会夹到上游上限 100 以内。
+   */
+  getOsuBests?(query: PlayerQuery, limit?: number): Promise<OsuBests>;
 }
 
 /** 判断一个查询是否可用该源处理，并在不可用时给出人能看懂的原因。 */

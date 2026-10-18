@@ -167,8 +167,14 @@ export class OsuSource implements DataSource {
     return mapPlayer(raw, this.ruleset);
   }
 
-  async getOsuBests(query: PlayerQuery): Promise<OsuBests> {
+  async getOsuBests(query: PlayerQuery, limitOverride?: number): Promise<OsuBests> {
     const username = this.requireUsername(query);
+
+    // 调用方可以临时覆盖条数（调试用），但**不能超过上游上限 100**
+    const limit =
+      typeof limitOverride === 'number' && limitOverride > 0
+        ? Math.min(limitOverride, 100)
+        : this.bestLimit;
 
     this.options.limiter.spend(2, this.label);
 
@@ -200,7 +206,7 @@ export class OsuSource implements DataSource {
     }
 
     const scoresRaw = await this.api(
-      `/users/${player.id}/scores/best?mode=${this.ruleset}&limit=${this.bestLimit}`,
+      `/users/${player.id}/scores/best?mode=${this.ruleset}&limit=${limit}`,
     );
 
     const scores = Array.isArray(scoresRaw)
@@ -212,7 +218,7 @@ export class OsuSource implements DataSource {
       scores: scores as OsuScore[],
       totalPp: player.pp,
       // 上游最多给 100 条，取满了就说明后面可能还有
-      truncated: scores.length >= Math.min(this.bestLimit, 50),
+      truncated: scores.length >= Math.min(limit, 50),
     };
   }
 
@@ -396,6 +402,7 @@ export function mapPlayer(raw: unknown, ruleset: OsuRuleset): OsuPlayer {
     accuracy: num(stats.accuracy),
     playCount: num(stats.play_count),
     ruleset,
+    avatarUrl: str(record.avatar_url),
   };
 }
 
@@ -426,8 +433,8 @@ export function mapScore(raw: unknown): OsuScore | null {
   const pp = num(raw.pp);
 
   const artist = str(beatmapset.artist);
-  const title = str(beatmapset.title);
-  const display = artist && title ? `${artist} - ${title}` : title || artist || '未知曲目';
+  const songTitle = str(beatmapset.title);
+  const display = artist && songTitle ? `${artist} - ${songTitle}` : songTitle || artist || '未知曲目';
 
   return {
     pp,
@@ -444,6 +451,9 @@ export function mapScore(raw: unknown): OsuScore | null {
     beatmapId: num(beatmap.id),
     version: str(beatmap.version, '未知难度'),
     starRating: num(beatmap.difficulty_rating),
+    // 曲名和艺术家分开存：展示层才知道该合并还是分两行
+    songTitle: songTitle || display,
+    artist,
     title: display,
     coverUrl: str(covers.cover) || str(covers.list),
   };

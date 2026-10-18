@@ -43,6 +43,7 @@ export * from './phigros/bests.js';
 // ── osu! ────────────────────────────────────────────────────────────────
 // 第三个独立平台：官方 API v2 + OAuth2，玩家标识是用户名。
 export * from './osu/types.js';
+export * from './osu/bests.js';
 
 // ── 二维码（零依赖，Vela 端可直接复用）────────────────────────────────
 export * from './qr/index.js';

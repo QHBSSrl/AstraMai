@@ -16,8 +16,9 @@ export const CURRENT_GAME_KEY = 'currentGame';
 /**
  * 游戏列表。
  *
- * `features` 决定首页显示哪些入口——中二目前只有曲库与搜索，
- * 查分还没接，所以不放 Best 50。**宁可少显示，也别点进去报错。**
+ * `features` 决定首页显示哪些入口。
+ * `queryKinds` 决定查分页显示哪些输入方式——**没声明的就不要显示**，
+ * 否则会出现「切到 osu 还让你填好友码」这种明显错位。
  */
 export const GAMES = [
   {
@@ -25,6 +26,9 @@ export const GAMES = [
     label: '舞萌 DX',
     short: '舞萌',
     features: ['b50', 'search', 'qr'],
+    queryKinds: ['friendCode', 'qq'],
+    /** 查分页标题。 */
+    b50Title: 'Best 50',
   },
   {
     id: 'phigros',
@@ -40,6 +44,9 @@ export const GAMES = [
     //   1. 平台返回 { items }，页面读 payload.results → 在 api.js 里归一成 { results }
     //   2. gameId 在存储预热之前就读了 → 改成预热之后再读
     features: ['b50', 'search'],
+    // 靠 TapTap 扫码登录，**没有「输入一个码」这回事**
+    queryKinds: [],
+    b50Title: 'RKS / B30',
   },
   {
     id: 'chunithm',
@@ -47,6 +54,25 @@ export const GAMES = [
     short: '中二',
     // 查分已接（B30 + Selection10 + Recent10），见 /api/v1/chunithm/bests
     features: ['b50', 'search'],
+    queryKinds: ['friendCode', 'qq'],
+    b50Title: 'Best 30',
+  },
+  {
+    id: 'osu',
+    label: 'osu!',
+    short: 'osu',
+    /*
+     * 只有查分。
+     *
+     * 没给 'search'：我们的搜索是「按曲名找谱面 + 定数」，
+     * 而 osu! 的谱面来自玩家自制、同一个曲名有几十个版本，
+     * 星数还要逐张谱面算——**那是另一个功能**，
+     * 不是把现有搜索改个路径就能用的。
+     */
+    features: ['b50'],
+    // osu! 用用户名定位玩家，没有好友码这个概念
+    queryKinds: ['username'],
+    b50Title: 'Best Plays',
   },
 ];
 
@@ -61,6 +87,21 @@ export function gameById(id) {
 /** 这个游戏有没有某个功能。 */
 export function gameHasFeature(game, feature) {
   return Boolean(game && game.features && game.features.indexOf(feature) >= 0);
+}
+
+/**
+ * 这个游戏支持哪些查询方式。
+ *
+ * 返回**拷贝**而不是原数组：调用方（页面）会把它存进 viewModel，
+ * 直接给原数组的话，任何误改都会污染注册表。
+ */
+export function queryKindsOf(game) {
+  return (game && game.queryKinds ? game.queryKinds : []).slice();
+}
+
+/** 这个游戏的查分页标题。 */
+export function b50TitleOf(game) {
+  return (game && game.b50Title) || 'Best 50';
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   LxnsError,
   buildB50View,
   buildChunithmBestsView,
+  buildOsuBestsView,
   buildSongIndex,
   createMockBests,
   createMockPlayer,
@@ -20,6 +21,8 @@ import {
   type MaimaiAliasList,
   type MaimaiPlayer,
   type MaimaiSongList,
+  type OsuBestsView,
+  type OsuRuleset,
   type SongIndex,
 } from '@astramai/core';
 
@@ -307,6 +310,54 @@ export class GatewayService {
     const view = buildChunithmBestsView({ player, bests, songs: library.songs });
 
     return { mode, view, sourceId: source.id, usedServerKey };
+  }
+
+  /**
+   * osu! 最好成绩。
+   *
+   * 和舞萌 / 中二的关键差异：
+   *   · 用**用户名**定位，不是好友码
+   *   · 评级是 **pp**，不是 rating
+   *   · 不做模拟数据——osu! 的假数据没有参考价值，还给不出 pp
+   *   · **不碰曲库**：osu! 的成绩里自带曲名和曲绘，不需要曲库关联
+   */
+  async getOsuBests(input: {
+    username: string;
+    ruleset?: OsuRuleset | undefined;
+    limit?: number | undefined;
+    sourceId?: string | undefined;
+  }): Promise<{
+    view: OsuBestsView;
+    sourceId: string;
+    elapsedMs: number;
+  }> {
+    const startedAt = Date.now();
+    const source = this.registry.get(input.sourceId ?? 'osu');
+
+    if (typeof source.getOsuBests !== 'function') {
+      throw new LxnsError('bad-request', `${source.label} 不支持 osu! 成绩查询`, {
+        friendly: '当前数据源不支持 osu!。请确认服务器已配置 OSU_CLIENT_ID / OSU_CLIENT_SECRET。',
+      });
+    }
+
+    const username = input.username.trim();
+    if (!username) {
+      throw new LxnsError('bad-request', 'osu! 查询需要用户名', {
+        friendly: 'osu! 需要填写用户名（不是好友码）。',
+      });
+    }
+
+    const query: PlayerQuery = { username };
+    if (!source.supports(query)) {
+      throw new LxnsError('bad-request', `${source.label} 不支持这个查询方式`, {
+        friendly: explainUnsupportedBy(source, query),
+      });
+    }
+
+    const bests = await source.getOsuBests(query, input.limit);
+    const view = buildOsuBestsView({ player: bests.player, bests });
+
+    return { view, sourceId: source.id, elapsedMs: Date.now() - startedAt };
   }
 
   /** 玩家信息，不做 B50 聚合。 */

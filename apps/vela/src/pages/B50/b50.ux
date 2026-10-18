@@ -19,13 +19,16 @@
       查询目标。**Phigros 整块隐藏**——它靠 TapTap 扫码登录，查的是自己，
       根本没有「输入一个码」这回事。留着只占地方，还会让人以为要输好友码。
     -->
-    <block if="{{ gameId !== 'phigros' }}">
-      <div class="kinds">
-        <div class="kind {{ kind === 'friendCode' ? 'kind--on' : '' }}" @click="setKind('friendCode')">
-          <text class="kind__text{{ kind === 'friendCode' ? ' kind__text--on' : '' }}">好友码</text>
-        </div>
-        <div class="kind {{ kind === 'qq' ? 'kind--on' : '' }}" @click="setKind('qq')">
-          <text class="kind__text{{ kind === 'qq' ? ' kind__text--on' : '' }}">QQ 号</text>
+    <!--
+      输入块按游戏声明的 `queryKinds` 渲染：
+        舞萌/中二 → 好友码 / QQ 号 两个选项卡
+        osu       → 只有「用户名」，选项卡不必显示
+        Phigros   → 没有输入（扫码登录），整块不渲染
+    -->
+    <block if="{{ kinds.length > 0 }}">
+      <div class="kinds" if="{{ kinds.length > 1 }}">
+        <div class="kind {{ kind === $item.id ? 'kind--on' : '' }}" for="{{ kinds }}" @click="setKind($item.id)">
+          <text class="kind__text{{ kind === $item.id ? ' kind__text--on' : '' }}">{{ $item.label }}</text>
         </div>
       </div>
 
@@ -40,7 +43,7 @@
         <text class="action__text {{ canSubmit || gameId === 'phigros' ? 'action__text--filled' : 'action__text--disabled' }}">{{ gameId === 'phigros' ? '查询自己的成绩' : '查询' }}</text>
       </div>
       <!-- 输入按钮对 Phigros 也没意义（没有要输入的码） -->
-      <div class="action action--ghost" if="{{ gameId !== 'phigros' }}" @click="toggleKeyboard">
+      <div class="action action--ghost" if="{{ kinds.length > 0 }}" @click="toggleKeyboard">
         <text class="action__text action__text--ghost">{{ keyboardHidden ? '输入' : '收起' }}</text>
       </div>
     </div>
@@ -83,8 +86,8 @@
           <image class="row__cover" if="{{ $item.jacketUrl }}" src="{{ $item.jacketUrl }}"></image>
           <div class="row__main">
             <text class="row__title">{{ $item.title }}</text>
-            <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · 定数 {{ $item.levelValue }}</text>
-            <text class="row__version">版本 {{ $item.versionTitle }}</text>
+            <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · {{ levelLabel }} {{ $item.levelValue }}</text>
+            <text class="row__version">{{ versionPrefix }} {{ $item.versionTitle }}</text>
           </div>
           <div class="row__right">
             <text class="row__rating">{{ $item.rating }}</text>
@@ -484,14 +487,23 @@
     fetchB50ByQq,
     fetchChunithmBests,
     fetchChunithmBestsByQq,
+    fetchOsuBests,
     fetchPhigrosBests,
   } = api;
   const { chunithmDifficultyColor } = core;
-  const { gameById, readCurrentGame } = games;
+  const { gameById, readCurrentGame, queryKindsOf, b50TitleOf } = games;
   const { mark } = diag;
   const { goBack } = navigation;
   const { readSetting, warmUp, writeSetting } = store;
-  const { appendDigit, backspace, describeInput, isReadyToSubmit, normalizeDigits } = validate;
+  const {
+    KIND_LABELS,
+    appendDigit,
+    backspace,
+    describeInput,
+    isReadyToSubmit,
+    isUsername,
+    normalizeByKind,
+  } = validate;
 
   /**
    * 每页条数。
@@ -509,6 +521,31 @@
 
   /** 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。 */
   const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
+
+  /** pp 的展示格式，和 core 里的 formatOsuPp 保持一致。 */
+  function formatPp(value) {
+    const pp = Number(value);
+    if (!Number.isFinite(pp)) return '—';
+    if (pp >= 10000) return String(Math.round(pp));
+    if (pp >= 1000) return pp.toFixed(1);
+    return pp.toFixed(2);
+  }
+
+  /**
+   * 按星数给颜色。
+   *
+   * osu! 没有固定难度档位，所以用星数映射——
+   * 玩家对星数的直观印象就是「越亮越难」。
+   */
+  function starColor(star) {
+    const value = Number(star);
+    if (!Number.isFinite(value) || value <= 0) return '#9bacd0';
+    if (value >= 8) return '#f2564b';
+    if (value >= 6.5) return '#b06fe8';
+    if (value >= 5) return '#f5d547';
+    if (value >= 3) return '#7ee081';
+    return '#4fd6ff';
+  }
 
   /**
    * 把时间戳格式化成「10月18日 14:32」。
@@ -555,8 +592,20 @@
       statLine4: '',
       /** 当前游戏 id。决定请求哪个接口、以及统计行怎么写。 */
       gameId: 'maimai',
-      /** 标题按游戏变：舞萌 Best 50 / 中二 B30 / Phigros RKS。 */
+      /** 标题按游戏变：舞萌 Best 50 / 中二 B30 / Phigros RKS / osu Best Plays。 */
       pageTitle: 'Best 50',
+      /**
+       * 这个游戏支持哪些查询方式。
+       *
+       * 从 `gameById(...).queryKinds` 来，页面只负责渲染。
+       * **不要在模板里写死「好友码 / QQ 号」**——osu 只有用户名，
+       * 写死就会出现「切到 osu 还让你填好友码」。
+       */
+      kinds: [],
+      /** 行的「定数」标签按游戏变：舞萌/中二用「定数」，osu 用「星数」。 */
+      levelLabel: '定数',
+      /** 行的版本标签：舞萌/中二用「版本」，osu 用「MOD」。 */
+      versionPrefix: '版本',
       entries: [],
     },
 
@@ -576,14 +625,36 @@
         .then(() => {
           // 当前游戏决定查哪个接口、统计行怎么写
           this.gameId = gameById(readCurrentGame(readSetting)).id;
-          // 标题跟着游戏变——写死「Best 50」对中二和 Phigros 都是错的
-          this.pageTitle =
-            this.gameId === 'chunithm' ? 'Best 30' : this.gameId === 'phigros' ? 'RKS / B30' : 'Best 50';
+          this.applyGameProfile();
           // Phigros 没有要输入的码，键盘一律收起（也省掉一个组件的初始化开销）
-          if (this.gameId === 'phigros') this.keyboardHidden = true;
+          if (this.kinds.length === 0) this.keyboardHidden = true;
           return this.restore();
         })
         .catch((error) => console.error('[AstraMai] B50 初始化失败：', error));
+    },
+
+    /**
+     * 按当前游戏把「标题 / 输入方式 / 行标签」一次配好。
+     *
+     * 集中在一处改：这三个东西都**跟着游戏变**，散在各处一定会漏。
+     */
+    applyGameProfile() {
+      const game = gameById(this.gameId);
+
+      this.pageTitle = b50TitleOf(game);
+      this.kinds = queryKindsOf(game).map((id) => ({
+        id,
+        label: KIND_LABELS[id] ?? id,
+      }));
+
+      if (this.gameId === 'osu') {
+        // osu! 的成绩行里：没有「定数」（是星数），没有「版本」（是 MOD）
+        this.levelLabel = '★';
+        this.versionPrefix = 'MOD';
+      } else {
+        this.levelLabel = '定数';
+        this.versionPrefix = '版本';
+      }
     },
 
     /**
@@ -593,13 +664,20 @@
      * 而是这个页面能不能用的前提。
      */
     restore() {
-      const savedKind = readSetting('queryKind', 'friendCode');
-      this.kind = savedKind === 'qq' ? 'qq' : 'friendCode';
+      /*
+       * 只能用**当前游戏支持**的查询方式。
+       *
+       * 上次可能是在舞萌页存的 'qq'，这次切到 osu 就不认了——
+       * 不校验的话会出现「输入框让你填 QQ 号但其实在查 osu」。
+       */
+      const savedKind = readSetting('queryKind', '');
+      const allowed = this.kinds.map((item) => item.id);
+      this.kind = allowed.indexOf(savedKind) >= 0 ? savedKind : allowed.length > 0 ? allowed[0] : 'friendCode';
 
       // 兼容早期只存 friendCode 的版本
       const saved =
-        normalizeDigits(readSetting('queryValue', '')) ||
-        normalizeDigits(readSetting('friendCode', ''));
+        normalizeByKind(this.kind, readSetting('queryValue', '')) ||
+        normalizeByKind(this.kind, readSetting('friendCode', ''));
 
       this.code = saved;
       this.refreshInputState();
@@ -631,9 +709,7 @@
       this.canSubmit = isReadyToSubmit(this.kind, this.code);
       this.displayValue = this.code
         ? this.code
-        : this.kind === 'qq'
-          ? '输入 QQ 号'
-          : '输入好友码';
+        : `输入${KIND_LABELS[this.kind] ?? '好友码'}`;
     },
 
     /** 只监听 complete：keyDown 会在拼音模式下把字母也报上来，两个都听会重复输入。 */
@@ -641,9 +717,14 @@
       const content = evt && evt.detail ? evt.detail.content : '';
       const before = this.code;
       this.code = appendDigit(this.kind, this.code, content);
-      if (this.code === before && normalizeDigits(content) === '' ) {
-        // 输入了非数字字符，提示一下而不是静默吞掉
-        this.hint = this.kind === 'qq' ? 'QQ 号只能是数字' : '好友码只能是数字';
+      if (this.code === before && normalizeByKind(this.kind, content) === '') {
+        // 输入了不接受的字符，提示一下而不是静默吞掉
+        this.hint =
+          this.kind === 'username'
+            ? '用户名只能是字母、数字、下划线、连字符、空格、方括号'
+            : this.kind === 'qq'
+              ? 'QQ 号只能是数字'
+              : '好友码只能是数字';
         return;
       }
       this.refreshInputState();
@@ -662,9 +743,19 @@
         return;
       }
 
-      const code = normalizeDigits(this.code);
+      if (this.gameId === 'osu') {
+        this.queryOsu();
+        return;
+      }
+
+      const code = normalizeByKind(this.kind, this.code);
       if (!isReadyToSubmit(this.kind, code)) {
-        this.errorText = this.kind === 'qq' ? 'QQ 号应为 5–11 位数字' : '好友码应为 15 位数字';
+        this.errorText =
+          this.kind === 'username'
+            ? '用户名应为 2–15 个字符（字母、数字、下划线、连字符、空格、方括号）'
+            : this.kind === 'qq'
+              ? 'QQ 号应为 5–11 位数字'
+              : '好友码应为 15 位数字';
         this.keyboardHidden = false;
         return;
       }
@@ -716,6 +807,90 @@
      * 没登录就直接引导去登录页，**不发请求**——
      * 发出去也是 401，不如省一次往返并告诉玩家该做什么。
      */
+    /**
+     * 查 osu! 成绩。
+     *
+     * ⚠️ **绝不自动重试**：osu! 上游限流是全应用共享的 60 次/分钟，
+     * 我们一次查询花 2 次（资料 + 成绩）。超了就让玩家等，
+     * 重试只会把所有人一起拖死，还可能被吊销 token。
+     */
+    queryOsu() {
+      const username = normalizeByKind('username', this.code);
+      if (!isUsername(username)) {
+        this.errorText = '用户名不合法，请检查后重试';
+        this.keyboardHidden = false;
+        return;
+      }
+
+      this.keyboardHidden = true;
+      this.errorText = '';
+      this.saving = '查询中…';
+
+      fetchOsuBests(username, { limit: 50 })
+        .then((view) => {
+          if (!view) throw new Error('查询失败');
+          this.applyOsu(view);
+          this.saving = '';
+          this.refreshInputState();
+        })
+        .catch((error) => {
+          this.errorText = error && error.message ? error.message : '查询失败';
+          this.hasResult = false;
+          this.saving = '';
+        });
+    },
+
+    /**
+     * osu! 成绩 → 行。
+     *
+     * 行的字段和舞萌同一套名字，但**含义不同**：
+     *   rating       → 这一局的 pp（舞萌是单曲 rating）
+     *   achievements → 准确率（舞萌是达成率）
+     *   versionTitle → MOD（舞萌是所属版本）
+     *   levelValue   → 星数（舞萌是定数）
+     *
+     * 两个标签在 `applyGameProfile` 里已经改成「★」和「MOD」。
+     */
+    applyOsu(view) {
+      const player = view.player || {};
+      const stats = view.stats || {};
+      const scores = view.scores || [];
+
+      /*
+       * 主数字是**总 pp**，用服务端格式化好的文本。
+       * pp 的小数在这个尺寸上没有价值，不分整数/小数两段。
+       */
+      const ppText = String(player.ppText ?? '—');
+      this.ratingInt = ppText;
+      this.ratingDec = '';
+      this.ratingText = ppText;
+
+      this.playerName = player.name || '';
+      // osu! 没有「段位」，这里用全球排名替代——信息量更大
+      this.tierText =
+        player.globalRankText && player.globalRankText !== '—' ? player.globalRankText : '';
+
+      this.statLine1 = '准确率　' + (player.accuracyText ?? '—');
+      this.statLine2 = '游玩次数　' + (player.playCount ?? 0);
+      this.statLine3 = '最佳单曲　' + formatPp(stats.topPp != null ? stats.topPp : 0) + 'pp';
+      this.statLine4 = '列表合计　' + formatPp(stats.listedPpSum || 0) + 'pp';
+
+      allEntries = scores.map((entry) => ({
+        title: entry.songTitle || entry.title || '未知曲目',
+        difficulty: entry.version || '—',
+        // osu! 没有固定的难度配色，按星数映射（越亮越难）
+        diffColor: starColor(entry.starRating),
+        levelValue: entry.starRatingText || '—',
+        // 主数字是这局的 pp
+        rating: entry.ppText || '—',
+        achievements: entry.accuracyText || '—',
+        versionTitle: entry.modsText || '无',
+        jacketUrl: entry.coverUrl || '',
+      }));
+
+      this.finishApply();
+    },
+
     queryPhigros() {
       const session = readSetting('phigrosSession', '');
       if (!session) {

@@ -667,6 +667,56 @@ export function createRouter(
     }
   });
 
+  // ── osu! ──────────────────────────────────────────────────────────────
+  /*
+   * 用**用户名**查询，不是好友码——osu! 没有好友码这个概念。
+   *
+   * ⚠️ 上游限流很紧（osu! ToS：不超过 60 次/分钟，全应用共享），
+   * 一次查询花 2 个请求，所以约每分钟 25 次查询。
+   * 超了返回 `rate-limited`，客户端应当提示「稍后再试」而不是重试。
+   */
+  router.get('/api/v1/osu/bests', async (ctx) => {
+    const startedAt = Date.now();
+    try {
+      const username = (ctx.query.get('username') ?? '').trim();
+      const rulesetRaw = (ctx.query.get('ruleset') ?? '').trim().toLowerCase();
+      const ruleset =
+        rulesetRaw === 'osu' ||
+        rulesetRaw === 'taiko' ||
+        rulesetRaw === 'fruits' ||
+        rulesetRaw === 'mania'
+          ? rulesetRaw
+          : undefined;
+
+      const limitRaw = Number.parseInt(ctx.query.get('limit') ?? '', 10);
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : undefined;
+
+      const result = await service.getOsuBests({
+        username,
+        ...(ruleset ? { ruleset } : {}),
+        ...(limit ? { limit } : {}),
+        /*
+         * ⚠️ **不能用 `sourceOf`**：它在「没指定 source」时返回**默认源**
+         * （通常是 lxns），会把这个请求交给落雪去处理 → 400。
+         *
+         * osu! 只有一个源，没指定就交给 osu 源自己。
+         */
+        ...(() => {
+          const requested = (ctx.query.get('source') ?? '').trim();
+          return requested ? { sourceId: requested } : {};
+        })(),
+      });
+
+      ok(ctx.res, {
+        source: result.sourceId,
+        elapsedMs: Date.now() - startedAt,
+        data: result.view,
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
   // ── 单曲成绩 ──────────────────────────────────────────────────────────
   router.get('/api/maimai/player/:friendCode/song/:songId', async (ctx) => {
     try {

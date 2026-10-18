@@ -285,6 +285,25 @@ export async function fetchPhigrosBests(sessionToken) {
 }
 
 /**
+ * 查 osu! 最好成绩。
+ *
+ * 用**用户名**，不是好友码。服务端需要配好 OSU_CLIENT_ID / SECRET；
+ * 没配的时候 `/api/v1/osu/bests` 会返回 400 并说明原因。
+ *
+ * ⚠️ 上游限流很紧（全应用共享 60 次/分钟，我们一次查询花 2 次）。
+ * 超了服务端返回 `rate-limited`，**不要自动重试**——重试只会让情况更糟。
+ */
+export async function fetchOsuBests(username, options) {
+  const limit = options && options.limit ? options.limit : 50;
+  const ruleset = options && options.ruleset ? options.ruleset : 'osu';
+  const query = encodeURIComponent(username);
+  const payload = await jsonRequest(
+    `/api/v1/osu/bests?username=${query}&ruleset=${ruleset}&limit=${limit}`,
+  );
+  return (payload && payload.data) || null;
+}
+
+/**
  * Phigros 曲目搜索。平台唯一的曲库入口，没有全量列表。
  *
  * ⚠️ **在这里把形状统一成 `{ results }`**，和落雪那两个接口对齐。
