@@ -61,6 +61,20 @@
       </div>
     </block>
 
+    <!--
+      重看引导。
+      两个用处：
+        1. 用户想再看一遍协议 —— 这是正经需求，不是调试后门
+        2. **开发时要反复看引导页** —— 不然只能在设备上刷数据才能再看到
+    -->
+    <text class="section">关于</text>
+    <div class="rows">
+      <div class="row" @click="replayOnboarding">
+        <text class="row__label">重看新手引导</text>
+        <text class="row__mark">›</text>
+      </div>
+    </div>
+
     <text class="foot">AstraMai · 街机音游工具</text>
   </div>
 </template>
@@ -206,7 +220,7 @@
   const { groupNumber } = community;
   const { GAMES, readCurrentGame, writeCurrentGame } = games;
   const { goBack, push } = navigation;
-  const { readSetting, warmUp, writeSetting } = store;
+  const { clearSetting, readSetting, warmUp, writeSetting } = store;
 
   export default {
     private: {
@@ -286,6 +300,24 @@
       if (!this.groupNumber) return;
       // 复用同步功能的提示位，避免为一行字再开一个状态
       this.syncNotice = `群号 ${this.groupNumber} · 用手机搜群号即可加入`;
+    },
+
+    /**
+     * 重看新手引导。
+     *
+     * 先清掉 `oobeShown`，再跳过去——不清的话下次启动不会再弹，
+     * 但用户现在就要看，所以直接 push 过去。
+     *
+     * **这同时是开发时的调试入口**：`@system.storage` 在设备上
+     * 没有暴露成文件，没法用 adb 删键，只能从界面上清。
+     */
+    replayOnboarding() {
+      try {
+        clearSetting('oobeShown');
+      } catch (error) {
+        console.warn('[AstraMai] 清除引导标记失败：', error);
+      }
+      push('/welcome');
     },
 
     onBack() {
