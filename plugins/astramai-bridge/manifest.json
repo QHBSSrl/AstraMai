@@ -1,12 +1,12 @@
 {
   "name": "AstraMai 网桥",
   "icon": "icon.png",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "把手表上的 AstraMai 和查分服务器接起来（手环没有网络时用）",
   "author": "AstraNexus",
   "website": "https://github.com/AstraNexusTech/AstraMai",
   "entry": "plugin.wasm",
   "wasi_version": 3,
   "api_level": 4,
-  "permissions": ["device", "interconnect", "browser", "ui", "lifecycle", "event"]
+  "permissions": ["device", "interconnect", "ui", "browser"]
 }
