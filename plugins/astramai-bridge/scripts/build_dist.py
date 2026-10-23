@@ -94,9 +94,12 @@ def main() -> None:
 
     if '--package' in sys.argv:
         # .abp 就是把这些文件打成 zip
-        archive = ROOT / f"{manifest['name'].replace(' ', '-')}-{manifest['version']}"
+        #
+        # ⚠️ **文件名用纯 ASCII。** 插件显示名是「AstraMai 网桥」，
+        # 中文文件名传到手机、再被各种文件管理器/下载器转手时容易乱码或丢失。
+        archive = ROOT / f'astramai-bridge-{manifest["version"]}'
         shutil.make_archive(str(archive), 'zip', DIST)
-        print(f'✅ {archive.name}.zip（改名成 .abp 就是插件包）')
+        print(f'✅ {archive.name}.zip → 改成 .abp 就是插件包（{archive.name}.abp）')
 
 
 if __name__ == '__main__':

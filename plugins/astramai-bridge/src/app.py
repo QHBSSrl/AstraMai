@@ -165,15 +165,41 @@ def handle_request(payload: dict) -> dict:
 class Lifecycle(exports.Lifecycle):
     async def on_load(self) -> None:
         """
-        插件加载时订阅「已连接设备上 AstraMai 的消息」。
+        插件加载时做两件事：**联网自检**、订阅手表消息。
 
-        ⚠️ 只订阅**已连接**的设备。没连接时订阅会失败，
-        所以这里逐个 try —— 一个设备失败不影响其它设备。
+        ── 为什么要自检 ────────────────────────────────────────────────
+
+        宿主 WIT 里**没有网络接口**，插件能上网这件事靠的是 CPython 的
+        WASI 运行时自带的 `wasi:http` / `wasi:sockets`。产物里确实
+        import 了它们，但**宿主要实现它们才能用**——这在真机上才知道。
+
+        而 `wasi:http` 用不了的话，这个插件就完全没意义。
+        所以装完第一件事就是打一次 `/api/health`（免鉴权），
+        把结果打进日志。**看一眼日志就知道这条路通不通。**
+
+        ── 订阅为什么要逐个 try ────────────────────────────────────────
+
+        只订阅**已连接**的设备。没连接时订阅会失败，
+        所以一个设备失败不能影响其它设备，也不能拖累自检。
         """
+        # ① 联网自检
+        ok, body = fetch_json('/api/health')
+        if ok:
+            status = body.get('status') if isinstance(body, dict) else body
+            print(f'[astramai] ✅ 网络可用（/api/health: {status}）')
+        else:
+            message = body.get('message') if isinstance(body, dict) else str(body)
+            print(f'[astramai] ❌ 网络不可用：{message}')
+
+        # ② 订阅手表消息
         try:
             devices = await host_device.get_connected_device_list()
         except Exception as error:
             print(f'[astramai] 取设备列表失败：{error}')
+            return
+
+        if not devices:
+            print('[astramai] 现在没有已连接的设备——连上手表后需要重新加载插件')
             return
 
         for item in devices:
