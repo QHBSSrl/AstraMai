@@ -229,19 +229,24 @@
     onInit() {
       mark('Index:onInit');
       console.debug('[AstraMai] Index onInit');
-      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame', 'oobeDone'])
+      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame', 'oobeShown'])
         .then(() => {
           this.refresh();
           /*
            * 首次启动进引导。
            *
-           * 为什么放在这里而不是 app.ux：首页是入口页，等存储预热完
-           * 再判断最稳（`readSetting` 在预热之前会静默返回兜底值，
-           * 那样会把「已看过引导」读成空，每次启动都弹一遍）。
+           * ⚠️ 判断的是 **`oobeShown`（弹过没）**，不是「走完没」。
+           * 上一版用的是 `oobeDone`，只在引导最后一步才写——
+           * 用户中途退出就白写了，于是**每次启动都弹**。
            *
-           * 引导页自己会写 `oobeDone`，所以只会进一次。
+           * 现在引导页在 `onInit` 里一进来就写 `oobeShown`，
+           * 所以这里判断一次就够，不会反复骚扰。
+           *
+           * 为什么放在 Index 而不是 app.ux：
+           * `readSetting` 在存储预热之前会静默返回兜底值，
+           * 那样会把「已看过」读成空——必须等 `warmUp` 完成再判断。
            */
-          if (!readSetting('oobeDone', '')) push('/welcome');
+          if (!readSetting('oobeShown', '')) push('/welcome');
         })
         .catch((error) => console.error('[AstraMai] Index 初始化失败：', error));
     },

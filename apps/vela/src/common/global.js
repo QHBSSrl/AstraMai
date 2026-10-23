@@ -27,6 +27,8 @@ import * as secret from './secret.js';
 import * as syncPayload from './sync-payload.js';
 import * as games from './games.js';
 import * as community from './community.js';
+import * as legal from './legal.js';
+import * as tutorial from './tutorial.js';
 
 /**
  * 挂在一个命名空间下，而不是把几十个符号平铺到 global。
@@ -45,6 +47,8 @@ global.AstraMai = {
   syncPayload,
   games,
   community,
+  legal,
+  tutorial,
 };
 
 /**

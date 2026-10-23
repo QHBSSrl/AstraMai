@@ -1,59 +1,81 @@
 <template>
   <div class="page-root">
     <div class="page">
-      <!-- 进度：`2 / 3`。用文字而不是圆点，圆点在小屏上几乎看不见 -->
+      <!-- 进度用文字而不是圆点：小屏上圆点几乎看不见 -->
       <text class="progress">{{ step + 1 }} / {{ total }}</text>
 
-      <!-- ── 欢迎 ───────────────────────────────────────────────── -->
+      <!-- ── 1. 欢迎 ─────────────────────────────────────────────── -->
       <block if="{{ page === 'welcome' }}">
         <text class="hero">AstraMai</text>
-        <text class="lead">街机音游查分工具</text>
+        <text class="lead">功能全面的腕上音游工具</text>
         <text class="body">舞萌 DX · 中二节奏 · Phigros</text>
-        <text class="body body--dim">一次配置，随时看成绩</text>
+        <text class="body body--dim">欢迎加入用户群</text>
+        <text class="group group--inline">{{ groupNumber }}</text>
       </block>
 
-      <!-- ── 选游戏 ─────────────────────────────────────────────── -->
-      <block if="{{ page === 'game' }}">
-        <text class="lead">你主要玩哪个？</text>
-        <div class="games">
-          <div class="game {{ $item.current ? 'game--on' : '' }}" for="{{ games }}" @click="pickGame($item.id)">
-            <text class="game__label">{{ $item.label }}</text>
-            <text class="game__mark" if="{{ $item.current }}">✓</text>
+      <!-- ── 2. 用户协议 ─────────────────────────────────────────── -->
+      <block if="{{ page === 'terms' }}">
+        <text class="lead">用户协议</text>
+        <text class="body body--dim">{{ termsSummary }}</text>
+        <!-- 协议必须可滚动：手表一屏放不下任何一份协议 -->
+        <scroll class="terms" scroll-y="true">
+          <div class="terms__section" for="{{ termsSections }}">
+            <text class="terms__title">{{ $item.title }}</text>
+            <text class="terms__body">{{ $item.body }}</text>
           </div>
-        </div>
-        <text class="body body--dim">之后可以在设置里随时切换</text>
+        </scroll>
       </block>
 
-      <!--
-        ── 加群 ───────────────────────────────────────────────────
-        只在配置了群号时出现（见 common/community.js）。
-        没配就整步跳过——**不显示一个空群号**。
-      -->
-      <block if="{{ page === 'community' }}">
-        <text class="lead">加入用户群</text>
+      <!-- ── 3. 配对 ─────────────────────────────────────────────── -->
+      <block if="{{ page === 'pairing' }}">
+        <text class="lead">要不要配对？</text>
+        <text class="body">
+          eSIM 手表（比如 REDMI Watch 5 eSIM）自己能联网，
+          <text class="body--strong">不需要配对</text>。
+        </text>
+        <text class="body body--dim">
+          其它设备要靠手机中转，这个功能还在做。
+          现在可以先去用，以后能补。
+        </text>
+      </block>
 
-        <!-- 有链接就显示二维码：手表放桌上，手机扫一下最省事 -->
+      <!-- ── 4. 教程 ─────────────────────────────────────────────── -->
+      <block if="{{ page === 'tutorial' }}">
+        <text class="lead">三步上手</text>
+        <scroll class="tutorial" scroll-y="true">
+          <div class="tutorial__step" for="{{ tutorialSteps }}">
+            <!-- 有图就显示图，没图自动退化成纯文字 -->
+            <image class="tutorial__image" if="{{ $item.image }}" src="{{ $item.image }}"></image>
+            <text class="tutorial__title">{{ $item.title }}</text>
+            <text class="tutorial__body">{{ $item.body }}</text>
+          </div>
+        </scroll>
+      </block>
+
+      <!-- ── 5. 群二维码 ─────────────────────────────────────────── -->
+      <block if="{{ page === 'community' }}">
+        <text class="lead">加个群吧</text>
+        <!--
+          二维码必须白底黑码，深色底上扫不出来。
+          没配 QQ_GROUP_KEY 时这一块不渲染，只显示群号。
+        -->
         <div class="qr" if="{{ groupQr }}">
           <qrcode value="{{ groupQr }}"></qrcode>
         </div>
-
-        <text class="group" if="{{ groupNumber }}">{{ groupNumber }}</text>
-        <text class="body body--dim">更新通知 · 问题反馈 · 新功能投票</text>
+        <text class="group">{{ groupNumber }}</text>
+        <text class="body body--dim">更新、修复、新功能都会发在群里</text>
       </block>
 
-      <!-- ── 完成 ───────────────────────────────────────────────── -->
+      <!-- ── 6. 完成 ─────────────────────────────────────────────── -->
       <block if="{{ page === 'done' }}">
-        <text class="hero hero--small">可以了</text>
-        <text class="body">在首页点「输入」，填一次好友码或 QQ 号</text>
-        <text class="body body--dim">下次打开直接就能查</text>
+        <text class="hero hero--small">准备就绪</text>
+        <text class="body">去首页点「Best 50」，填一次好友码或 QQ 号</text>
+        <text class="body body--dim">填过一次就会记住，下次直接看</text>
       </block>
 
       <div class="actions">
         <div class="action" @click="next">
           <text class="action__text action__text--filled">{{ primaryLabel }}</text>
-        </div>
-        <div class="action action--ghost" if="{{ !isLast }}" @click="skip">
-          <text class="action__text action__text--ghost">跳过</text>
         </div>
       </div>
     </div>
@@ -64,19 +86,13 @@
   @import '../../common/theme-tokens.less';
 
   /*
-   * 首次启动引导（OOBE）。
+   * 首次启动引导（OOBE）。**六步，没有跳过键。**
    *
-   * ── 为什么要有这个页面 ──────────────────────────────────────────
+   * ── 为什么每一屏只讲一件事 ──────────────────────────────────────
    *
-   * 上线第一天：1200 浏览 → 32 下载 → **1 个入群**。
-   * 用户下完就走，我们没有任何第二条触达路径。
-   *
-   * 这个页面就做两件事：**让用户配好第一个游戏**、**给出加群入口**。
-   * 两件都不强制——每一步都能跳过，跳过了设置页里还能再找到。
-   *
-   * ── 排版原则 ────────────────────────────────────────────────────
-   *
-   * 一屏只讲一件事。手表屏幕小，一屏塞两段话就没人看。
+   * 手表屏幕 466px，一屏塞两段话就没人看。所以：
+   *   欢迎 → 协议 → 配对 → 教程 → 群 → 完成
+   * 每屏一个大标题 + 最多三行正文。
    */
 
   .page-root {
@@ -99,20 +115,20 @@
     font-size: @ui-font-caption;
     color: @ui-on-surface-muted;
     text-align: center;
-    margin-bottom: @ui-space-3;
+    margin-bottom: @ui-space-2;
   }
 
   .hero {
-    font-size: 40px;
+    font-size: 38px;
     font-weight: bold;
     color: @ui-primary;
     text-align: center;
     lines: 1;
-    margin-top: @ui-space-4;
+    margin-top: @ui-space-3;
   }
 
   .hero--small {
-    font-size: 32px;
+    font-size: 30px;
   }
 
   .lead {
@@ -128,73 +144,99 @@
     color: @ui-on-surface-variant;
     text-align: center;
     margin-top: @ui-space-2;
-    lines: 2;
+    lines: 3;
   }
 
   .body--dim {
     color: @ui-on-surface-muted;
   }
 
-  /* 游戏选择 */
-  .games {
-    flex-direction: column;
-    width: 100%;
-    margin-top: @ui-space-3;
-  }
-
-  .game {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    height: 56px;
-    margin-bottom: @ui-space-2;
-    border-radius: @ui-radius-card;
-    background-color: @ui-surface-card;
-  }
-
-  /* 选中态用主色容器，一眼能看出选了哪个 */
-  .game--on {
-    background-color: @ui-primary;
-  }
-
-  .game__label {
-    font-size: @ui-font-body;
-    color: @ui-on-surface;
-  }
-
-  .game--on .game__label {
-    color: @ui-on-primary;
-  }
-
-  .game__mark {
-    font-size: @ui-font-label;
-    color: @ui-on-primary;
-    margin-left: @ui-space-2;
-  }
-
-  /*
-   * 二维码。
-   *
-   * ⚠️ 二维码**必须白底黑码**，放在深色底上扫不出来。
-   * 所以这里给它一个白底容器 + 内边距（静区）。
-   */
-  .qr {
-    width: 200px;
-    height: 200px;
-    padding: 8px;
-    margin-top: @ui-space-2;
-    border-radius: @ui-radius-md;
-    background-color: #ffffff;
-    align-self: center;
+  .body--strong {
+    color: @ui-primary;
   }
 
   .group {
-    font-size: 32px;
+    font-size: @ui-font-headline;
     font-weight: bold;
     color: @ui-primary;
     text-align: center;
     margin-top: @ui-space-2;
     lines: 1;
+  }
+
+  .group--inline {
+    margin-top: @ui-space-1;
+  }
+
+  /* 协议：可滚动，高度吃满剩余空间 */
+  .terms {
+    flex: 1;
+    width: 100%;
+    margin-top: @ui-space-2;
+  }
+
+  .terms__section {
+    flex-direction: column;
+    margin-bottom: @ui-space-3;
+  }
+
+  .terms__title {
+    font-size: @ui-font-label;
+    font-weight: bold;
+    color: @ui-primary;
+    lines: 1;
+  }
+
+  .terms__body {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-variant;
+    margin-top: 2px;
+  }
+
+  /* 教程 */
+  .tutorial {
+    flex: 1;
+    width: 100%;
+    margin-top: @ui-space-2;
+  }
+
+  .tutorial__step {
+    flex-direction: column;
+    margin-bottom: @ui-space-3;
+    padding: @ui-space-2;
+    border-radius: @ui-radius-md;
+    background-color: @ui-surface-card;
+  }
+
+  .tutorial__image {
+    width: 100%;
+    height: 120px;
+    border-radius: @ui-radius-sm;
+    margin-bottom: @ui-space-1;
+  }
+
+  .tutorial__title {
+    font-size: @ui-font-label;
+    font-weight: bold;
+    color: @ui-on-surface;
+    lines: 1;
+  }
+
+  .tutorial__body {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-variant;
+    margin-top: 2px;
+  }
+
+  /* 二维码：白底 + 静区，深色底上扫不出来 */
+  .qr {
+    width: 180px;
+    height: 180px;
+    padding: 8px;
+    margin-top: @ui-space-2;
+    border-radius: @ui-radius-md;
+    background-color: #ffffff;
+    align-self: center;
   }
 
   .actions {
@@ -206,123 +248,118 @@
 </style>
 
 <script>
-  /*
-   * 引导页的依赖从 global 取（和别的页面一致）。
-   *
-   * 注意 `community` 是**有默认导出值的模块**，没配群号时
-   * `hasCommunity()` 返回 false，整个加群步骤不会出现在 steps 里。
-   */
-  const { community, games, navigation, store } = global.AstraMai;
-  const { hasCommunity, groupNumber, groupUrl } = community;
+  const { community, games, legal, navigation, store, tutorial } = global.AstraMai;
+  const { groupNumber, groupUrl } = community;
+  const { TERMS_SECTIONS, TERMS_SUMMARY, TERMS_VERSION, TERMS_KEY } = legal;
+  const { TUTORIAL_STEPS } = tutorial;
   const { GAMES, gameById, readCurrentGame, writeCurrentGame } = games;
   const { push } = navigation;
   const { readSetting, warmUp, writeSetting } = store;
 
   /**
-   * 引导的步骤序列。
+   * 六步，写死顺序。
    *
-   * **动态生成**而不是写死：没配群号就不该出现「加群」这一屏，
-   * 否则用户会看到一个空白的群号。
+   * **和上一版的区别：没有"跳过"，也不再有动态生成的步骤。**
+   * 上一版会根据有没有配群号增减步骤，结果两个用户看到的流程不一样，
+   * 出问题时很难判断他在第几步。现在固定六步。
    */
-  function buildSteps() {
-    const steps = ['welcome', 'game'];
-    if (hasCommunity()) steps.push('community');
-    steps.push('done');
-    return steps;
-  }
+  const STEPS = ['welcome', 'terms', 'pairing', 'tutorial', 'community', 'done'];
 
-  const STEPS = buildSteps();
+  /**
+   * ⚠️ **引导"弹过"的标记，不是"走完"的标记。**
+   *
+   * 上一版只在最后一步（或跳过）才写 `oobeDone`，于是：
+   * 用户中途退出 / 杀掉应用 / 走不完六步 → 标记没写 → 下次又弹。
+   * **这正是"每次打开都跳出来"的原因。**
+   *
+   * 现在改成在页面加载时就写 `oobeShown`——
+   * 语义是「已经给他看过引导了」，而不是「他看完了」。
+   * 想再看到只需要清掉这一个键。
+   */
+  const SHOWN_KEY = 'oobeShown';
 
-  /** 引导完成标记。写了它以后就不再进这个页面。 */
-  const DONE_KEY = 'oobeDone';
+  /** 走完了的标记，只用于统计/以后判断要不要补看。 */
+  const COMPLETED_KEY = 'oobeCompleted';
+
+  /** 每一步的主按钮文案。都带动作，不是状态确认。 */
+  const PRIMARY_LABELS = {
+    welcome: '继续',
+    terms: '同意并继续',
+    pairing: '我的手表能自己联网',
+    tutorial: '看完了',
+    community: '加好了',
+    done: '开始使用',
+  };
 
   export default {
     private: {
       step: 0,
       total: STEPS.length,
       page: STEPS[0],
-      /** 当前选中的游戏。 */
       selected: 'maimai',
-      games: [],
       groupNumber: '',
       groupQr: '',
-      primaryLabel: '开始',
-      isLast: false,
+      termsSummary: TERMS_SUMMARY,
+      termsSections: TERMS_SECTIONS,
+      tutorialSteps: TUTORIAL_STEPS,
+      primaryLabel: PRIMARY_LABELS.welcome,
     },
 
     onInit() {
       console.debug('[AstraMai] Welcome onInit');
-      warmUp(['currentGame'])
+
+      /*
+       * **第一件事就是写下"已经看过"。**
+       *
+       * 放在最前面、在做任何异步操作之前——
+       * 这样即使用户在这之后立刻杀进程，下次也不会再弹。
+       */
+      try {
+        writeSetting(SHOWN_KEY, '1');
+      } catch (error) {
+        console.warn('[AstraMai] 写引导标记失败：', error);
+      }
+
+      warmUp(['currentGame', SHOWN_KEY])
         .then(() => {
           const current = readCurrentGame(readSetting);
           this.selected = current;
-          this.games = GAMES.filter((game) => game.queryKinds.length > 0 || game.id === 'phigros').map(
-            (game) => ({
-              id: game.id,
-              label: game.label,
-              current: game.id === current,
-            }),
-          );
           this.groupNumber = groupNumber();
           this.groupQr = groupUrl();
-          this.syncStep();
         })
         .catch((error) => console.error('[AstraMai] Welcome 初始化失败：', error));
     },
 
-    /** 把 step / page / 按钮文案一次算好，避免模板里写一堆条件。 */
-    syncStep() {
-      this.page = STEPS[this.step] || 'done';
-      this.isLast = this.step >= STEPS.length - 1;
-      if (this.isLast) {
-        this.primaryLabel = '进入应用';
-      } else if (this.page === 'community') {
-        // 加群这屏的目标就是「让人真的去加」，所以按钮写「加好了」
-        this.primaryLabel = '加好了';
-      } else {
-        this.primaryLabel = '继续';
-      }
-    },
-
-    pickGame(id) {
-      const game = gameById(id);
-      this.selected = game.id;
-      // 立刻落盘：即使中途退出，至少游戏选择保住了
-      writeCurrentGame(writeSetting, game.id);
-      this.games = this.games.map((item) => ({
-        ...item,
-        current: item.id === game.id,
-      }));
-    },
-
     next() {
-      if (this.isLast) {
+      const current = this.page;
+
+      // 在协议页点「同意」时把版本号记下来
+      if (current === 'terms') {
+        try {
+          writeSetting(TERMS_KEY, TERMS_VERSION);
+        } catch (error) {
+          console.warn('[AstraMai] 写协议标记失败：', error);
+        }
+      }
+
+      if (this.step >= STEPS.length - 1) {
         this.finish();
         return;
       }
-      this.step += 1;
-      this.syncStep();
-    },
 
-    /**
-     * 跳过当前及剩余步骤。
-     *
-     * **直接完成而不是「跳到下一步」**：用户点跳过就是想快点用起来，
-     * 一步步送他一屏屏跳过更烦人。
-     */
-    skip() {
-      this.finish();
+      this.step += 1;
+      this.page = STEPS[this.step];
+      this.primaryLabel = PRIMARY_LABELS[this.page] || '继续';
     },
 
     finish() {
       try {
-        writeSetting(DONE_KEY, '1');
-        // 游戏选择在 pickGame 里已经写了，这里兜一次底
+        writeSetting(COMPLETED_KEY, '1');
         writeCurrentGame(writeSetting, this.selected);
       } catch (error) {
-        console.warn('[AstraMai] 保存引导状态失败：', error);
+        console.warn('[AstraMai] 保存引导结果失败：', error);
       }
-      // replace 而不是 push：引导页不该留在返回栈里
+      // push 而不是 replace：引导页不留在返回栈里，返回就直接回桌面
       push('/');
     },
   };
