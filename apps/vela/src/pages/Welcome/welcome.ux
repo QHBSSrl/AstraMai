@@ -218,6 +218,30 @@
     justify-content: center;
     height: 72px;
   }
+
+  /*
+   * 按钮。
+   *
+   * ⚠️ **这两个类必须在每个页面里各定义一次。**
+   * Vela 的样式是**页面级**的，B50 页里定义的 `.action` / `.action__text`
+   * 在这一页不存在——之前就漏了，结果「开始吧」只有一个没有背景的文字。
+   *
+   * 以后如果要把它们抽成公共样式，得靠组件或者构建期注入，
+   * 不能指望跨页面生效。
+   */
+  .action {
+    height: 64px;
+    padding: 0 40px;
+    border-radius: @ui-radius-full;
+    background-color: @ui-primary;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action__text {
+    font-size: @ui-font-body;
+    color: @ui-on-primary;
+  }
 </style>
 
 <script>

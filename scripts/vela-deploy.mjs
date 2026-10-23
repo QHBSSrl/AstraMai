@@ -28,7 +28,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ADB =
@@ -62,7 +62,20 @@ function findRpk() {
 
 let rpk = findRpk();
 const REMOTE_DIR = `/data/quickapp/app/${PKG}`;
-const REMOTE_RPK = `/data/quickapp/app/${PKG}.rpk`;
+/**
+ * RPK 推到 `/data/quickapp/tmp/`，不要放在 `/data/quickapp/app/` 下。
+ *
+ * ⚠️ 放在 `app/` 里时（即使是目标目录的同级），解压会**中途截断**：
+ * 9 个页面只解出 6 个，而且 unzip 返回 0、不报错。
+ * 症状是应用起来白屏或黑屏，dmesg 里一句日志都没有。
+ *
+ * 挪到 `tmp/` 之后实测能完整解出全部页面。
+ *
+ * （写这段注释时踩过一个坑：`**` 紧跟 `/` 会组成 `*` `/`，
+ *   把块注释提前闭合，Node 报 `ReferenceError` 指向注释中间。
+ *   所以这里不再用 markdown 的加粗路径写法。）
+ */
+const REMOTE_RPK = `/data/quickapp/tmp/${PKG}.rpk`;
 
 const NO_BUILD = process.argv.includes('--no-build');
 
@@ -134,7 +147,22 @@ console.log('   完成');
 console.log('④ 解包…');
 // ⚠️ 顺序是关键：unzip 不会自己建目录（文件头第 3 条）
 shellOrDie('mkdir -p', `mkdir -p ${REMOTE_DIR}`, /failed|not found/i);
-shellOrDie('unzip', `unzip -o ${REMOTE_RPK} -d ${REMOTE_DIR}`, /Error|aborting|failed/i);
+const unzipOutput = shellOrDie(
+  'unzip',
+  `unzip -o ${REMOTE_RPK} -d ${REMOTE_DIR}`,
+  /Error|aborting|failed/i,
+);
+
+/*
+ * 解压输出是**诊断的唯一线索**。
+ *
+ * NuttX 的 unzip 在人眼看不到的地方可能提前停下（返回 0、不报错），
+ * 所以把「解出多少个文件」打出来——出问题时一眼能看出是「没解完」。
+ */
+{
+  const extracted = (unzipOutput.match(/extracting:/g) ?? []).length;
+  console.log(`   解出 ${extracted} 个文件`);
+}
 
 // 回读确认——不信任前面任何一步的"成功"
 const listing = adb(['shell', `ls ${REMOTE_DIR}`]).trim();
@@ -147,7 +175,57 @@ if (!files.some((f) => f.includes('manifest'))) {
   console.error(`   ❌ 目录里没有 manifest.json，包不完整（${files.length} 个条目）`);
   process.exit(1);
 }
-console.log(`   确认：${files.length} 个条目，manifest.json 在`);
+
+/*
+ * ⚠️ **只数顶层条目是不够的。**
+ *
+ * `pages/` 这个目录只要存在就算过，但里面可能只解压了几个页面。
+ * 之前就是这么放过去的：设备上 pages/ 只有 5 个目录（应该 9 个），
+ * 结果应用起来白屏、且没有任何日志。
+ *
+ * 所以这里**逐个数页面**，和 manifest 里声明的路由数量对齐。
+ */
+const expectedPages = (() => {
+  try {
+    const manifest = JSON.parse(readFileSync(resolve(projectRoot, 'src/manifest.json'), 'utf8'));
+    return Object.keys(manifest.router.pages);
+  } catch {
+    return [];
+  }
+})();
+
+/*
+ * ── 用什么当证据 ────────────────────────────────────────────────────
+ *
+ * **不能用 `ls pages` 的结果。** 实测同一个包连续部署三次：
+ * unzip 每次都解出 103 个文件（完全一致），但 `ls pages` 报 9 / 9 / 5 —— 
+ * **NuttX 的目录列举在刚写完时不稳**，会漏掉已经存在的条目。
+ *
+ * 所以改用 **unzip 自己的输出**：它逐条列了 `extracting: <path>`，
+ * 从里面算出哪些页面真的落盘了。这是工具自己报的，最可信。
+ */
+const extractedPages = new Set();
+for (const line of unzipOutput.split('\n')) {
+  const match = line.match(/extracting:\s*pages\/([^/]+)\//);
+  if (match) extractedPages.add(match[1]);
+}
+
+if (expectedPages.length > 0) {
+  const missing = expectedPages
+    .map((route) => route.split('/').pop())
+    .filter((name) => !extractedPages.has(name));
+
+  if (missing.length > 0) {
+    console.error(`   ❌ 这些页面没解出来：${missing.join(', ')}`);
+    console.error('      应用起来会白屏或黑屏，dmesg 里一句日志都没有。');
+    console.error('      重新跑一次部署通常就好。');
+    process.exit(1);
+  }
+}
+
+console.log(
+  `   确认：${files.length} 个顶层条目，${extractedPages.size} 个页面，manifest.json 在`,
+);
 
 console.log('⑤ 启动…');
 spawnSync(
