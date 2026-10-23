@@ -51,6 +51,19 @@ const BAR_RIGHT = [0.615, BAR_Y];
 /** 笔画半宽，同样是归一化值（192 下相当于 15px）。 */
 const STROKE = 0.078;
 
+/**
+ * A 字标相对圆形的缩放。
+ *
+ * ⚠️ **图标是圆形的，不是方块。**
+ *
+ * 上一版画的是整块方块底，实机上显示出来是方的——手表/手环的启动器
+ * **不会帮你裁圆**，所以图形本身就得是圆的。
+ *
+ * 圆形直径 = 画布边长，A 的笔画外缘最远到半径的 88%（0.44/0.5），
+ * 再乘这个缩放把安全边距拉开一点，免得贴着圆边显得挤。
+ */
+const INNER_SCALE = 0.88;
+
 /** 点到线段的最短距离。用距离场画笔画，比拼像素判定更好控制粗细和圆角。 */
 function distanceToSegment(px, py, ax, ay, bx, by) {
   const dx = bx - ax;
@@ -71,34 +84,55 @@ function brandAt(y) {
   ];
 }
 
-/** 生成某个尺寸的 RGB 像素数据（每行前置一个过滤器字节）。 */
+/** 生成某个尺寸的 RGBA 像素数据（每行前置一个过滤器字节）。 */
 function render(size) {
   // 抗锯齿过渡宽度按尺寸缩放，小图上也不会糊
   const soft = Math.max(0.5, size / 384);
 
-  const raw = Buffer.alloc(size * (size * 3 + 1));
+  /*
+   * RGBA：每像素 4 字节。
+   * 圆外那一圈的 alpha = 0，所以启动器上看到的是**圆形**，不是方块。
+   */
+  const stride = size * 4 + 1;
+  const raw = Buffer.alloc(size * stride);
+  /** 圆的抗锯齿过渡宽度。 */
+  const edge = 1.5 / size;
+
   for (let y = 0; y < size; y += 1) {
-    const rowStart = y * (size * 3 + 1);
+    const rowStart = y * stride;
     raw[rowStart] = 0; // PNG 行过滤器：None
     for (let x = 0; x < size; x += 1) {
       const px = (x + 0.5) / size;
       const py = (y + 0.5) / size;
 
-      const legs = Math.min(
-        distanceToSegment(px, py, APEX[0], APEX[1], FOOT_LEFT[0], FOOT_LEFT[1]),
-        distanceToSegment(px, py, APEX[0], APEX[1], FOOT_RIGHT[0], FOOT_RIGHT[1]),
+      // 圆：以画布中心为心、半径为 0.5（正好内切）
+      const distFromCenter = Math.hypot(px - 0.5, py - 0.5);
+      const circleCoverage = Math.max(
+        0,
+        Math.min(1, (0.5 - distFromCenter) / edge + 0.5),
       );
-      const bar = distanceToSegment(px, py, BAR_LEFT[0], BAR_LEFT[1], BAR_RIGHT[0], BAR_RIGHT[1]);
+
+      // A 的查询点先缩放到内圈，留出安全边距
+      const sx = 0.5 + (px - 0.5) / INNER_SCALE;
+      const sy = 0.5 + (py - 0.5) / INNER_SCALE;
+
+      const legs = Math.min(
+        distanceToSegment(sx, sy, APEX[0], APEX[1], FOOT_LEFT[0], FOOT_LEFT[1]),
+        distanceToSegment(sx, sy, APEX[0], APEX[1], FOOT_RIGHT[0], FOOT_RIGHT[1]),
+      );
+      const bar = distanceToSegment(sx, sy, BAR_LEFT[0], BAR_LEFT[1], BAR_RIGHT[0], BAR_RIGHT[1]);
       const d = Math.min(legs, bar);
 
       // 覆盖度：笔画内为 1，边缘按距离平滑过渡
       const coverage = Math.max(0, Math.min(1, (STROKE - d) / (soft / size) + 0.5));
-      const fg = brandAt(py);
+      const fg = brandAt(sy);
 
-      const offset = rowStart + 1 + x * 3;
+      const offset = rowStart + 1 + x * 4;
       raw[offset] = Math.round(BACKGROUND[0] + (fg[0] - BACKGROUND[0]) * coverage);
       raw[offset + 1] = Math.round(BACKGROUND[1] + (fg[1] - BACKGROUND[1]) * coverage);
       raw[offset + 2] = Math.round(BACKGROUND[2] + (fg[2] - BACKGROUND[2]) * coverage);
+      // 圆外完全透明——这是图标看起来是圆的而不是方的关键
+      raw[offset + 3] = Math.round(circleCoverage * 255);
     }
   }
   return raw;
@@ -135,7 +169,9 @@ function toPng(size, raw) {
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
   ihdr[8] = 8; // 位深
-  ihdr[9] = 2; // 颜色类型：真彩色
+  // 颜色类型 6 = RGBA。**必须带 alpha**，否则圆外那一圈没法透明，
+  // 图标在启动器上还是会显示成方块。
+  ihdr[9] = 6;
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk('IHDR', ihdr),

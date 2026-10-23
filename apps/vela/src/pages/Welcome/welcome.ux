@@ -42,8 +42,10 @@
             二维码必须白底黑码，深色底上扫不出来。
             没配链接时这一块不渲染，只显示群号。
           -->
-          <div class="qr" if="{{ groupQr }}">
-            <qrcode value="{{ groupQr }}"></qrcode>
+          <div class="qr-wrap" if="{{ groupQr }}">
+            <div class="qr">
+              <qrcode value="{{ groupQr }}"></qrcode>
+            </div>
           </div>
           <text class="group">{{ groupNumber }}</text>
         </block>
@@ -189,15 +191,25 @@
    * 如果实测还是扫不出来，换短链：
    *   https://qm.qq.com/cgi-bin/qm/qr?k=<authKey>
    * 只有约 110 字符，模块数少一半，扫起来稳得多。
+   *
+   * ── 为什么外面再包一层 .qr-wrap ────────────────────────────────
+   * 上一版用 `align-self: center` 让二维码居中，**实机上没居中** ——
+   * 说明这个属性在这台设备上不可靠。
+   * 改成外层行容器 + `justify-content: center`，这是确定生效的写法。
    */
+  .qr-wrap {
+    width: 100%;
+    flex-direction: row;
+    justify-content: center;
+    margin-top: @ui-space-1;
+  }
+
   .qr {
     width: 260px;
     height: 260px;
     padding: 10px;
-    margin-top: @ui-space-1;
     border-radius: @ui-radius-md;
     background-color: #ffffff;
-    align-self: center;
   }
 
   .actions {
