@@ -1,64 +1,94 @@
-# 下周开发计划（改版）
+# 下周开发计划
 
 > 时间窗：**周五 16:00 之后 / 周六全天 / 周日 15:00 之前**（约 15–18h）
 >
-> 方向变更：手环 10 Pro 直接复用 RW 布局（已确认），但**没有网络**，
-> 所以要开 Android 端。同时补离线缓存和谱面物量查询。
+> **重大变更**：Android 网桥暂时不做了，改用 **AstroBox 插件** 做过渡。
+> 查证结果见下面「AstroBox 插件方案」。
 
 ---
 
-## 先说三个前置事实（会直接影响排期）
+## AstroBox 插件方案（取代短期内的 Android 网桥）
 
-### ① BLE 网桥技术上可行 —— 已验证
+### 结论：走得通，而且比 Android 方案轻一个量级
 
-Vela 有**完整的 GATT 客户端**（官方 `@system.bluetooth.ble`）：
+AstroBox 插件是 **WebAssembly（WASI Preview 3）** 模块，跑在**手机上的 AstroBox 宿主**里。
+它有一组 Host API，其中 `interconnect` 决定了我们能不能这么干。
 
-```
-createScanner()              → 扫描
-createGattClientDevice(addr) → 连接 / getServices / read / write
-subscribeBLECharacteristicChange → 订阅上报
-```
-
-所以「手环 → 手机 → 服务器」这条路是通的：
+### 关键接口：`interconnect`（**能用**）
 
 ```
-手环 QuickApp（GATT client，central）
-      ↓ BLE
-Android App（GATT server，peripheral）
-      ↓ HTTP
-我们的服务器
+interface interconnect {
+    send-qaic-message: func(device-addr: string, pkg-name: string, data: string)
+        -> future<result>;
+}
 ```
 
-**但有个未验证项**：手环的 Vela 运行时**是否真的暴露 `@system.bluetooth.ble`**。
-手表上应该有，手环上不一定。**这必须第一个验。**
+- 参数：设备地址 + **快应用包名** + **字符串**（JSON / JSON-RPC 文本）
+- 双向：插件侧先 `register-interconnect-recv`，再在事件里收 `interconnect-message`
+- 宿主按「设备地址 + 包名」精确匹配，把收到的字符串原样派发
 
-### ② 这台机器能构建 Android，但有两个坑要先填
+**这和 Vela 端的 `@system.interconnect` 是同一个通道**（官方文档里它就在「网络访问」分类下）。
+链路是：
 
 ```
-java        16.0.2（PATH 上这个）  ⚠️ 太老
-JAVA_HOME   D:\Minecraft\MCServer\zulu21  ✅ JDK 21，能用
-gradle 9.0  ✅ 有（但 AGP 不支持 9.x，要用 wrapper 锁 8.x）
-adb         ✗ 没有系统版本（Vela SDK 里那份只能连 Vela 设备）
-sdkmanager  ✗ 没有
-ANDROID_HOME ✗ 空
-Android Studio ✗ 没装
-磁盘        C: 37.7 GB 可用 / D: 16.9 GB 可用  ✅ 够
+手环/手表  Vela App（@system.interconnect，发 JSON 字符串）
+     ↕
+手机       AstroBox 插件（WASM，有网络能力）
+     ↕ HTTPS
+我们的服务器（插件只管转发，不碰落雪密钥）
 ```
 
-**坑 1：PATH 上的 java 是 16**，而 AGP 8.x 要求 **JDK 17+**。
-必须显式用 `JAVA_HOME` 里那个 Zulu 21，或把 PATH 改掉——
-否则报错会是 `Unsupported class file major version` 之类，很难一眼看出是 JDK 版本问题。
+### ⚠️ 一个坑：`transport` 是占位状态，别用
 
-**坑 2：系统 Gradle 是 9.0**，而当前 AGP 还不支持 Gradle 9。
-必须用 **Gradle wrapper 锁到 8.x**，不要用 `gradle` 命令直接构建。
+官方原文：
 
-要构建 Android 还得装 **Android SDK cmdline-tools + platform + build-tools**
-（下载量约 2–4 GB）。**这是个明确的决定点**，不是能悄悄做掉的。
+> `send` / `request` 目前不要当作稳定可用的数据通道
 
-### ③ 手环复用 RW 布局这件事省了很多事
+并且明确说：「如果你要和设备上的快应用做实际应用层通信，
+当前应优先使用 **Interconnect**」。
 
-不用新设计一套窄长屏布局 ✓ 但**布局能复用不代表能用**——
-没有网络的话，手环上每个页面都会转圈到超时。
+所以**不要**被 `transport` 那个看起来更底层的接口吸引——它还没实现。
+
+### 为什么比 Android 方案好
+
+| | AstroBox 插件 | Android 网桥 |
+|---|---|---|
+| 要不要装 Android SDK | ❌ 不用 | ✅ 要，2–4 GB |
+| 要不要写 BLE GATT server | ❌ 不用 | ✅ 要 |
+| 开发语言 | **JS / Python 官方支持** | Kotlin |
+| 分发 | 走 AstroBox 插件市场 | 自己发 APK |
+| 用户要不要另装东西 | ❌ 装我们 App 时就有 AstroBox | ✅ 要再装一个 App |
+
+**最后一条最关键**：手环用户是用 AstroBox 装的我们的 App，
+所以**他们手机上本来就有 AstroBox**——插件是零额外安装成本。
+
+### 四个必须先验的未知项
+
+1. **手环/手表的 Vela 运行时有没有 `@system.interconnect`**
+   —— 和 BLE 那个是同一类未知。**这是阻断项。**
+2. **消息大小上限**
+   —— 一份 B50 的 JSON 有十几 KB，如果单条消息有 MTU 限制，
+   **必须设计分片**（`{seq, total, chunk}`）。
+3. **AstroBox 要不要在前台**
+   —— 如果插件只在 AstroBox 打开时运行，那"同步"就不是即时的，
+   用户得先开 AstroBox 再看表。
+4. **插件审核 / 上架流程**
+   —— 要不要审核、多久、有什么限制。
+
+### 最小可行插件（MVP）的形状
+
+```
+请求： { id, action: 'b50', game: 'maimai', code: '123...' }
+响应： { id, ok: true, data: <我们的 /api/v1/... 返回> }
+```
+
+**插件里不碰落雪密钥**——它只转发到我们的服务器，
+密钥始终只在服务端。这一点和现在 `apps/server` 的设计一致。
+
+### 这条路顺带解决了什么
+
+**「同步」功能终于能放出来了。** 它现在因为「服务端是裸 IP、绑不了域名」关着，
+而插件方案里**根本不需要那个域名**——插件直连 IP 就行。
 
 ---
 
@@ -95,71 +125,66 @@ Android Studio ✗ 没装
 
 ---
 
-## 周六全天（9h）· 主题：两个不依赖 Android 的功能
+## 周六全天（9h）· 主题：插件可行性验证 + 两个独立功能
 
-**为什么先做这两个**：它们在手表端就能完成、能立刻验证、
-而且**手环没有网络时也还有价值**（离线缓存）。
+### 4. interconnect 能力验证（1.5h）· **阻断项**
 
-### 4. 谱面物量查询（3h）
+写一个最小的 Vela 测试页：调 `@system.interconnect` 发一条消息，看能不能通。
 
-LXNS 的曲库接口带 `notes`（`notes=1`），服务端已经有这个字段。
-要做的是**在手表上展示**：
+- 通 → 下午写插件 MVP
+- 不通 → 退回 Android 方案（见文末）
 
-- Song 页加一个「物量」区块：TAP / HOLD / SLIDE / TOUCH / BREAK
-- 加总数和「每秒钟物量」（需要曲长）
-- 中二同理（它的物量形状不同，要单独看）
+### 5. AstroBox 插件 MVP（3h）
 
-### 5. 离线缓存（3h）
+- 用 **JavaScript**（官方 Level 4 支持）写，不引 Rust 工具链
+- 只做一件事：收请求 → 转我们服务器 → 回结果
+- **按分片设计**，即使一开始没撞到大小限制
 
-**这是手环场景的核心**——没有网的时候至少能看上次的数据。
+### 6. 谱面物量查询（2.5h）
 
-- 查完成绩后把结果存一份（带时间戳）
-- 查询失败 / 无网络时，回退到缓存并**标注数据时间**
-- 曲库也缓存一份（曲名搜索没有网也能用）
+LXNS 曲库带 `notes`，`MaimaiNotes { total, tap, hold, slide, touch, break }`
+已经在 core 里，只是没在手表上展示。
 
-> Phigros 那个「会话过期显示旧数据」的逻辑已经写好（`showCachedPhigros`），
-> 这次把它推广成**通用的缓存层**，不要每个游戏各写一套。
+- Song 页加物量区块
+- 中二的物量形状不同，要单独看
 
-### 6. 手环 BLE 能力验证（1h）· **阻断项**
+### 7. 离线缓存（2h）
 
-在真手环上试：`@system.bluetooth.ble` 能不能 require 到、能不能开始扫描。
+**手环场景的核心**——没网的时候至少能看上次的数据。
 
-- 通 → 周日做 Android 网桥有戏
-- 不通 → **Android 端的定位要改**（见下）
-
-### 7. 回归 + 发 v0.1.2（2h）
+- 查完存一份（带时间戳）
+- 失败 / 无网时回退到缓存，并**标注数据时间**
+- 推广成**通用缓存层**，不要每个游戏各写一套
+  （Phigros 的 `showCachedPhigros` 已经是雏形）
 
 ---
 
-## 周日 15:00 之前（4h）· 主题：Android 起步
+## 周日 15:00 之前（4h）· 主题：收尾 + 发版
 
-### 如果 6 通过（手环有 BLE）
+### 8. 回归（1.5h）
 
-**装 SDK + 出一个能跑的 GATT server 空壳**。不做功能，只证明链路通：
+- [ ] 三个游戏各查一次
+- [ ] 曲目搜索
+- [ ] Phigros 扫码
+- [ ] 切游戏 → 首页菜单跟着变
+- [ ] 圆屏模拟器过一遍
 
-- [ ] 装 cmdline-tools + platform + build-tools
-- [ ] 建工程（Gradle wrapper 锁 8.x，AGP 8.x）
-- [ ] 实现一个 BLE peripheral，暴露一个 service + 两个 characteristic（读/写）
-- [ ] 手环上写一句、手机上收到，再回一句话
+### 9. 发 v0.1.2（1h）
 
-**这一步通了，整个架构就成立了**；不通的话后面全是空中楼阁。
+升版本号 → release → 传商店。**如果 OOBE 有问题就不发**。
 
-### 如果 6 不通过（手环没有 BLE）
+### 10. 备用时间（1.5h）
 
-那 Android 端的定位要换成**独立 App**（不是网桥）：
-
-- 手机上直接查分、看 B50、搜曲目
-- 手环上只做「展示缓存」——用户先在手机上看一次，手环同步
-
-这种情况下周日的目标是：装 SDK + 出空壳 APK + 跑通网络请求。
+留给上面任何一项超时。
 
 ---
 
 ## 时间不够时的砍法（按顺序）
 
 1. **砍第 2 条**（OOBE 视觉）→ 文案改了也能发
-2. **砍第 4 条**（物量查询）→ 纯加法，不影响现有功能
-3. **绝对不砍**：第 3 条（OOBE 真机验）、第 6 条（BLE 验证）
+2. **砍第 6 条**（物量查询）→ 纯加法，不影响现有功能
+3. **砍第 7 条**（离线缓存）→ 但有风险：手环没网时体验会很差
+4. **绝对不砍**：第 3 条（OOBE 真机验）、第 4 条（interconnect 验证）
 
 ---
 
@@ -167,25 +192,29 @@ LXNS 的曲库接口带 `notes`（`notes=1`），服务端已经有这个字段�
 
 | 事项 | 为什么 |
 |---|---|
-| **Android 完整功能** | 周日只有 4h，只够把环境跑通 |
+| **Android App** | 插件方案更轻，先验证插件够不够用 |
 | **手环专用布局** | 用户已确认直接复用 RW |
 | **osu 曲目搜索** | 是另一个功能 |
-| **同步功能** | 卡服务器 |
 | **新游戏（太鼓 / PJSK）** | 先把现有的做扎实 |
 
 ---
 
-## 需要你先定的两件事
+## 如果 interconnect 验不通（退回 Android）
 
-1. **要不要在这台机器上装 Android SDK**（2–4 GB）。
-   不装的话我就写不了 Android 代码，只能给你方案和代码片段。
-2. **如果手环没有 BLE**，Android 端走「独立 App」还是「继续找别的桥」？
+那就回到原计划：装 Android Studio + SDK，写 BLE GATT server。要点：
+
+- **Vela 有完整 GATT 客户端**（`@system.bluetooth.ble`）：扫描 / 连接 / 读写特征 / 订阅
+- 这台机器目前**没有 Android SDK**；PATH 上的 java 是 **16**（AGP 8.x 要 **17+**），
+  `JAVA_HOME` 里的 Zulu 21 能用；系统 Gradle **9.0** 要锁到 **8.x**
+- 装 Android Studio 是最省事的（SDK / JDK / Gradle / 模拟器一次装齐）
+- 外接盘：`ANDROID_HOME` + AVD 镜像放外接盘；
+  **Gradle 缓存放内置盘**（热路径，且构建中途拔盘会搞坏工程状态）
 
 ---
 
-# 附：非小米穿戴设备（后面的事，但方向要先定）
+# 附：非小米穿戴设备（更后面的事）
 
-结论先说：**这三条路的技术栈完全不一样，不是「适配」，是「各写一个端」。**
+结论先说：**这几条路的技术栈完全不一样，不是「适配」，是「各写一个端」。**
 
 ## 华为手表 —— 分两种情况，差别是生死级的
 
@@ -198,60 +227,39 @@ HarmonyOS NEXT 把 Android 运行时整个移除了，APK 装不上，
 报错是「不兼容当前系统」。
 
 所以「适配华为」这句话，**必须先问清楚目标机型跑的是哪个系统**。
-如果是 NEXT，那就是一个 ArkTS 项目，和 Android 那套没有代码复用。
 
 ## Apple Watch —— Windows 上做不了
 
 | 门槛 | 情况 |
 |---|---|
-| 开发环境 | **Xcode 只能在 macOS 上跑**。Windows 上装不了 |
+| 开发环境 | **Xcode 只能在 macOS 上跑** |
 | 语言 | Swift / SwiftUI，和 Kotlin 没有复用 |
 | 上架 | Apple Developer 账号 **$99/年** |
-| 分发 | 没有侧载。必须走 TestFlight 或 App Store 审核 |
-| 设备 | 手表端要么直连网络（蜂窝版），要么通过 iPhone App 中转 |
+| 分发 | 没有侧载，必须走 TestFlight 或 App Store 审核 |
+| 设备 | 要么蜂窝版直连，要么通过 iPhone App 中转 |
 
 **这不是「适配」，是一个独立项目**，而且需要一台 Mac + 年费。
 
 ## 建议的顺序
 
 ```
-1. Android（现在）
-     ↓ 先把一套跑通、把 core 复用验证过
-2. 华为（HarmonyOS 4 机型）
-     ↓ 如果 Android 端能直接装，成本接近 0
-3. 华为（HarmonyOS NEXT 机型）
-     ↓ 只在「确实有 NEXT 用户」时才做
-4. Apple Watch
-     ↓ 只在「愿意买 Mac + 付年费 + 有 Mac 开发环境」时才做
+1. AstroBox 插件          ← 现在，最轻，先验证能不能跑通
+2. Android（如果需要）    ← 插件不够用时的正式方案
+3. 华为 HarmonyOS 4 机型  ← Android 端可能直接装，成本接近 0
+4. 华为 NEXT 机型         ← 只在「确实有 NEXT 用户」时才做
+5. Apple Watch            ← 只在「愿意买 Mac + 付年费」时才做
 ```
 
 ## 关键：不要把逻辑写进各端的 UI 层
 
-我们现在有一个天然优势 —— **`packages/core` 是零依赖的纯逻辑**
-（rating 计算、B50 组装、格式化、二维码），Web / Vela / 服务端都在复用它。
+**`packages/core` 是零依赖的纯逻辑**（rating 计算、B50 组装、格式化、二维码），
+Web / Vela / 服务端都在复用它。
 
-将来 Android（Kotlin）和 HarmonyOS（ArkTS）**用不了这份 TS**，
-但可以：
+将来 Android（Kotlin）、HarmonyOS（ArkTS）、AstroBox 插件（WASM）
+**用不了这份 TS**，但可以：
 
-- **服务端承担所有业务逻辑**（现在已经是这样：网关返回「视图」，客户端只渲染）
-- 各端只做「取数据 + 画界面」
+- **服务端承担所有业务逻辑**（现在已经是：网关返回「视图」，客户端只渲染）
+- 各端只做「取数据 + 画界面 / 转发」
 
-**这条边界要守住**：一旦为了某个端方便，把计算挪到客户端，
+**这条边界要守住**：一旦为了某个端方便把计算挪到客户端，
 将来每加一个端就要重写一遍。
-
-## 关于 Android Studio + 外接硬盘
-
-Android Studio 是**对的选择**：它把 SDK / JDK / Gradle / 模拟器一次性装齐，
-正好绕开前面查到的两个坑（JDK 16 太老、Gradle 9 太新）。
-
-外接硬盘上的目录规划建议：
-
-| 放外接盘 | 放内置盘 |
-|---|---|
-| `ANDROID_HOME`（SDK，~10 GB） | 项目本身 |
-| AVD 系统镜像（~10 GB） | `GRADLE_USER_HOME`（缓存，热路径） |
-
-**为什么 Gradle 缓存不放外接盘**：每次构建都要频繁读写它，
-USB 延迟会让构建慢一个量级；而且**构建中途拔盘会直接把工程状态搞坏**。
-
-⚠️ 外接盘必须是 **NTFS**（exFAT 能用但更慢）。如果是 USB 2.0，模拟器基本没法用。
