@@ -1,78 +1,62 @@
 <template>
   <div class="page-root">
     <div class="page">
-      <!-- 进度用文字而不是圆点：小屏上圆点几乎看不见 -->
       <text class="progress">{{ step + 1 }} / {{ total }}</text>
 
-      <!-- ── 1. 欢迎 ─────────────────────────────────────────────── -->
-      <block if="{{ page === 'welcome' }}">
-        <text class="hero">AstraMai</text>
-        <text class="lead">功能全面的腕上音游工具</text>
-        <text class="body">舞萌 DX · 中二节奏 · Phigros</text>
-        <text class="body body--dim">欢迎加入用户群</text>
-        <text class="group group--inline">{{ groupNumber }}</text>
-      </block>
+      <!--
+        内容区：**flex: 1，垂直居中**。
+        不用 <scroll>、不用 margin-top: auto ——
+        这两个是上一版布局炸掉最可能的原因（scroll 没高度、auto margin 不生效）。
+      -->
+      <div class="content">
+        <!-- ── 1. 欢迎 ─────────────────────────────────────────── -->
+        <block if="{{ page === 'welcome' }}">
+          <text class="hero">AstraMai</text>
+          <text class="lead">帮你在手表上看音游成绩</text>
+          <text class="body">舞萌 · 中二 · Phigros</text>
+        </block>
 
-      <!-- ── 2. 用户协议 ─────────────────────────────────────────── -->
-      <block if="{{ page === 'terms' }}">
-        <text class="lead">用户协议</text>
-        <text class="body body--dim">{{ termsSummary }}</text>
-        <!-- 协议必须可滚动：手表一屏放不下任何一份协议 -->
-        <scroll class="terms" scroll-y="true">
-          <div class="terms__section" for="{{ termsSections }}">
-            <text class="terms__title">{{ $item.title }}</text>
-            <text class="terms__body">{{ $item.body }}</text>
+        <!-- ── 2. 协议 ─────────────────────────────────────────── -->
+        <block if="{{ page === 'terms' }}">
+          <text class="lead">几句话说清楚</text>
+          <div class="points">
+            <div class="point" for="{{ termsPoints }}">
+              <text class="point__title">{{ $item.title }}</text>
+              <text class="point__body">{{ $item.body }}</text>
+            </div>
           </div>
-        </scroll>
-      </block>
+          <text class="body body--dim">{{ termsFootnote }}</text>
+        </block>
 
-      <!-- ── 3. 配对 ─────────────────────────────────────────────── -->
-      <block if="{{ page === 'pairing' }}">
-        <text class="lead">要不要配对？</text>
-        <text class="body">
-          eSIM 手表（比如 REDMI Watch 5 eSIM）自己能联网，
-          <text class="body--strong">不需要配对</text>。
-        </text>
-        <text class="body body--dim">
-          其它设备要靠手机中转，这个功能还在做。
-          现在可以先去用，以后能补。
-        </text>
-      </block>
+        <!-- ── 3. 配对 ─────────────────────────────────────────── -->
+        <block if="{{ page === 'pairing' }}">
+          <text class="lead">你的手表能自己上网吗？</text>
+          <text class="body">eSIM 版（像 REDMI Watch 5 eSIM）能自己联网，这步不用管。</text>
+          <text class="body body--dim">其它的得靠手机中转，那个功能还在做，先往下走就行。</text>
+        </block>
 
-      <!-- ── 4. 教程 ─────────────────────────────────────────────── -->
-      <block if="{{ page === 'tutorial' }}">
-        <text class="lead">三步上手</text>
-        <scroll class="tutorial" scroll-y="true">
-          <div class="tutorial__step" for="{{ tutorialSteps }}">
-            <!-- 有图就显示图，没图自动退化成纯文字 -->
-            <image class="tutorial__image" if="{{ $item.image }}" src="{{ $item.image }}"></image>
-            <text class="tutorial__title">{{ $item.title }}</text>
-            <text class="tutorial__body">{{ $item.body }}</text>
+        <!-- ── 4. 群 ───────────────────────────────────────────── -->
+        <block if="{{ page === 'community' }}">
+          <text class="lead">如遇问题欢迎加入交流群！</text>
+          <!--
+            二维码必须白底黑码，深色底上扫不出来。
+            没配链接时这一块不渲染，只显示群号。
+          -->
+          <div class="qr" if="{{ groupQr }}">
+            <qrcode value="{{ groupQr }}"></qrcode>
           </div>
-        </scroll>
-      </block>
+          <text class="group">{{ groupNumber }}</text>
+        </block>
 
-      <!-- ── 5. 群二维码 ─────────────────────────────────────────── -->
-      <block if="{{ page === 'community' }}">
-        <text class="lead">加个群吧</text>
-        <!--
-          二维码必须白底黑码，深色底上扫不出来。
-          没配 QQ_GROUP_KEY 时这一块不渲染，只显示群号。
-        -->
-        <div class="qr" if="{{ groupQr }}">
-          <qrcode value="{{ groupQr }}"></qrcode>
-        </div>
-        <text class="group">{{ groupNumber }}</text>
-        <text class="body body--dim">更新、修复、新功能都会发在群里</text>
-      </block>
+        <!-- ── 5. 完成 ─────────────────────────────────────────── -->
+        <block if="{{ page === 'done' }}">
+          <text class="lead">好，可以开始了</text>
+          <text class="body">去首页点「Best 50」，填一次好友码或 QQ 号。</text>
+          <text class="body body--dim">填过就记住了，下次直接看。</text>
+        </block>
+      </div>
 
-      <!-- ── 6. 完成 ─────────────────────────────────────────────── -->
-      <block if="{{ page === 'done' }}">
-        <text class="hero hero--small">准备就绪</text>
-        <text class="body">去首页点「Best 50」，填一次好友码或 QQ 号</text>
-        <text class="body body--dim">填过一次就会记住，下次直接看</text>
-      </block>
-
+      <!-- 按钮固定在底部：父容器列方向 + 固定高度，不靠 auto margin -->
       <div class="actions">
         <div class="action" @click="next">
           <text class="action__text action__text--filled">{{ primaryLabel }}</text>
@@ -86,13 +70,17 @@
   @import '../../common/theme-tokens.less';
 
   /*
-   * 首次启动引导（OOBE）。**六步，没有跳过键。**
+   * 首次启动引导。五步，没有跳过键。
    *
-   * ── 为什么每一屏只讲一件事 ──────────────────────────────────────
+   * ── 布局只有三层，尽量少用不被支持的特性 ──────────────────────
    *
-   * 手表屏幕 466px，一屏塞两段话就没人看。所以：
-   *   欢迎 → 协议 → 配对 → 教程 → 群 → 完成
-   * 每屏一个大标题 + 最多三行正文。
+   *   .page-root  全幅
+   *   .page       列方向
+   *   .content    flex: 1（内容居中）
+   *   .actions    固定高度（按钮在底部）
+   *
+   * **刻意没用 `<scroll>`**：没有明确高度时它会把父容器撑开，
+   * 上一版就是这里炸的。现在每屏内容都短到一屏放得下。
    */
 
   .page-root {
@@ -115,27 +103,30 @@
     font-size: @ui-font-caption;
     color: @ui-on-surface-muted;
     text-align: center;
-    margin-bottom: @ui-space-2;
+    lines: 1;
+  }
+
+  /* 内容区：吃掉剩余高度，内容垂直居中 */
+  .content {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .hero {
-    font-size: 38px;
+    font-size: 40px;
     font-weight: bold;
     color: @ui-primary;
     text-align: center;
     lines: 1;
-    margin-top: @ui-space-3;
-  }
-
-  .hero--small {
-    font-size: 30px;
   }
 
   .lead {
-    font-size: @ui-font-title;
+    font-size: @ui-font-headline;
     color: @ui-on-surface;
     text-align: center;
-    margin-top: @ui-space-3;
+    margin-top: @ui-space-2;
     lines: 2;
   }
 
@@ -151,12 +142,36 @@
     color: @ui-on-surface-muted;
   }
 
-  .body--strong {
+  /* 协议三条 */
+  .points {
+    flex-direction: column;
+    width: 100%;
+    margin-top: @ui-space-2;
+  }
+
+  .point {
+    flex-direction: column;
+    margin-bottom: @ui-space-2;
+  }
+
+  .point__title {
+    font-size: @ui-font-label;
+    font-weight: bold;
     color: @ui-primary;
+    text-align: center;
+    lines: 1;
+  }
+
+  .point__body {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-variant;
+    text-align: center;
+    margin-top: 1px;
+    lines: 2;
   }
 
   .group {
-    font-size: @ui-font-headline;
+    font-size: @ui-font-title;
     font-weight: bold;
     color: @ui-primary;
     text-align: center;
@@ -164,131 +179,72 @@
     lines: 1;
   }
 
-  .group--inline {
-    margin-top: @ui-space-1;
-  }
-
-  /* 协议：可滚动，高度吃满剩余空间 */
-  .terms {
-    flex: 1;
-    width: 100%;
-    margin-top: @ui-space-2;
-  }
-
-  .terms__section {
-    flex-direction: column;
-    margin-bottom: @ui-space-3;
-  }
-
-  .terms__title {
-    font-size: @ui-font-label;
-    font-weight: bold;
-    color: @ui-primary;
-    lines: 1;
-  }
-
-  .terms__body {
-    font-size: @ui-font-caption;
-    color: @ui-on-surface-variant;
-    margin-top: 2px;
-  }
-
-  /* 教程 */
-  .tutorial {
-    flex: 1;
-    width: 100%;
-    margin-top: @ui-space-2;
-  }
-
-  .tutorial__step {
-    flex-direction: column;
-    margin-bottom: @ui-space-3;
-    padding: @ui-space-2;
-    border-radius: @ui-radius-md;
-    background-color: @ui-surface-card;
-  }
-
-  .tutorial__image {
-    width: 100%;
-    height: 120px;
-    border-radius: @ui-radius-sm;
-    margin-bottom: @ui-space-1;
-  }
-
-  .tutorial__title {
-    font-size: @ui-font-label;
-    font-weight: bold;
-    color: @ui-on-surface;
-    lines: 1;
-  }
-
-  .tutorial__body {
-    font-size: @ui-font-caption;
-    color: @ui-on-surface-variant;
-    margin-top: 2px;
-  }
-
-  /* 二维码：白底 + 静区，深色底上扫不出来 */
+  /*
+   * 二维码：白底 + 静区，**尺寸给足**。
+   *
+   * 群分享链接有 439 个字符，二维码会到 65×65 模块左右。
+   * 容器 160px 时每个模块只剩约 2px —— **手机基本扫不出来**。
+   * 260px（减去 10px 静区 = 240px）大约是 3.7px/模块，是能扫的下限。
+   *
+   * 如果实测还是扫不出来，换短链：
+   *   https://qm.qq.com/cgi-bin/qm/qr?k=<authKey>
+   * 只有约 110 字符，模块数少一半，扫起来稳得多。
+   */
   .qr {
-    width: 180px;
-    height: 180px;
-    padding: 8px;
-    margin-top: @ui-space-2;
+    width: 260px;
+    height: 260px;
+    padding: 10px;
+    margin-top: @ui-space-1;
     border-radius: @ui-radius-md;
     background-color: #ffffff;
     align-self: center;
   }
 
   .actions {
+    width: 100%;
     flex-direction: row;
     justify-content: center;
-    margin-top: auto;
-    padding-top: @ui-space-3;
+    height: 72px;
   }
 </style>
 
 <script>
-  const { community, games, legal, navigation, store, tutorial } = global.AstraMai;
+  const { community, games, legal, navigation, store } = global.AstraMai;
   const { groupNumber, groupUrl } = community;
-  const { TERMS_SECTIONS, TERMS_SUMMARY, TERMS_VERSION, TERMS_KEY } = legal;
-  const { TUTORIAL_STEPS } = tutorial;
-  const { GAMES, gameById, readCurrentGame, writeCurrentGame } = games;
+  const { TERMS_POINTS, TERMS_FOOTNOTE, TERMS_VERSION, TERMS_KEY } = legal;
+  const { readCurrentGame, writeCurrentGame } = games;
   const { push } = navigation;
   const { readSetting, warmUp, writeSetting } = store;
 
   /**
-   * 六步，写死顺序。
+   * 五步，顺序写死。
    *
-   * **和上一版的区别：没有"跳过"，也不再有动态生成的步骤。**
-   * 上一版会根据有没有配群号增减步骤，结果两个用户看到的流程不一样，
-   * 出问题时很难判断他在第几步。现在固定六步。
+   * 上一版按「有没有配群号」动态增减步骤，结果不同用户看到的流程不一样，
+   * 出问题时很难判断他在第几步。现在固定。
    */
-  const STEPS = ['welcome', 'terms', 'pairing', 'tutorial', 'community', 'done'];
+  const STEPS = ['welcome', 'terms', 'pairing', 'community', 'done'];
 
   /**
    * ⚠️ **引导"弹过"的标记，不是"走完"的标记。**
    *
-   * 上一版只在最后一步（或跳过）才写 `oobeDone`，于是：
-   * 用户中途退出 / 杀掉应用 / 走不完六步 → 标记没写 → 下次又弹。
-   * **这正是"每次打开都跳出来"的原因。**
+   * 上一版只在最后一步才写 `oobeDone`，用户中途退出就白写了，
+   * 于是**每次启动都弹** —— 这是我上一版犯的错。
    *
-   * 现在改成在页面加载时就写 `oobeShown`——
+   * 现在在 `onInit` 里第一件事就写 `oobeShown`，
    * 语义是「已经给他看过引导了」，而不是「他看完了」。
-   * 想再看到只需要清掉这一个键。
    */
   const SHOWN_KEY = 'oobeShown';
 
-  /** 走完了的标记，只用于统计/以后判断要不要补看。 */
+  /** 走完了的标记，只用于统计。 */
   const COMPLETED_KEY = 'oobeCompleted';
 
-  /** 每一步的主按钮文案。都带动作，不是状态确认。 */
+  /** 每步的按钮文案：都带动作，不是状态确认。 */
   const PRIMARY_LABELS = {
-    welcome: '继续',
-    terms: '同意并继续',
-    pairing: '我的手表能自己联网',
-    tutorial: '看完了',
-    community: '加好了',
-    done: '开始使用',
+    welcome: '开始吧',
+    terms: '没问题',
+    pairing: '我的是 eSIM',
+    community: '进群看看',
+    done: '用起来',
   };
 
   export default {
@@ -299,9 +255,8 @@
       selected: 'maimai',
       groupNumber: '',
       groupQr: '',
-      termsSummary: TERMS_SUMMARY,
-      termsSections: TERMS_SECTIONS,
-      tutorialSteps: TUTORIAL_STEPS,
+      termsPoints: TERMS_POINTS,
+      termsFootnote: TERMS_FOOTNOTE,
       primaryLabel: PRIMARY_LABELS.welcome,
     },
 
@@ -309,10 +264,8 @@
       console.debug('[AstraMai] Welcome onInit');
 
       /*
-       * **第一件事就是写下"已经看过"。**
-       *
-       * 放在最前面、在做任何异步操作之前——
-       * 这样即使用户在这之后立刻杀进程，下次也不会再弹。
+       * **第一件事就写下"已经看过"。**
+       * 放在任何异步之前——这样即使用户三秒后杀掉进程，下次也不会再弹。
        */
       try {
         writeSetting(SHOWN_KEY, '1');
@@ -320,10 +273,9 @@
         console.warn('[AstraMai] 写引导标记失败：', error);
       }
 
-      warmUp(['currentGame', SHOWN_KEY])
+      warmUp(['currentGame'])
         .then(() => {
-          const current = readCurrentGame(readSetting);
-          this.selected = current;
+          this.selected = readCurrentGame(readSetting);
           this.groupNumber = groupNumber();
           this.groupQr = groupUrl();
         })
@@ -331,10 +283,8 @@
     },
 
     next() {
-      const current = this.page;
-
-      // 在协议页点「同意」时把版本号记下来
-      if (current === 'terms') {
+      // 在协议页点「没问题」时把版本号记下来
+      if (this.page === 'terms') {
         try {
           writeSetting(TERMS_KEY, TERMS_VERSION);
         } catch (error) {
@@ -359,7 +309,6 @@
       } catch (error) {
         console.warn('[AstraMai] 保存引导结果失败：', error);
       }
-      // push 而不是 replace：引导页不留在返回栈里，返回就直接回桌面
       push('/');
     },
   };
