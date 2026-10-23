@@ -1,45 +1,47 @@
 """
 AstraMai · AstroBox 网桥插件
 
-把「手表上的 AstraMai」和「我们的查分服务器」接起来。
+把「手表/手环上的 AstraMai」和「我们的查分服务器」接起来。
 
 ────────────── 为什么需要它 ──────────────────────────────────────────
 
 手环（比如小米手环 10 Pro）的 Vela 运行时**没有网络能力**，
-它只能用蓝牙跟手机/电脑通信。
-
-AstroBox 桌面版（Tauri）跑在电脑上，插件在里面跑 —— 于是链路是：
+它只能用蓝牙通信。而 AstroBox 的插件能通过 interconnect 跟设备双向通信。
 
     Vela App（@system.interconnect，发 JSON 字符串）
          ↕
-    AstroBox 插件（本文件，跑在电脑上，能上网）
+    AstroBox 插件（本文件）
          ↕ HTTP
     我们的服务器
 
 手表（REDMI Watch 5 eSIM）自己能上网，不需要这个插件。
 
-────────────── 关键接口（都来自宿主 WIT）────────────────────────────
+────────────── 网络：靠**应用内浏览器**，不是 socket ──────────────────
 
-    register.register_interconnect_recv(addr, pkg)   订阅某个快应用的消息
-    interconnect.send_qaic_message(addr, pkg, data)  往快应用发字符串
-    Event.on_event('interconnect-message', payload)  收到消息
-    ui.render(element_id, element_tree)              画界面
+这是本插件最反直觉的一点，前后踩了三层坑：
 
-`transport` 接口在宿主里是**占位状态**，官方明写不要当数据通道用。
+  ① `urllib` / `http.client` / `socket.create_connection` 全都走
+     `getaddrinfo`，而 WASI 的 `getaddrinfo` 是个不通的桩：
+         gaierror: [Errno -4] Non-recoverable error
+     明明是 IP 字面量也炸。
 
-────────────── 网络这一层踩过的坑（重要）──────────────────────────────
+  ② 于是改成裸 socket：
+         sock.connect(('101.132.148.117', 8787))
+     结果：
+         PermissionError: [Errno 2] Permission denied      ← EACCES
 
-**不能用 `urllib` / `http.client` / `socket.create_connection`。**
-它们全都会走 `getaddrinfo`，而 WASI 的 `getaddrinfo` 是个不通的桩：
+     **宿主根本不允许出站连接。** `wasi:sockets` / `wasi:http` 虽然在
+     wasm 的 import 段里，但宿主实例化时没给这个能力。
 
-    gaierror: [Errno -4] Non-recoverable error
+  ③ 所以改用 `browser` 接口 —— 那是**真的 WebView**，有完整网络栈：
 
-明明是 IP 字面量（`101.132.148.117`），压根不需要解析域名，照样炸。
+         id = browser.open(url=SERVER_BASE, ...)
+         browser.eval(id, "同步 XHR 拿 responseText")
 
-唯一能用的是 `sock.connect((ip, port))` —— CPython 对数字地址会先试
-`inet_pton`，成功就直接用，不查 DNS。
+     `eval` 在页面里执行 JS，返回 JSON 序列化后的结果。
+     这条通了。
 
-所以下面手写了一个最小的 HTTP/1.0 客户端。**改网络部分时别退回去用 urllib。**
+⚠️ **改网络部分前先读这段。** 别退回去用 urllib 或裸 socket。
 
 ────────────── 安全边界 ──────────────────────────────────────────────
 
@@ -48,10 +50,10 @@ AstroBox 桌面版（Tauri）跑在电脑上，插件在里面跑 —— 于是�
 """
 
 import json
-import socket
 import urllib.parse
 
 import wit_world.exports as exports
+from wit_world.imports import browser
 from wit_world.imports import device as host_device
 from wit_world.imports import interconnect as host_interconnect
 from wit_world.imports import register as host_register
@@ -61,7 +63,6 @@ from wit_world.imports import ui
 
 #: 我们自己的查分服务器。
 #: ⚠️ 改这里要同步改 `apps/vela/src/common/config.js` 的默认地址。
-#: ⚠️ 必须是 **http + IP 字面量**（不支持 https，也不支持域名），原因见文件头。
 SERVER_BASE = 'http://101.132.148.117:8787'
 
 #: 手表上 AstraMai 的快应用包名。必须和服务端/清单里一致。
@@ -70,89 +71,125 @@ WATCH_PACKAGE = 'com.astranexus.astramai'
 #: 单条 interconnect 消息的字符上限。
 #:
 #: 手表那边要按同样的值拼回来。**这个值不能随便调大**——
-#: 一次 B50 大概十几 KB，蓝牙消息有实际长度限制，
-#: 而且太大时手表侧拼接更容易出错。1800 是个保守值。
+#: 一次 B50 大概十几 KB，蓝牙消息有实际长度限制。
 CHUNK_SIZE = 1800
 
-#: 查服务器时的超时（秒）。
-HTTP_TIMEOUT = 15
-
-#: 自检的超时。比 HTTP_TIMEOUT 短 —— 界面不能等 15 秒还白屏。
-PROBE_TIMEOUT = 6
-
-#: 请求服务器时带的 UA，方便在服务端日志里认出来。
-HTTP_USER_AGENT = 'AstraMaiBridge/0.1 (AstroBox)'
+#: 在浏览器里等一次 XHR 的超时。
+BROWSER_TIMEOUT_MS = 15000
 
 
-# ── 最小 HTTP 客户端 ──────────────────────────────────────────────────
+# ── 状态 ──────────────────────────────────────────────────────────────
+
+STATE = {
+    #: 自检结果：None 表示还没测过
+    'network_ok': None,
+    'network_text': '还没检测',
+    #: 已订阅的设备名
+    'devices': [],
+    #: 最近一次渲染容器 id
+    'element_id': '',
+    #: 复用的浏览器 id（0 表示没开）
+    'browser_id': 0,
+}
 
 
-def _parse_endpoint():
-    """从 `SERVER_BASE` 拆出 `(host, port, base_path)`。"""
-    parsed = urllib.parse.urlsplit(SERVER_BASE)
-    host = parsed.hostname or ''
-    port = parsed.port or 80
-    base_path = parsed.path.rstrip('/')
-    return host, port, base_path
+# ── 网络：走应用内浏览器 ──────────────────────────────────────────────
 
 
-def http_get(path, timeout=HTTP_TIMEOUT):
-    """手写的最小 HTTP GET。返回 `(status, body_text)`。
+async def ensure_browser():
+    """确保有一个开着的浏览器，返回它的 id。
 
-    用 **HTTP/1.0**：那个版本不许用 chunked 编码，响应要么带
-    `Content-Length`、要么直接读到 EOF —— 两种都不用解析分块。
+    为什么要复用：`browser.open` **每次都会弹一次授权**
+    （官方文档明写：「这个能力能看到用户在页面里输入的一切，
+    因此每次 open 都会走一次授权」）。
+    一次会话只开一次，后面的请求都复用它。
     """
-    host, port, base_path = _parse_endpoint()
-    target = base_path + path
+    if STATE['browser_id']:
+        return STATE['browser_id']
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(timeout)
-    try:
-        # ⚠️ 这里**必须**传数字 tuple。传主机名会退回 getaddrinfo，就又炸了。
-        sock.connect((host, port))
-        request = (
-            f'GET {target} HTTP/1.0\r\n'
-            f'Host: {host}:{port}\r\n'
-            f'User-Agent: {HTTP_USER_AGENT}\r\n'
-            'Accept: application/json\r\n'
-            'Connection: close\r\n'
-            '\r\n'
+    browser_id = await browser.open(
+        browser.OpenOptions(
+            url=SERVER_BASE + '/',
+            title='AstraMai 网桥',
+            user_agent=None,
+            # 不用拦截前缀 —— 我们不劫持回调，只是借这个 WebView 发请求
+            intercept_prefixes=[],
+            close_on_intercept=False,
+            ephemeral=True,
+            width=None,
+            height=None,
         )
-        sock.sendall(request.encode('ascii'))
-
-        chunks = []
-        while True:
-            data = sock.recv(8192)
-            if not data:
-                break
-            chunks.append(data)
-    finally:
-        sock.close()
-
-    raw = b''.join(chunks)
-    head, _, body = raw.partition(b'\r\n\r\n')
-
-    # 状态行：`HTTP/1.0 200 OK`
-    status_line = head.split(b'\r\n', 1)[0].decode('latin-1', errors='replace')
-    parts = status_line.split(' ')
-    status = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
-
-    return status, body.decode('utf-8', errors='replace')
+    )
+    STATE['browser_id'] = browser_id
+    return browser_id
 
 
-def fetch_json(path, timeout=HTTP_TIMEOUT):
+async def close_browser():
+    """关掉浏览器。出错就算了 —— 可能用户已经手动关了。"""
+    if not STATE['browser_id']:
+        return
+    try:
+        await browser.close(STATE['browser_id'])
+    except Exception:
+        pass
+    STATE['browser_id'] = 0
+
+
+def _xhr_script(path, timeout_ms):
+    """拼一段在页面里跑的 JS：同步 XHR 拿 responseText。
+
+    用**同步** XHR 而不是 `fetch` + Promise：`eval` 的返回值会被
+    JSON 序列化，而 Promise 序列化出来是 `{}`，拿不到结果。
+    同步 XHR 直接给字符串，正好。
+
+    页面 origin 就是我们的服务器，所以这里发相对路径，不用管 CORS。
+    """
+    # 路径里的引号要转义，防止拼出来的 JS 语法坏掉
+    safe_path = path.replace('\\', '\\\\').replace("'", "\\'")
+    return (
+        '(function(){'
+        'var x=new XMLHttpRequest();'
+        f"x.open('GET','{safe_path}',false);"
+        f'x.timeout={timeout_ms};'
+        'try{x.send();}catch(e){return JSON.stringify({__error:String(e)});}'
+        'return JSON.stringify({status:x.status,body:x.responseText});'
+        '})()'
+    )
+
+
+async def http_get(path, timeout_ms=BROWSER_TIMEOUT_MS):
+    """通过浏览器发一次 GET。返回 `(status, body_text)`。"""
+    browser_id = await ensure_browser()
+    raw = await browser.eval(browser_id, _xhr_script(path, timeout_ms))
+
+    # `eval` 返回的是 JSON 序列化后的结果 —— 我们那段 JS 自己返回了
+    # 一个 JSON 字符串，所以这里要解两层。
+    outer = json.loads(raw)
+    if isinstance(outer, str):
+        inner = json.loads(outer)
+    elif isinstance(outer, dict):
+        inner = outer
+    else:
+        raise RuntimeError(f'浏览器返回了看不懂的东西：{type(outer).__name__}')
+
+    if '__error' in inner:
+        raise RuntimeError(inner['__error'])
+
+    return int(inner.get('status') or 0), str(inner.get('body') or '')
+
+
+async def fetch_json(path):
     """GET 我们服务器的某个路径，返回 `(ok, data_or_error)`。
 
     服务端的信封是 `{ ok, success, data, error?, message? }`。
     """
     try:
-        status, text = http_get(path, timeout=timeout)
+        status, text = await http_get(path)
     except Exception as error:
-        # 带上异常类型 —— 只有 str(error) 时分不清是 gaierror 还是别的
         return False, {'message': f'{type(error).__name__}: {error}'}
 
     if status == 0:
-        return False, {'message': '服务器返回了不是 HTTP 的东西'}
+        return False, {'message': '请求没拿到状态码（可能是浏览器还没加载好）'}
 
     try:
         parsed = json.loads(text)
@@ -161,8 +198,7 @@ def fetch_json(path, timeout=HTTP_TIMEOUT):
         return False, {'message': f'HTTP {status}，但响应不是 JSON：{snippet}'}
 
     if status >= 400 or parsed.get('ok') is False:
-        # 服务端的错误信封里 `message` 有时候是个**对象**
-        # （`{kind, message, friendlyMessage}`），直接原样转发给手表不好看。
+        # 错误信封里 `message` 有时是个对象（{kind, message, friendlyMessage}）
         raw = parsed.get('message') or parsed.get('error') or f'HTTP {status}'
         if isinstance(raw, dict):
             raw = raw.get('friendlyMessage') or raw.get('message') or f'HTTP {status}'
@@ -171,68 +207,26 @@ def fetch_json(path, timeout=HTTP_TIMEOUT):
     return True, parsed
 
 
-# ── 界面状态 ──────────────────────────────────────────────────────────
-#
-# 模块级变量：`on_load`、`on_ui_render`、`on_ui_event` 都要读写它。
-# 用 dict 而不是分散的全局变量，省得漏改。
-
-STATE = {
-    #: 自检结果：None 表示还没测过
-    'network_ok': None,
-    #: 自检的说明文字
-    'network_text': '还没检测',
-    #: 已订阅的设备名，空表示没有
-    'devices': [],
-    #: 最近一次渲染容器 id（重绘时要它）
-    'element_id': '',
-}
-
-
-def probe_network(timeout=PROBE_TIMEOUT):
-    """分两段探测：**先 TCP，再 HTTP**，把结果写进 STATE。
-
-    为什么要分两段：插件跑在 CPython-on-WASI 里，能出问题的地方有两层——
-
-      · `wasi:sockets` 没实现     → TCP 就建立不起来
-      · TCP 通了但 HTTP/codec 有问题 → TCP 通、HTTP 失败
-
-    合成一句"连不上服务器"的话这两层分不清，每次都要猜。
-
-    返回 `(ok, text)`。
-    """
-    host, port, _ = _parse_endpoint()
-
-    # ① TCP
+async def probe_network():
+    """自检：能不能通过浏览器打到服务器。返回 `(ok, text)`。"""
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        try:
-            sock.connect((host, port))
-        finally:
-            sock.close()
+        status, text = await http_get('/api/health')
     except Exception as error:
-        return False, f'TCP 连不上 {host}:{port}（{type(error).__name__}: {error}）'
-
-    # ② HTTP
-    try:
-        status, text = http_get('/api/health', timeout=timeout)
-    except Exception as error:
-        return False, f'TCP 通，但 HTTP 失败（{type(error).__name__}: {error}）'
+        return False, f'浏览器请求失败（{type(error).__name__}: {error}）'
 
     if status != 200:
-        return False, f'TCP 通，但 /api/health 返回 HTTP {status}'
+        return False, f'/api/health 返回 HTTP {status}'
 
     try:
         mode = (json.loads(text).get('data') or {}).get('mode', '?')
     except Exception:
         mode = '?'
 
-    return True, f'TCP 通，HTTP 通（mode={mode}）'
+    return True, f'网络通（mode={mode}）'
 
 
-def refresh_state():
-    """重测网络，更新 STATE。"""
-    ok, text = probe_network()
+async def refresh_state():
+    ok, text = await probe_network()
     STATE['network_ok'] = ok
     STATE['network_text'] = text
     print(f'[astramai] 自检 {"✅" if ok else "❌"} {text}')
@@ -240,7 +234,6 @@ def refresh_state():
 
 
 async def load_devices():
-    """读当前已连接的设备，顺手填 STATE。"""
     try:
         devices = await host_device.get_connected_device_list()
     except Exception as error:
@@ -251,17 +244,14 @@ async def load_devices():
     return devices
 
 
-# ── 传输层：给手表发数据 ──────────────────────────────────────────────
+# ── 传输层 ────────────────────────────────────────────────────────────
 
 
 async def send_to_watch(address, payload):
-    """把一段 JSON 发给手表。
+    """把一段 JSON 发给设备。
 
     超过 `CHUNK_SIZE` 时**分片发送**：每片带 `seq` / `total`，
     手表那边按 `id` 收齐再拼。
-
-    分片是必须的 —— 一份 B50 的 JSON 有十几 KB，单条消息大概率塞不下，
-    而宿主不会告诉我们上限是多少。
     """
     text = json.dumps(payload, ensure_ascii=False)
     request_id = payload.get('id', '')
@@ -278,12 +268,8 @@ async def send_to_watch(address, payload):
 # ── 请求路由 ──────────────────────────────────────────────────────────
 
 
-def handle_request(payload):
-    """把快应用的请求翻译成一次服务端调用。
-
-    请求：`{ "id": "...", "action": "b50", "game": "maimai", "code": "..." }`
-    响应：`{ "id": "...", "ok": true, "data": <服务端 data> }`
-    """
+async def handle_request(payload):
+    """把快应用的请求翻译成一次服务端调用。"""
     request_id = payload.get('id', '')
     action = payload.get('action', '')
 
@@ -303,10 +289,9 @@ def handle_request(payload):
     else:
         path = f'/api/v1/maimai/b50?code={urllib.parse.quote(code)}'
 
-    ok, body = fetch_json(path)
+    ok, body = await fetch_json(path)
     if not ok:
-        message = body.get('message') if isinstance(body, dict) else str(body)
-        return {'id': request_id, 'ok': False, 'message': message or '查询失败'}
+        return {'id': request_id, 'ok': False, 'message': body.get('message', '查询失败')}
 
     return {'id': request_id, 'ok': True, 'data': body.get('data')}
 
@@ -317,9 +302,8 @@ def handle_request(payload):
 def build_ui():
     """构建界面树。
 
-    ⚠️ **必须真的 render 点东西。** 之前 `on_ui_render` 直接 return，
-    宿主的窗口就永远停在「等待插件响应渲染请求…」——
-    用户看到的是卡死，而不是"这个插件没有界面"。
+    ⚠️ **必须真的 render 点东西。** 什么都不做就返回的话，
+    宿主的窗口会永远停在「等待插件响应渲染请求…」。
     """
     root = ui.Element(ui.ElementType.DIV, None)
     root.flex()
@@ -374,17 +358,12 @@ def build_ui():
 
 class Lifecycle(exports.Lifecycle):
     async def on_load(self):
-        """
-        插件加载时：**联网自检** + 订阅手表消息。
-
-        自检决定了整个方案成不成立 —— 即使手表端一行代码都没写，
-        也能凭这一条判断去留。
-        """
-        refresh_state()
+        """插件加载时：联网自检 + 订阅设备消息。"""
+        await refresh_state()
 
         devices = await load_devices()
         if not devices:
-            print('[astramai] 现在没有已连接的设备——连上手表后点「重新检测」')
+            print('[astramai] 现在没有已连接的设备——连上设备后点「重新检测」')
             return
 
         for item in devices:
@@ -397,10 +376,7 @@ class Lifecycle(exports.Lifecycle):
 
 class Event(exports.Event):
     async def on_event(self, event_type, event_payload):
-        """处理宿主派发的事件。
-
-        `interconnect-message` 的 payload 就是快应用发过来的**原样字符串**。
-        """
+        """`interconnect-message` 的 payload 就是设备发过来的原样字符串。"""
         if str(event_type) != 'interconnect-message':
             return ''
 
@@ -411,7 +387,7 @@ class Event(exports.Event):
             return ''
 
         try:
-            response = handle_request(request)
+            response = await handle_request(request)
         except Exception as error:
             response = {
                 'id': request.get('id', ''),
@@ -419,8 +395,6 @@ class Event(exports.Event):
                 'message': f'插件内部错误：{error}',
             }
 
-        # 回包发给**第一台已连接的设备**。
-        # interconnect 的事件载荷不带地址，多设备场景没法区分，先这样。
         try:
             devices = await host_device.get_connected_device_list()
             if devices:
@@ -431,14 +405,10 @@ class Event(exports.Event):
         return ''
 
     async def on_ui_event(self, event_id, event, event_payload):
-        """界面上的点击。
-
-        `event_id` 就是 `.on(ui.Event.CLICK, '<这个 id>')` 里那个字符串。
-        """
         if str(event_id) != 'retest':
             return ''
 
-        refresh_state()
+        await refresh_state()
         devices = await load_devices()
         for item in devices:
             try:
@@ -455,19 +425,12 @@ class Event(exports.Event):
         """
         画界面。
 
-        ⚠️ 这个函数**必须**调 `ui.render`。什么都不做就返回的话，
-        宿主会一直停在「等待插件响应渲染请求…」—— 用户看到的是卡死。
+        ⚠️ 这个函数**必须**调 `ui.render`，否则宿主会一直等。
         """
         STATE['element_id'] = element_id
-
-        # 打开界面时重测一次，保证看到的是当前状态
-        refresh_state()
+        await refresh_state()
         await load_devices()
-
         ui.render(element_id, build_ui())
 
     async def on_card_render(self, card_id):
-        ui.render_to_text_card(
-            card_id,
-            f'AstraMai 网桥 · {STATE["network_text"]}',
-        )
+        ui.render_to_text_card(card_id, f'AstraMai 网桥 · {STATE["network_text"]}')
