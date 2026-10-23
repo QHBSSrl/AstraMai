@@ -1,4 +1,5 @@
 <import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+<import name="score-summary" src="../../components/ScoreSummary/ScoreSummary.ux"></import>
 
 <template>
   <div class="page-root">
@@ -52,31 +53,30 @@
 
     <!-- ── 结果 ─────────────────────────────────────────────────── -->
     <block if="{{ hasResult }}">
-      <div class="summary">
-        <div class="summary__main">
-          <!--
-            玩家名要显示。多号玩家（国服一个、日服一个）需要一眼确认
-            「我看的是谁的」，否则查出一堆成绩也不知道对不对。
-          -->
-          <text class="player" if="{{ playerName }}">{{ playerName }}</text>
-          <!--
-            Phigros 的 RKS 是小数（如 15.7888），整数部分放大、小数部分缩小。
-            其余两个游戏是整数评级，走下面的单行分支。
-          -->
-          <div class="rating-group" if="{{ ratingDec }}">
-            <text class="rating">{{ ratingInt }}</text>
-            <text class="rating-dec">{{ ratingDec }}</text>
-          </div>
-          <text class="rating" if="{{ !ratingDec }}">{{ ratingText }}</text>
-          <text class="tier" if="{{ tierText }}">{{ tierText }}</text>
-        </div>
-        <div class="summary__side">
-          <text class="line">{{ statLine1 }}</text>
-          <text class="line">{{ statLine2 }}</text>
-          <text class="line">{{ statLine3 }}</text>
-          <text class="line">{{ statLine4 }}</text>
-        </div>
-      </div>
+      <!--
+        成绩卡抽成组件了。
+
+        **为什么要抽**：这张卡的高度以前由内容撑开，而三个游戏塞进来的
+        行数不一样（Phigros 的大数字要拆整数/小数两段），
+        所以切一次游戏整块卡片就变高变矮，**把下面的列表挤到看不见**。
+
+        现在高度写在组件的样式里（固定 132px），页面只负责往固定的槽位
+        填东西——**不管数据长什么样，布局都不会动**。
+
+        页面这边的字段名没变（playerName / ratingInt / ratingDec /
+        ratingText / tierText / statLine1..4），所以 apply* 那几个方法
+        一行都不用改。
+      -->
+      <score-summary
+        name="{{ playerName }}"
+        value="{{ ratingInt || ratingText }}"
+        valueDecimal="{{ ratingDec }}"
+        caption="{{ tierText }}"
+        line1="{{ statLine1 }}"
+        line2="{{ statLine2 }}"
+        line3="{{ statLine3 }}"
+        line4="{{ statLine4 }}"
+      ></score-summary>
 
       <!-- <list> 必须显式给高度，否则高度为 0、成绩一条都画不出来 -->
       <list class="list" onscrollbottom="onScrollBottom">
@@ -274,20 +274,9 @@
     text-align: center;
   }
 
-  .summary {
-    flex-direction: row;
-    align-items: center;
-    margin-top: 14px;
-    padding: 16px;
-    border-radius: 14px;
-    background-color: @ui-surface-card;
-  }
 
-  .summary__main {
-    flex-direction: column;
-    align-items: center;
-    width: 150px;
-  }
+
+
 
   /*
    * 玩家名。
@@ -297,21 +286,9 @@
    *
    * `lines: 1` + 省略号：宁可截断，也不要换行改变布局。
    */
-  .player {
-    font-size: 20px;
-    color: #4fd6ff;
-    margin-bottom: 4px;
-    text-align: center;
-    lines: 1;
-    text-overflow: ellipsis;
-  }
 
-  .rating {
-    font-size: 40px;
-    font-weight: bold;
-    color: #f5c542;
-    lines: 1;
-  }
+
+
 
   /*
    * 小数部分：和整数同一行、靠底对齐。
@@ -319,42 +296,15 @@
    * 成绩类 UI 的常见做法——整数是主信息、要大；小数是细节、要小。
    * 两个都 40px 的话，"15.7888" 需要约 190px，150px 的列放不下。
    */
-  .rating-group {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: center;
-  }
 
-  .rating-dec {
-    font-size: 22px;
-    font-weight: bold;
-    color: #f5c542;
-    /*
-     * 补偿字号差：40px 和 22px 的基线不同，直接 flex-end 对齐会显得小数偏高。
-     * 往下推一点点，视觉上落在大数字底部。
-     */
-    margin-bottom: 4px;
-    lines: 1;
-  }
 
-  .tier {
-    font-size: 18px;
-    color: #f5c542;
-    lines: 1;
-    text-overflow: ellipsis;
-  }
 
-  .summary__side {
-    flex-direction: column;
-    flex: 1;
-    margin-left: 12px;
-  }
 
-  .line {
-    font-size: 18px;
-    color: @ui-on-surface-variant;
-    margin-bottom: 4px;
-  }
+
+
+
+
+
 
   .list {
     width: 100%;

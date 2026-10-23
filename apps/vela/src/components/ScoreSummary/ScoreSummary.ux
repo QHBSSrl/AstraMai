@@ -1,0 +1,160 @@
+<template>
+  <!--
+    成绩卡（摘要模块）。
+    **高度是固定的**，见下面样式里的 `.summary { height }`。
+
+    这样做的理由：
+      三个游戏塞进来的内容行数不一样（Phigros 的大数字要拆整数/小数两段），
+      如果高度由内容撑开，切一次游戏整块卡片就会变高变矮，
+      **把下面的列表挤到看不见**。
+
+      固定高度之后，页面只负责往固定的槽位里填东西，
+      **不管数据长什么样，布局都不会动**。
+  -->
+  <div class="summary">
+    <div class="summary__main">
+      <text class="player" if="{{ name }}">{{ name }}</text>
+
+      <!--
+        大数字。两种形态：
+          · 有小数（Phigros 的 RKS）→ 整数大、小数小，靠底对齐
+          · 没小数（舞萌 rating / osu pp）→ 单行
+        **两种形态的主行高度一样**（都是 40px），所以卡片高度不变。
+      -->
+      <div class="rating-group" if="{{ valueDecimal }}">
+        <text class="rating">{{ value }}</text>
+        <text class="rating-dec">{{ valueDecimal }}</text>
+      </div>
+      <text class="rating" if="{{ !valueDecimal }}">{{ value }}</text>
+
+      <text class="tier" if="{{ caption }}">{{ caption }}</text>
+    </div>
+
+    <div class="summary__side">
+      <text class="line" if="{{ line1 }}">{{ line1 }}</text>
+      <text class="line" if="{{ line2 }}">{{ line2 }}</text>
+      <text class="line" if="{{ line3 }}">{{ line3 }}</text>
+      <text class="line" if="{{ line4 }}">{{ line4 }}</text>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * ⚠️ **高度固定 132px，不要改成 auto。**
+   *
+   * 132 是这么算的：
+   *   右侧 4 行 × (18px 字号 + 4px 间距) = 88
+   *   上下的 16px 内边距 = 32
+   *   合计 120，留 12px 余量
+   *
+   * 左侧也在这个高度内：玩家名 20 + 大数字 40 + 小标签 18 + 间距 ≈ 86，
+   * 比右侧矮，所以撑不到顶。
+   */
+  .summary {
+    flex-direction: row;
+    align-items: center;
+    height: 132px;
+    padding: 16px;
+    border-radius: @ui-radius-md;
+    background-color: @ui-surface-card;
+  }
+
+  .summary__main {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 150px;
+  }
+
+  /* 玩家名：可能是全角/长名字，单行省略，绝不换行 */
+  .player {
+    font-size: 20px;
+    color: #4fd6ff;
+    margin-bottom: 4px;
+    text-align: center;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
+
+  .rating {
+    font-size: 40px;
+    font-weight: bold;
+    color: #f5c542;
+    lines: 1;
+  }
+
+  /* 大数字 + 小数靠底对齐 */
+  .rating-group {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  /*
+   * 小数部分。
+   * `margin-bottom: 4px` 是补偿字号差的基线偏移——
+   * 40px 和 22px 的基线不同，直接 flex-end 会让小数看起来偏高。
+   */
+  .rating-dec {
+    font-size: 22px;
+    font-weight: bold;
+    color: #f5c542;
+    margin-bottom: 4px;
+    lines: 1;
+  }
+
+  .tier {
+    font-size: 18px;
+    color: #f5c542;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
+
+  .summary__side {
+    flex-direction: column;
+    flex: 1;
+    margin-left: 12px;
+  }
+
+  /*
+   * 右侧统计行。
+   * **必须 `lines: 1`**：标签长度随游戏变（中二的「B30 Rating 合计」很长），
+   * 一旦换行就会把卡片撑高。
+   */
+  .line {
+    font-size: 18px;
+    color: @ui-on-surface-variant;
+    margin-bottom: 4px;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
+</style>
+
+<script>
+  /**
+   * 成绩卡。
+   *
+   * **只负责显示，不取数据、不算业务**——数据由页面算好再传进来。
+   * 这样 Web 端、以后的 Android 端都能用同一套「槽位约定」。
+   */
+  export default {
+    props: {
+      /** 玩家名。空则不占位。 */
+      name: { default: '' },
+      /** 大数字（舞萌 rating / osu pp / Phigros 的整数部分）。 */
+      value: { default: '' },
+      /** 大数字的小数部分，带小数点，如 `.7888`。空则显示单行形态。 */
+      valueDecimal: { default: '' },
+      /** 大数字下方的小标签（段位 / 全球排名）。 */
+      caption: { default: '' },
+      /** 右侧统计行，最多 4 行。 */
+      line1: { default: '' },
+      line2: { default: '' },
+      line3: { default: '' },
+      line4: { default: '' },
+    },
+  };
+</script>
