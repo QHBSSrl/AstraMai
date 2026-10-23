@@ -415,21 +415,35 @@ class Lifecycle(exports.Lifecycle):
 
 class Event(exports.Event):
     async def on_event(self, event_type, event_payload):
-        """`interconnect-message` 的 payload 就是设备发过来的原样字符串。"""
+        """`interconnect-message` 的 payload 是设备发过来的字符串。
+
+        ⚠️ **可能是多包一层的。** 快应用那边 `connect.send({ data: {...} })`
+        传的是**对象**，宿主序列化成字符串之后，我们这里 `json.loads`
+        有可能解出一个字符串（如果宿主把它又 JSON 化了一次）。
+        所以解到 str 就再解一层，别假设只有一层。
+        """
         if str(event_type) != 'interconnect-message':
             return ''
 
-        try:
-            request = json.loads(event_payload)
-        except Exception:
-            print(f'[astramai] 收到非 JSON 消息：{event_payload[:120]}')
+        payload = event_payload
+        for _ in range(3):
+            if not isinstance(payload, str):
+                break
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                print(f'[astramai] 收到非 JSON 消息：{str(payload)[:120]}')
+                return ''
+
+        if not isinstance(payload, dict):
+            print(f'[astramai] 消息不是对象：{type(payload).__name__}')
             return ''
 
         try:
-            response = await handle_request(request)
+            response = await handle_request(payload)
         except Exception as error:
             response = {
-                'id': request.get('id', ''),
+                'id': payload.get('id', ''),
                 'ok': False,
                 'message': f'插件内部错误：{error}',
             }

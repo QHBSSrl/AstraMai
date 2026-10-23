@@ -8,5 +8,5 @@
   "entry": "plugin.wasm",
   "wasi_version": 3,
   "api_level": 4,
-  "permissions": ["device", "interconnect", "ui", "browser"]
+  "permissions": ["device", "interconnect", "register_interconnect_recv", "ui", "browser"]
 }
