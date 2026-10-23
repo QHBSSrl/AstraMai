@@ -33,6 +33,7 @@ AstroBox 桌面版（Tauri）跑在电脑上，插件在里面跑 —— 于是�
 密钥始终只在服务端（`apps/server` 的设计没变）。
 """
 
+import codecs
 import json
 import urllib.error
 import urllib.parse
@@ -43,6 +44,50 @@ from wit_world.imports import device as host_device
 from wit_world.imports import interconnect as host_interconnect
 from wit_world.imports import register as host_register
 from wit_world.imports import ui
+
+
+# ── 补一个缺失的编解码器 ──────────────────────────────────────────────
+#
+# ⚠️ **CPython 的 WASI 构建是精简的，没有 `idna` 编解码器。**
+# 而 `http.client` 在建立连接时会对主机名调用 `.encode('idna')`，
+# 于是直接报：
+#
+#     unknown encoding: idna
+#
+# 这个错看着吓人，其实和网络能不能通**完全无关** —— 它在发包之前就炸了。
+#
+# 兜底方案：注册一个**纯 ASCII 直通**的 idna。
+# 对纯 ASCII 主机名（我们用的是 IP `101.132.148.117`）来说，
+# IDNA 编码本来就是个恒等变换，所以直通在语义上是对的。
+#
+# ⚠️ 局限：**不支持中文域名**。将来如果把服务器换成一个需要 IDNA
+# 编码的域名，这里要换成真正的实现（或者干脆继续用 IP）。
+
+
+def _idna_passthrough(search_name):
+    """给 `codecs.register` 用的查找函数。"""
+    if search_name.replace('-', '').replace('_', '').lower() != 'idna':
+        return None
+
+    def encode(text, errors='strict'):
+        try:
+            return text.encode('ascii'), len(text)
+        except UnicodeEncodeError as error:
+            raise UnicodeError(f'idna 兜底只支持 ASCII 主机名：{error}') from error
+
+    def decode(data, errors='strict'):
+        return data.decode('ascii'), len(data)
+
+    return codecs.CodecInfo(name='idna', encode=encode, decode=decode)
+
+
+try:
+    # str.encode，不是 bytes.encode —— 后者根本不存在，
+    # 那样会抛 AttributeError 而不是 LookupError，检测就失效了。
+    'astra'.encode('idna')
+except LookupError:
+    codecs.register(_idna_passthrough)
+    print('[astramai] 已补上缺失的 idna 编解码器（ASCII 直通）')
 
 # ── 配置 ──────────────────────────────────────────────────────────────
 
@@ -85,10 +130,15 @@ STATE = {
 
 
 def probe_network(timeout=PROBE_TIMEOUT):
-    """打一次 `/api/health`，把结果写进 STATE。
+    """分两段探测：**先 TCP，再 HTTP**，把结果写进 STATE。
 
-    为什么用 `/api/health`：它在服务端的**免鉴权白名单**里
-    （见 `apps/server/src/guard.ts` 的 OPEN_PATHS），不需要令牌。
+    为什么要分两段：插件跑在 CPython-on-WASI 里，能出问题的地方有两层——
+
+      · `wasi:sockets` 没实现  → TCP 就建立不起来
+      · TCP 通了但 `wasi:http` 或 codec 有问题 → TCP 通、HTTP 失败
+
+    合成一句话报"连不上服务器"的话，这两层分不清，每次都要猜。
+    分开之后就一眼知道卡在哪一层。
 
     ⚠️ 这个函数存在的意义不是"健康检查"，是**验证插件能不能上网**。
     宿主 WIT 里没有任何网络接口，插件能上网靠的是 CPython 的 WASI 运行时
@@ -97,23 +147,34 @@ def probe_network(timeout=PROBE_TIMEOUT):
 
     返回 `(ok, text)`。
     """
+    parsed = urllib.parse.urlsplit(SERVER_BASE)
+    host = parsed.hostname or ''
+    port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+
+    # ── 第一段：TCP ──
+    try:
+        import socket
+
+        with socket.create_connection((host, port), timeout=timeout):
+            pass
+    except Exception as error:
+        return False, f'TCP 连不上 {host}:{port}（{type(error).__name__}: {error}）'
+
+    # ── 第二段：HTTP ──
     url = SERVER_BASE.rstrip('/') + '/api/health'
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             body = response.read().decode('utf-8', errors='replace')
         try:
-            parsed = json.loads(body)
-            data = parsed.get('data') or {}
+            data = json.loads(body).get('data') or {}
             mode = data.get('mode', '?')
         except Exception:
             mode = '?'
-        return True, f'网络正常（mode={mode}）'
-    except urllib.error.HTTPError as error:
-        return False, f'服务器返回 HTTP {error.code}'
-    except urllib.error.URLError as error:
-        return False, f'连不上服务器：{error.reason}'
+        return True, f'TCP 通，HTTP 通（mode={mode}）'
     except Exception as error:
-        return False, f'出错：{error}'
+        # **带上异常类型** —— 只有 str(error) 的话，
+        # LookupError 和 URLError 看起来都只是"一句话"，分不清。
+        return False, f'TCP 通，但 HTTP 失败（{type(error).__name__}: {error}）'
 
 
 def refresh_state():
