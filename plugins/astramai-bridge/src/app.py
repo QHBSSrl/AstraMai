@@ -27,17 +27,29 @@ AstroBox 桌面版（Tauri）跑在电脑上，插件在里面跑 —— 于是�
 
 `transport` 接口在宿主里是**占位状态**，官方明写不要当数据通道用。
 
+────────────── 网络这一层踩过的坑（重要）──────────────────────────────
+
+**不能用 `urllib` / `http.client` / `socket.create_connection`。**
+它们全都会走 `getaddrinfo`，而 WASI 的 `getaddrinfo` 是个不通的桩：
+
+    gaierror: [Errno -4] Non-recoverable error
+
+明明是 IP 字面量（`101.132.148.117`），压根不需要解析域名，照样炸。
+
+唯一能用的是 `sock.connect((ip, port))` —— CPython 对数字地址会先试
+`inet_pton`，成功就直接用，不查 DNS。
+
+所以下面手写了一个最小的 HTTP/1.0 客户端。**改网络部分时别退回去用 urllib。**
+
 ────────────── 安全边界 ──────────────────────────────────────────────
 
 **插件里不碰任何上游密钥。** 它只把请求转发到我们自己的服务器，
 密钥始终只在服务端（`apps/server` 的设计没变）。
 """
 
-import codecs
 import json
-import urllib.error
+import socket
 import urllib.parse
-import urllib.request
 
 import wit_world.exports as exports
 from wit_world.imports import device as host_device
@@ -45,54 +57,11 @@ from wit_world.imports import interconnect as host_interconnect
 from wit_world.imports import register as host_register
 from wit_world.imports import ui
 
-
-# ── 补一个缺失的编解码器 ──────────────────────────────────────────────
-#
-# ⚠️ **CPython 的 WASI 构建是精简的，没有 `idna` 编解码器。**
-# 而 `http.client` 在建立连接时会对主机名调用 `.encode('idna')`，
-# 于是直接报：
-#
-#     unknown encoding: idna
-#
-# 这个错看着吓人，其实和网络能不能通**完全无关** —— 它在发包之前就炸了。
-#
-# 兜底方案：注册一个**纯 ASCII 直通**的 idna。
-# 对纯 ASCII 主机名（我们用的是 IP `101.132.148.117`）来说，
-# IDNA 编码本来就是个恒等变换，所以直通在语义上是对的。
-#
-# ⚠️ 局限：**不支持中文域名**。将来如果把服务器换成一个需要 IDNA
-# 编码的域名，这里要换成真正的实现（或者干脆继续用 IP）。
-
-
-def _idna_passthrough(search_name):
-    """给 `codecs.register` 用的查找函数。"""
-    if search_name.replace('-', '').replace('_', '').lower() != 'idna':
-        return None
-
-    def encode(text, errors='strict'):
-        try:
-            return text.encode('ascii'), len(text)
-        except UnicodeEncodeError as error:
-            raise UnicodeError(f'idna 兜底只支持 ASCII 主机名：{error}') from error
-
-    def decode(data, errors='strict'):
-        return data.decode('ascii'), len(data)
-
-    return codecs.CodecInfo(name='idna', encode=encode, decode=decode)
-
-
-try:
-    # str.encode，不是 bytes.encode —— 后者根本不存在，
-    # 那样会抛 AttributeError 而不是 LookupError，检测就失效了。
-    'astra'.encode('idna')
-except LookupError:
-    codecs.register(_idna_passthrough)
-    print('[astramai] 已补上缺失的 idna 编解码器（ASCII 直通）')
-
 # ── 配置 ──────────────────────────────────────────────────────────────
 
 #: 我们自己的查分服务器。
 #: ⚠️ 改这里要同步改 `apps/vela/src/common/config.js` 的默认地址。
+#: ⚠️ 必须是 **http + IP 字面量**（不支持 https，也不支持域名），原因见文件头。
 SERVER_BASE = 'http://101.132.148.117:8787'
 
 #: 手表上 AstraMai 的快应用包名。必须和服务端/清单里一致。
@@ -105,11 +74,101 @@ WATCH_PACKAGE = 'com.astranexus.astramai'
 #: 而且太大时手表侧拼接更容易出错。1800 是个保守值。
 CHUNK_SIZE = 1800
 
-#: 查询服务器时的超时（秒）。
+#: 查服务器时的超时（秒）。
 HTTP_TIMEOUT = 15
 
 #: 自检的超时。比 HTTP_TIMEOUT 短 —— 界面不能等 15 秒还白屏。
 PROBE_TIMEOUT = 6
+
+#: 请求服务器时带的 UA，方便在服务端日志里认出来。
+HTTP_USER_AGENT = 'AstraMaiBridge/0.1 (AstroBox)'
+
+
+# ── 最小 HTTP 客户端 ──────────────────────────────────────────────────
+
+
+def _parse_endpoint():
+    """从 `SERVER_BASE` 拆出 `(host, port, base_path)`。"""
+    parsed = urllib.parse.urlsplit(SERVER_BASE)
+    host = parsed.hostname or ''
+    port = parsed.port or 80
+    base_path = parsed.path.rstrip('/')
+    return host, port, base_path
+
+
+def http_get(path, timeout=HTTP_TIMEOUT):
+    """手写的最小 HTTP GET。返回 `(status, body_text)`。
+
+    用 **HTTP/1.0**：那个版本不许用 chunked 编码，响应要么带
+    `Content-Length`、要么直接读到 EOF —— 两种都不用解析分块。
+    """
+    host, port, base_path = _parse_endpoint()
+    target = base_path + path
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+    try:
+        # ⚠️ 这里**必须**传数字 tuple。传主机名会退回 getaddrinfo，就又炸了。
+        sock.connect((host, port))
+        request = (
+            f'GET {target} HTTP/1.0\r\n'
+            f'Host: {host}:{port}\r\n'
+            f'User-Agent: {HTTP_USER_AGENT}\r\n'
+            'Accept: application/json\r\n'
+            'Connection: close\r\n'
+            '\r\n'
+        )
+        sock.sendall(request.encode('ascii'))
+
+        chunks = []
+        while True:
+            data = sock.recv(8192)
+            if not data:
+                break
+            chunks.append(data)
+    finally:
+        sock.close()
+
+    raw = b''.join(chunks)
+    head, _, body = raw.partition(b'\r\n\r\n')
+
+    # 状态行：`HTTP/1.0 200 OK`
+    status_line = head.split(b'\r\n', 1)[0].decode('latin-1', errors='replace')
+    parts = status_line.split(' ')
+    status = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+
+    return status, body.decode('utf-8', errors='replace')
+
+
+def fetch_json(path, timeout=HTTP_TIMEOUT):
+    """GET 我们服务器的某个路径，返回 `(ok, data_or_error)`。
+
+    服务端的信封是 `{ ok, success, data, error?, message? }`。
+    """
+    try:
+        status, text = http_get(path, timeout=timeout)
+    except Exception as error:
+        # 带上异常类型 —— 只有 str(error) 时分不清是 gaierror 还是别的
+        return False, {'message': f'{type(error).__name__}: {error}'}
+
+    if status == 0:
+        return False, {'message': '服务器返回了不是 HTTP 的东西'}
+
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        snippet = text[:120].replace('\n', ' ')
+        return False, {'message': f'HTTP {status}，但响应不是 JSON：{snippet}'}
+
+    if status >= 400 or parsed.get('ok') is False:
+        # 服务端的错误信封里 `message` 有时候是个**对象**
+        # （`{kind, message, friendlyMessage}`），直接原样转发给手表不好看。
+        raw = parsed.get('message') or parsed.get('error') or f'HTTP {status}'
+        if isinstance(raw, dict):
+            raw = raw.get('friendlyMessage') or raw.get('message') or f'HTTP {status}'
+        return False, {'message': str(raw)}
+
+    return True, parsed
 
 
 # ── 界面状态 ──────────────────────────────────────────────────────────
@@ -134,51 +193,45 @@ def probe_network(timeout=PROBE_TIMEOUT):
 
     为什么要分两段：插件跑在 CPython-on-WASI 里，能出问题的地方有两层——
 
-      · `wasi:sockets` 没实现  → TCP 就建立不起来
-      · TCP 通了但 `wasi:http` 或 codec 有问题 → TCP 通、HTTP 失败
+      · `wasi:sockets` 没实现     → TCP 就建立不起来
+      · TCP 通了但 HTTP/codec 有问题 → TCP 通、HTTP 失败
 
-    合成一句话报"连不上服务器"的话，这两层分不清，每次都要猜。
-    分开之后就一眼知道卡在哪一层。
-
-    ⚠️ 这个函数存在的意义不是"健康检查"，是**验证插件能不能上网**。
-    宿主 WIT 里没有任何网络接口，插件能上网靠的是 CPython 的 WASI 运行时
-    自带的 `wasi:http` / `wasi:sockets`。产物里确实 import 了它们，
-    但**宿主要实现才能用** —— 所以必须真打一次才知道。
+    合成一句"连不上服务器"的话这两层分不清，每次都要猜。
 
     返回 `(ok, text)`。
     """
-    parsed = urllib.parse.urlsplit(SERVER_BASE)
-    host = parsed.hostname or ''
-    port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+    host, port, _ = _parse_endpoint()
 
-    # ── 第一段：TCP ──
+    # ① TCP
     try:
-        import socket
-
-        with socket.create_connection((host, port), timeout=timeout):
-            pass
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        try:
+            sock.connect((host, port))
+        finally:
+            sock.close()
     except Exception as error:
         return False, f'TCP 连不上 {host}:{port}（{type(error).__name__}: {error}）'
 
-    # ── 第二段：HTTP ──
-    url = SERVER_BASE.rstrip('/') + '/api/health'
+    # ② HTTP
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            body = response.read().decode('utf-8', errors='replace')
-        try:
-            data = json.loads(body).get('data') or {}
-            mode = data.get('mode', '?')
-        except Exception:
-            mode = '?'
-        return True, f'TCP 通，HTTP 通（mode={mode}）'
+        status, text = http_get('/api/health', timeout=timeout)
     except Exception as error:
-        # **带上异常类型** —— 只有 str(error) 的话，
-        # LookupError 和 URLError 看起来都只是"一句话"，分不清。
         return False, f'TCP 通，但 HTTP 失败（{type(error).__name__}: {error}）'
+
+    if status != 200:
+        return False, f'TCP 通，但 /api/health 返回 HTTP {status}'
+
+    try:
+        mode = (json.loads(text).get('data') or {}).get('mode', '?')
+    except Exception:
+        mode = '?'
+
+    return True, f'TCP 通，HTTP 通（mode={mode}）'
 
 
 def refresh_state():
-    """重测网络 + 读设备列表，更新 STATE。"""
+    """重测网络，更新 STATE。"""
     ok, text = probe_network()
     STATE['network_ok'] = ok
     STATE['network_text'] = text
@@ -222,31 +275,6 @@ async def send_to_watch(address, payload):
         )
 
 
-# ── 服务端调用 ────────────────────────────────────────────────────────
-
-
-def fetch_json(path):
-    """GET 我们服务器的某个路径，返回 `(ok, data_or_error)`。
-
-    ⚠️ **只用标准库的 urllib。** 插件跑在 CPython-on-WASI 里，
-    第三方 HTTP 库（requests 之类）打不进来。
-    """
-    url = SERVER_BASE.rstrip('/') + path
-    try:
-        with urllib.request.urlopen(url, timeout=HTTP_TIMEOUT) as response:
-            return True, json.loads(response.read().decode('utf-8'))
-    except urllib.error.HTTPError as error:
-        try:
-            parsed = json.loads(error.read().decode('utf-8'))
-        except Exception:
-            parsed = {'message': f'HTTP {error.code}'}
-        return False, parsed
-    except urllib.error.URLError as error:
-        return False, {'message': f'连不上服务器：{error.reason}'}
-    except Exception as error:
-        return False, {'message': str(error)}
-
-
 # ── 请求路由 ──────────────────────────────────────────────────────────
 
 
@@ -280,17 +308,14 @@ def handle_request(payload):
         message = body.get('message') if isinstance(body, dict) else str(body)
         return {'id': request_id, 'ok': False, 'message': message or '查询失败'}
 
-    data = body.get('data') if isinstance(body, dict) else None
-    return {'id': request_id, 'ok': True, 'data': data}
+    return {'id': request_id, 'ok': True, 'data': body.get('data')}
 
 
 # ── 界面 ──────────────────────────────────────────────────────────────
 
 
-def build_ui(height):
+def build_ui():
     """构建界面树。
-
-    三块：状态（网络 / 设备）、说明、按钮。
 
     ⚠️ **必须真的 render 点东西。** 之前 `on_ui_render` 直接 return，
     宿主的窗口就永远停在「等待插件响应渲染请求…」——
@@ -306,7 +331,6 @@ def build_ui(height):
     title.text_color('#ff5f9e')
     root.child(title)
 
-    # 第一块：网络（最关键的一条）
     if STATE['network_ok'] is True:
         network_line = f'✅ {STATE["network_text"]}'
         network_color = '#3ddc84'
@@ -321,7 +345,6 @@ def build_ui(height):
     network.text_color(network_color)
     root.child(network)
 
-    # 第二块：手表的连接情况
     devices = STATE['devices']
     if devices:
         device_line = '已连接：' + '、'.join(devices)
@@ -333,12 +356,10 @@ def build_ui(height):
     device_text.text_color(device_color)
     root.child(device_text)
 
-    # 服务器地址，方便用户确认打到哪去了
     server = ui.Element(ui.ElementType.P, f'服务器：{SERVER_BASE}')
     server.text_color('#6d7fa3')
     root.child(server)
 
-    # 按钮：重测 + 重新订阅
     button = ui.Element(ui.ElementType.BUTTON, '重新检测')
     button.on(ui.Event.CLICK, 'retest')
     button.padding(10)
@@ -356,8 +377,8 @@ class Lifecycle(exports.Lifecycle):
         """
         插件加载时：**联网自检** + 订阅手表消息。
 
-        自检是这里最重要的事 —— 它决定了整个方案成不成立。
-        即使手表端一行代码都还没写，也能凭这一条日志判断去留。
+        自检决定了整个方案成不成立 —— 即使手表端一行代码都没写，
+        也能凭这一条判断去留。
         """
         refresh_state()
 
@@ -417,7 +438,6 @@ class Event(exports.Event):
         if str(event_id) != 'retest':
             return ''
 
-        # 重测网络、重新读设备、重新订阅
         refresh_state()
         devices = await load_devices()
         for item in devices:
@@ -427,9 +447,8 @@ class Event(exports.Event):
             except Exception as error:
                 print(f'[astramai] 重新订阅 {item.addr} 失败：{error}')
 
-        # 重绘
         if STATE['element_id']:
-            ui.render(STATE['element_id'], build_ui(0))
+            ui.render(STATE['element_id'], build_ui())
         return ''
 
     async def on_ui_render(self, element_id):
@@ -445,7 +464,7 @@ class Event(exports.Event):
         refresh_state()
         await load_devices()
 
-        ui.render(element_id, build_ui(0))
+        ui.render(element_id, build_ui())
 
     async def on_card_render(self, card_id):
         ui.render_to_text_card(
