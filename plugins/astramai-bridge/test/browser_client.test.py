@@ -148,12 +148,25 @@ def main():
 
     print('\n⑤ _xhr_script 的转义')
     plugin, _ = load_plugin(lambda script: '"{}"')
-    script = plugin._xhr_script("/a'b", 1000)
+    script = plugin._xhr_script("/a'b")
     check(
         'XMLHttpRequest' in script,
         '用的是 XMLHttpRequest（不是 fetch，fetch 返回 Promise 拿不到结果）',
     )
     check("'/a\\'b'" in script, '路径里的单引号被转义成 JS 字符串了')
+    check(
+        'timeout' not in script,
+        '没有给同步 XHR 设 timeout —— 那会抛 InvalidAccessError，导致脚本静默失败',
+    )
+    # 整段必须在 try 里：脚本一抛异常宿主就返回 null，报错完全看不出原因
+    check(script.startswith('(function(){try{'), '整段包在 try 里')
+    check('__error' in script, '异常会变成 __error 返回，而不是让 eval 变成 null')
+
+    print('\n⑥ eval 返回 null 时的报错要说得清')
+    plugin, _ = load_plugin(lambda script: 'null')
+    ok, body = asyncio.run(plugin.fetch_json('/x'))
+    check(ok is False, 'null 被判成失败')
+    check('null' in body.get('message', ''), f'报错提到 null（实际：{body.get("message")}）')
 
     print()
     if failures:

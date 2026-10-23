@@ -135,47 +135,68 @@ async def close_browser():
     STATE['browser_id'] = 0
 
 
-def _xhr_script(path, timeout_ms):
+def _xhr_script(path):
     """拼一段在页面里跑的 JS：同步 XHR 拿 responseText。
 
     用**同步** XHR 而不是 `fetch` + Promise：`eval` 的返回值会被
     JSON 序列化，而 Promise 序列化出来是 `{}`，拿不到结果。
     同步 XHR 直接给字符串，正好。
 
-    页面 origin 就是我们的服务器，所以这里发相对路径，不用管 CORS。
+    ⚠️ **不能设 `x.timeout`。** 同步 XHR 在主线程上设 timeout 是**非法**的，
+    会抛 `InvalidAccessError`。之前那行在 try 外面，整个 IIFE 直接抛出去，
+    宿主拿不到返回值，于是 JSON 化之后变成 `null`，报错是
+    「浏览器返回了看不懂的东西：NoneType」—— 完全看不出真正的原因。
+
+    所以：整段包在 try 里，任何异常都变成 `{__error: ...}` 返回出去。
+
+    页面 origin 就是我们的服务器，所以发相对路径，不用管 CORS。
     """
-    # 路径里的引号要转义，防止拼出来的 JS 语法坏掉
     safe_path = path.replace('\\', '\\\\').replace("'", "\\'")
     return (
-        '(function(){'
+        '(function(){try{'
         'var x=new XMLHttpRequest();'
         f"x.open('GET','{safe_path}',false);"
-        f'x.timeout={timeout_ms};'
-        'try{x.send();}catch(e){return JSON.stringify({__error:String(e)});}'
+        'x.send();'
         'return JSON.stringify({status:x.status,body:x.responseText});'
+        '}catch(e){'
+        'return JSON.stringify({__error:String(e)});'
+        '}'
         '})()'
     )
 
 
-async def http_get(path, timeout_ms=BROWSER_TIMEOUT_MS):
-    """通过浏览器发一次 GET。返回 `(status, body_text)`。"""
-    browser_id = await ensure_browser()
-    raw = await browser.eval(browser_id, _xhr_script(path, timeout_ms))
+def _unwrap_eval(raw):
+    """解 `browser.eval` 的返回值，返回 `(status, body_text)`。
 
-    # `eval` 返回的是 JSON 序列化后的结果 —— 我们那段 JS 自己返回了
-    # 一个 JSON 字符串，所以这里要解两层。
+    `eval` 返回的是 JSON 序列化后的结果；我们那段 JS 自己又返回了一个
+    JSON 字符串，所以要**解两层**。
+    """
+    if raw is None or raw == '':
+        raise RuntimeError('eval 返回空（脚本可能抛异常了，或者宿主没把返回值传出来）')
+
     outer = json.loads(raw)
+
+    # 第二层：我们自己的 JS 返回的是字符串
     if isinstance(outer, str):
         inner = json.loads(outer)
     elif isinstance(outer, dict):
         inner = outer
+    elif outer is None:
+        raise RuntimeError('eval 返回 null（脚本没有返回值）')
     else:
-        raise RuntimeError(f'浏览器返回了看不懂的东西：{type(outer).__name__}')
+        raise RuntimeError(f'eval 返回了 {type(outer).__name__}：{str(outer)[:80]}')
 
     if '__error' in inner:
         raise RuntimeError(inner['__error'])
 
     return int(inner.get('status') or 0), str(inner.get('body') or '')
+
+
+async def http_get(path):
+    """通过浏览器发一次 GET。返回 `(status, body_text)`。"""
+    browser_id = await ensure_browser()
+    raw = await browser.eval(browser_id, _xhr_script(path))
+    return _unwrap_eval(raw)
 
 
 async def fetch_json(path):
@@ -208,14 +229,32 @@ async def fetch_json(path):
 
 
 async def probe_network():
-    """自检：能不能通过浏览器打到服务器。返回 `(ok, text)`。"""
+    """自检：能不能通过浏览器打到服务器。返回 `(ok, text)`。
+
+    失败时**把 `eval` 本身的返回值也带上** —— 这样能一眼区分：
+
+      · 宿主根本没把 eval 的返回值传出来（`eval 自检=null`）
+      · 返回值有，是我们的 XHR 脚本出错（`eval 自检=2`）
+
+    不然两种情况的报错长得一模一样，每次都要猜。
+    """
+    # 第一步：eval 到底能不能返回值？
+    try:
+        browser_id = await ensure_browser()
+        canary = await browser.eval(browser_id, '1+1')
+    except Exception as error:
+        return False, f'浏览器打不开（{type(error).__name__}: {error}）'
+
+    hint = f'eval 自检={canary!r}'
+
+    # 第二步：真请求
     try:
         status, text = await http_get('/api/health')
     except Exception as error:
-        return False, f'浏览器请求失败（{type(error).__name__}: {error}）'
+        return False, f'{hint}；请求失败（{type(error).__name__}: {error}）'
 
     if status != 200:
-        return False, f'/api/health 返回 HTTP {status}'
+        return False, f'{hint}；/api/health 返回 HTTP {status}'
 
     try:
         mode = (json.loads(text).get('data') or {}).get('mode', '?')
