@@ -18,7 +18,14 @@
 import { createVelaFetch } from './vela-fetch.js';
 
 /** 默认的 Worker 地址。部署后如果换了域名，在设置里改即可。 */
-export const DEFAULT_SYNC_BASE = 'https://astramai-sync.workers.dev';
+/**
+ * 正式地址（自定义域）。
+ *
+ * ⚠️ **不要用 workers.dev 那个** —— 已禁用，而且在国内被 DNS 污染。
+ * 自定义域解析到真 Cloudflare IP，但直连仍可能被 SNI 干扰。
+ * 如果手表连不上，在设置里改成能通的地址。
+ */
+export const DEFAULT_SYNC_BASE = 'https://worksync.astramai.astranexus.cn';
 
 /** 本地 `wrangler dev` 的地址。 */
 export const LOCAL_SYNC_BASE = 'http://127.0.0.1:8787';

@@ -13,7 +13,14 @@
  */
 
 /** 默认的 Worker 地址。部署后改这里，或在设置里覆盖。 */
-const DEFAULT_BASE_URL = 'https://astramai-sync.workers.dev';
+/**
+ * 正式地址（自定义域）。
+ *
+ * ⚠️ **不要用 workers.dev 那个** —— 已禁用，而且在国内被 DNS 污染。
+ * 自定义域解析到真 Cloudflare IP，但直连仍可能被 SNI 干扰
+ * （GLM 和 DSH 都实测到了，走代理才通）。手表端走的链路另说。
+ */
+const DEFAULT_BASE_URL = 'https://worksync.astramai.astranexus.cn';
 
 /** 本地 `wrangler dev` 的地址（开发时用）。 */
 export const LOCAL_BASE_URL = 'http://127.0.0.1:8787';

@@ -132,4 +132,63 @@
 需要 DSH
   无阻塞项。客户端可以直接按新契约写：GET 404 not_uploaded = 等上传，200 + payload:"" = 空数据。
 
+---
+
+## 2026-10-24 18:20 — 已部署上线，线上验证通过
+
+部署结果
+  · `wrangler login`（用户在浏览器点了授权）→ `kv namespace create SYNC`（id: 9ba178e7889e4c50b56150132cde7ff0，已填进 wrangler.toml，提交 75fba90）→ `wrangler deploy`
+  · **域名：https://astramai-sync.vbn233144775562021.workers.dev**
+    Version ID: 5c60ff22-b087-4d2e-ab6e-3f61d50fcea5，Total Upload 5.45 KiB
+  · 你的 `DEFAULT_SYNC_BASE`（web + 手表两处）就填这个（建议带尾斜杠还是不带？两处统一即可）
+
+线上实测（curl 原文，8 条全过）
+  GET  /health                  → {"ok":true,"service":"astramai-sync","version":"0.1.0"}
+  POST /sync/create             → {"ok":true,"code":"851136","expiresAt":1792834623}
+  GET  /sync/851136?pin=1234    → {"ok":false,"error":"not_uploaded"} [404]
+  PUT  /sync/851136             → {"ok":true,"expiresAt":1792834626}
+  GET  /sync/851136?pin=1234    → {"ok":true,"payload":"<encrypted-blob>","expiresAt":1792834626}
+  GET  （再拉一次，读后不删）    → 同上 200
+  GET  ?pin=9999                → {"ok":false,"error":"pin_mismatch"} [403]
+  GET  /sync/000000?pin=1234    → {"ok":false,"error":"not_found"} [404]
+
+坑（重要，给手表端开发参考）
+  · 本机直连 workers.dev 时 DNS 被污染（解析到 202.160.130.117，connection refused）。
+    用户开了代理后恢复访问。**手表端如果也走国内网络直连 workers.dev，大概率同样被污染** ——
+    你的手表网络链路（AstroBox 插件那条）验证一下；如果手表侧也被污染，可能要考虑
+    绑自定义域名（Cloudflare 免费托管 DNS 即可，不需要备案的域名 + CF 代理一般能过）。
+
+---
+
+## 2026-10-24 18:50 — 域名变更：正式地址是自定义域（覆盖上一条的 workers.dev）
+
+**⚠️ `DEFAULT_SYNC_BASE` 请用这个（上一条的 workers.dev 地址作废）：**
+
+```
+https://worksync.astramai.astranexus.cn
+```
+
+做了什么
+  · 用户在 Cloudflare 绑定了自定义域。我把它写进 wrangler.toml（`routes = [{ pattern = ..., custom_domain = true }]`，提交 bca13c7）并重新部署 —— 现在仓库配置与线上一致，Version ID d84e57d0
+  · 部署输出确认 trigger：`worksync.astramai.astranexus.cn (custom domain)`；workers.dev 路由已禁用（用户的设置，挺好，反正它被污染）
+
+验证（走本机代理 127.0.0.1:10808 实测，7 条全过）
+  GET  /health                 → {"ok":true,"service":"astramai-sync","version":"0.1.0"}
+  POST /sync/create            → {"ok":true,"code":"086716","expiresAt":1792835151}
+  GET  未上传                  → {"ok":false,"error":"not_uploaded"} [404]
+  PUT  /sync/086716            → {"ok":true,"expiresAt":1792835166}
+  GET  /sync/086716?pin=1234   → {"ok":true,"payload":"<encrypted-blob>","expiresAt":1792835166}
+  GET  ?pin=9999               → {"ok":false,"error":"pin_mismatch"} [403]
+  GET  /sync/000000?pin=1234   → {"ok":false,"error":"not_found"} [404]
+
+网络现状（对手表端重要）
+  · 自定义域 DNS 解析正常（真 Cloudflare IP），但**我这台机器直连它 TLS 握手仍被掐**
+    （SNI 干扰特征，schannel 报 SEC_E_ILLEGAL_MESSAGE）；挂代理立刻通
+  · 也就是说：换自定义域**解决了 DNS 污染，但没解决直连被墙** —— 至少我这个网络环境如此。
+    你那边如果浏览器能直连访问，可能是网络路径不同。**手表端走的链路务必实测**，
+    如果手表侧也不通，得让手表流量过一层国内可达的中转（比如你现有的服务器反代）
+  · 用户说"可以直接访问"——以他的实测为准，我这边仅报告我测到的现象
+
+
+
 
