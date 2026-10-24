@@ -1289,7 +1289,17 @@
        * 挪到第 5 行：它对排查数据问题有用，但不该占着玩家最想看的位置。
        */
       this.statLine4 = this.nextTierLine(player.rating);
-      this.statLine5 = '公式对拍　' + (stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta);
+      /*
+       * 第 5 行**只在算错了的时候出现**。
+       *
+       * 「公式对拍 一致」是给开发看的质量信号对玩家没意义，
+       * 而多一行会让固定 132px 的卡片变挤。所以只在**不一致**时显示 ——
+       * 那种情况本来就该让用户看到（说明落雪返回的数据和我们算的对不上）。
+       *
+       * 顺带：常见情况回到 4 行，卡片更宽裕。
+       */
+      this.statLine5 =
+        stats.computedDelta === 0 ? '' : '公式对拍　差 ' + stats.computedDelta;
 
       // 官方《常用业务优化》：list 内容超过 10 条建议分页渲染，
       // 切勿初始化渲染大量数据，会造成页面渲染卡顿。
