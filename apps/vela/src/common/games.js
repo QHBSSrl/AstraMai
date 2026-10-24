@@ -59,38 +59,30 @@ export const GAMES = [
   },
   /*
    * ══════════════════════════════════════════════════════════════════
-   *  osu! —— **暂时隐藏，v0.1.2 再放出来**
+   *  osu!
    * ══════════════════════════════════════════════════════════════════
    *
-   * 为什么藏：v0.1.1 要发了，但 osu 端到端还没在真机上验过——
-   * 尤其「输入框能不能输字母」这条，只在单元测试里验过，
-   * 没有真机确认。**带着一个没验过的入口发版比不发更糟**：
-   * 玩家点进去输不进字，会以为整个 App 有问题。
+   * 曾经在 v0.1.1 隐藏过一轮（当时端到端没在真机上验过）。
+   * 2026-10-24 用户明确要求加上 osu，所以放出来了。
    *
-   * 藏的方式是**把这个条目注释掉**，不是删代码：
-   *   · 服务端的 /api/v1/osu/bests 仍然在，只是没人调
-   *   · b50.ux 里的 queryOsu / applyOsu 仍然在，只是走不到
-   *   · validate.js 的 username 那套仍然在，单元测试也还测着
+   * 已验证：
+   *   · `scripts/verify-osu-live.mjs` 打真 osu API —— token 通、
+   *     /users/{name}/osu 通、mapPlayer 映射对（mrekk: rank 1, 32269pp）
+   *   · 服务端 `/api/v1/osu/bests` 路由在（`routes.ts` 里）
+   *   · 手表 `b50.ux` 的 queryOsu / applyOsu 在
+   *   · `validate.js` 的 username 规则有单测
    *
-   * 因为 `gameById` 有兜底（认不出就回退到 GAMES[0]），
-   * 万一把 osu 存进 `currentGame` 的旧状态，也会安全回退到舞萌。
-   *
-   * **恢复方法**：把下面这块注释去掉即可，不用改任何其它文件。
-   *
-   *   {
-   *     id: 'osu',
-   *     label: 'osu!',
-   *     short: 'osu',
-   *     features: ['b50'],
-   *     queryKinds: ['username'],
-   *     b50Title: 'Best Plays',
-   *   },
-   *
-   * 恢复前必须做的验证（`scripts/verify-osu-live.mjs` 已备好）：
-   *   1. node scripts/verify-osu-live.mjs <用户名>   —— 接口通
-   *   2. 真机上试一次输入框能不能输字母
-   *   3. 真机上确认成绩页的 pp / 星数 / MOD 显示正常
+   * ⚠️ **还没在真机上验过**：输入框能不能输字母（osu 用户名是字母）。
+   *    如果玩家反馈输不进字，问题在 Vela 的输入法，不在这个条目。
    */
+  {
+    id: 'osu',
+    label: 'osu!',
+    short: 'osu',
+    features: ['b50'],
+    queryKinds: ['username'],
+    b50Title: 'Best Plays',
+  },
 ];
 
 /** 默认游戏。 */
