@@ -1,0 +1,378 @@
+<template>
+  <div class="page-root">
+    <div class="page">
+      <div class="topbar">
+        <div class="back" @click="onBack">
+          <text class="back__text">‹ 返回</text>
+        </div>
+      </div>
+
+      <text class="title">推分</text>
+      <text class="song" if="{{ title }}">{{ title }}</text>
+
+      <!-- 定数与当前成绩 -->
+      <div class="card">
+        <div class="card__row">
+          <text class="card__label">定数</text>
+          <text class="card__value">{{ levelText }}</text>
+        </div>
+        <div class="card__row">
+          <text class="card__label">当前</text>
+          <text class="card__value" if="{{ hasCurrent }}">{{ currentText }}</text>
+          <text class="card__value card__value--dim" if="{{ !hasCurrent }}">没打过</text>
+        </div>
+      </div>
+
+      <!--
+        目标分调整。
+        手表上**不打字** —— 用 ±1 / ±5 调。这样从 B50 点进来直接就能调，
+        不用为了一次输入拉起整个数字键盘。
+      -->
+      <div class="target">
+        <div class="target__btn" @click="adjust(-5)"><text class="target__btn-text">-5</text></div>
+        <div class="target__btn" @click="adjust(-1)"><text class="target__btn-text">-1</text></div>
+        <div class="target__value">
+          <text class="target__value-text">{{ target }}</text>
+        </div>
+        <div class="target__btn" @click="adjust(1)"><text class="target__btn-text">+1</text></div>
+        <div class="target__btn" @click="adjust(5)"><text class="target__btn-text">+5</text></div>
+      </div>
+
+      <!-- 结果 -->
+      <div class="result" if="{{ required }}">
+        <text class="result__need">需要打到 {{ needText }}</text>
+        <text class="result__note">{{ noteText }}</text>
+        <text class="result__gap" if="{{ gapText }}">{{ gapText }}</text>
+      </div>
+
+      <div class="result" if="{{ !required }}">
+        <text class="result__need result__need_bad">打不到</text>
+        <text class="result__note">这个定数最高只有 {{ ceilingText }}</text>
+      </div>
+
+      <text class="foot">天花板 {{ ceilingText }}</text>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 推分页（手表端）。
+   *
+   * ── 和 web 端的区别 ──────────────────────────────────────────────
+   *
+   * web 上放了三大块（计算器 / 档位收益 / 练哪条）。
+   * 手表一屏只有 466px，而且**滑动很累**，所以只留最核心的一条：
+   *
+   *   需要打到多少达成率
+   *
+   * 档位收益表挪到 web。手表上的价值是"练之前抬腕确认一下要打多少"，
+   * 不是做数据分析。
+   *
+   * ── 为什么不做输入框 ────────────────────────────────────────────
+   *
+   * 定数和当前达成率**从 B50 点进来时已经知道了**（走 storage 传递）。
+   * 目标分用 ±1 / ±5 调，比拉起数字键盘快得多 ——
+   * 手表上每次拉起键盘都要 2~3 秒。
+   */
+
+  .page-root {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
+
+  .page {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    padding: 14px 20px;
+    background-color: @ui-surface;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: @ui-surface-container;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: @ui-on-surface;
+  }
+
+  .title {
+    font-size: 30px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    margin-top: 4px;
+    lines: 1;
+  }
+
+  .song {
+    font-size: 15px;
+    color: @ui-on-surface-variant;
+    margin-top: 2px;
+    lines: 1;
+  }
+
+  /* 定数 / 当前 */
+  .card {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .card__row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 34px;
+  }
+
+  .card__label {
+    font-size: 16px;
+    color: @ui-on-surface-muted;
+    lines: 1;
+  }
+
+  .card__value {
+    font-size: 20px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    lines: 1;
+  }
+
+  .card__value--dim {
+    font-size: 17px;
+    font-weight: normal;
+    color: @ui-on-surface-muted;
+  }
+
+  /* 目标调整条 */
+  .target {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .target__btn {
+    width: 58px;
+    height: 58px;
+    border-radius: @ui-radius-full;
+    background-color: @ui-surface-emphasis;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .target__btn-text {
+    font-size: 17px;
+    color: @ui-on-surface;
+  }
+
+  .target__value {
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .target__value-text {
+    font-size: 40px;
+    font-weight: bold;
+    color: @ui-primary;
+    lines: 1;
+  }
+
+  /* 结果 */
+  .result {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .result__need {
+    font-size: 26px;
+    font-weight: bold;
+    color: @ui-primary;
+    text-align: center;
+    lines: 1;
+  }
+
+  .result__need_bad {
+    color: #ff6b6b;
+  }
+
+  .result__note {
+    font-size: 15px;
+    color: @ui-on-surface-variant;
+    text-align: center;
+    margin-top: 4px;
+    lines: 1;
+  }
+
+  .result__gap {
+    font-size: 15px;
+    color: @ui-on-surface-muted;
+    text-align: center;
+    margin-top: 2px;
+    lines: 1;
+  }
+
+  .foot {
+    font-size: 13px;
+    color: @ui-on-surface-muted;
+    text-align: center;
+    margin-top: auto;
+    padding-bottom: 6px;
+    lines: 1;
+  }
+</style>
+
+<script>
+  const { core, navigation, store } = global.AstraMai;
+  const { goBack } = navigation;
+  const { readSetting, warmUp } = store;
+
+  /** 种子数据的存储键。B50 / Song 页写，这里读。 */
+  const SEED_KEY = 'pushSeed';
+
+  /** 目标分的调整范围。超出直接夹住，不做提示。 */
+  const TARGET_MIN = 1;
+  const TARGET_MAX = 400;
+
+  /**
+   * 没带种子时的默认定数。
+   *
+   * 14.0 是「14 级中位」—— 大部分玩家推分关注的段位。
+   * 不用 1 或 15 那种极端值，那样一进来看到的数字没意义。
+   */
+  const DEFAULT_LEVEL = 14.0;
+
+  export default {
+    private: {
+      title: '',
+      levelValue: DEFAULT_LEVEL,
+      /** 当前达成率（百分数）；0 表示没打过。 */
+      achievement: 0,
+      target: 300,
+      /** 以下都是派生出来的展示字符串，模板里直接用。 */
+      levelText: '14.0',
+      currentText: '',
+      hasCurrent: false,
+      needText: '',
+      noteText: '',
+      gapText: '',
+      ceilingText: '',
+      /** 需要打到的达成率；null 表示打不到。 */
+      required: null,
+    },
+
+    onInit() {
+      console.debug('[AstraMai] Push onInit');
+
+      warmUp([SEED_KEY])
+        .then(() => {
+          this.loadSeed();
+          this.refresh();
+        })
+        .catch((error) => console.error('[AstraMai] Push 初始化失败：', error));
+    },
+
+    /** 读上一页留下的种子。没有就用默认值。 */
+    loadSeed() {
+      const raw = readSetting(SEED_KEY, '');
+      if (!raw) return;
+
+      try {
+        const seed = JSON.parse(raw);
+        if (typeof seed.title === 'string') this.title = seed.title;
+        if (typeof seed.levelValue === 'number' && seed.levelValue > 0) {
+          this.levelValue = seed.levelValue;
+        }
+        if (typeof seed.achievement === 'number' && seed.achievement > 0) {
+          this.achievement = seed.achievement;
+        }
+        if (typeof seed.rating === 'number' && seed.rating > 0) {
+          // 目标默认取「当前 + 5」—— 推分的人一般想往上走一点，
+          // 而不是盯着现有分数
+          this.target = Math.min(seed.rating + 5, TARGET_MAX);
+        }
+      } catch (error) {
+        console.warn('[AstraMai] 推分种子解析失败：', error);
+      }
+    },
+
+    /** 目标分增减。 */
+    adjust(delta) {
+      const next = this.target + delta;
+      this.target = Math.max(TARGET_MIN, Math.min(TARGET_MAX, next));
+      this.refresh();
+    },
+
+    /**
+     * 重算所有展示值。
+     *
+     * 全部走 `core` 里的 `pushPlan` —— 和 web 端**同一份逻辑**，
+     * 不在这里重写公式。rates 的分档、AP 加分、天花板定义都只有一处定义。
+     */
+    refresh() {
+      const plan = core.pushPlan(this.levelValue, this.hasCurrentValue() ? this.achievement : null, this.target);
+
+      this.levelText = core.formatFixed(this.levelValue, 1);
+      this.ceilingText = String(plan.ceiling);
+
+      if (plan.current) {
+        this.hasCurrent = true;
+        this.currentText = String(plan.current.rating);
+      } else {
+        this.hasCurrent = false;
+        this.currentText = '';
+      }
+
+      if (plan.required) {
+        this.required = true;
+        this.needText = `${core.formatFixed(plan.required.achievement, 4)}%`;
+        const note = plan.required.note ? `${plan.required.note} · ` : '';
+        this.noteText = `${note}届时 ${plan.required.rating}`;
+      } else {
+        this.required = false;
+        this.needText = '';
+        this.noteText = '';
+      }
+
+      if (plan.gap > 0) {
+        this.gapText = `还差 ${plan.gap} 分`;
+      } else if (plan.gap < 0) {
+        this.gapText = `已超出 ${-plan.gap} 分`;
+      } else {
+        this.gapText = '正好';
+      }
+    },
+
+    hasCurrentValue() {
+      return this.achievement > 0;
+    },
+
+    onBack() {
+      goBack('/');
+    },
+  };
+</script>

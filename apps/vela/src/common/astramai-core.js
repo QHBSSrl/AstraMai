@@ -704,6 +704,107 @@ function verifyScoreRating(score, levelValue) {
   };
 }
 
+// packages/core/dist/maimai/push.js
+var ACHIEVEMENT_STEP = 1e4;
+function requiredAchievement(levelValue, targetRating, options = {}) {
+  if (!Number.isFinite(levelValue) || levelValue <= 0)
+    return void 0;
+  if (!Number.isFinite(targetRating) || targetRating <= 0)
+    return void 0;
+  const bonus = options.allPerfect ? 1 : 0;
+  const need = targetRating - bonus;
+  if (need <= 0) {
+    return { achievement: 0, rating: targetRating, coefficient: 0, note: void 0 };
+  }
+  for (let index = DX_RATING_COEFFICIENTS.length - 1; index >= 0; index -= 1) {
+    const step = DX_RATING_COEFFICIENTS[index];
+    if (step.coefficient <= 0)
+      continue;
+    const raw = need / (levelValue * step.coefficient) * 100;
+    const lower = step.minimum;
+    const upper = index === 0 ? ACHIEVEMENT_CAP : DX_RATING_COEFFICIENTS[index - 1].minimum;
+    const candidate = Math.max(raw, lower);
+    if (candidate > upper)
+      continue;
+    if (candidate > ACHIEVEMENT_CAP)
+      continue;
+    const achievement = Math.ceil(candidate * ACHIEVEMENT_STEP) / ACHIEVEMENT_STEP;
+    if (achievement > ACHIEVEMENT_CAP)
+      continue;
+    const rating = calculateDxRating(levelValue, achievement, options);
+    if (rating < targetRating)
+      continue;
+    return {
+      achievement,
+      rating,
+      coefficient: step.coefficient,
+      note: step.note
+    };
+  }
+  return void 0;
+}
+function minRatingForLevel(levelValue) {
+  if (!Number.isFinite(levelValue) || levelValue <= 0)
+    return 0;
+  const lowest = [...DX_RATING_COEFFICIENTS].reverse().find((step) => step.coefficient > 0);
+  if (!lowest)
+    return 0;
+  return calculateDxRating(levelValue, lowest.minimum);
+}
+function pushPlan(levelValue, currentAchievement, targetRating, options = {}) {
+  var _a;
+  const ceiling = maxRatingForLevel(levelValue);
+  const current = currentAchievement === null || !Number.isFinite(currentAchievement) ? null : {
+    achievement: normalizeAchievement(currentAchievement),
+    rating: calculateDxRating(levelValue, currentAchievement, options)
+  };
+  const gap = targetRating - ((_a = current == null ? void 0 : current.rating) != null ? _a : 0);
+  return {
+    levelValue,
+    current,
+    target: targetRating,
+    gap,
+    required: requiredAchievement(levelValue, targetRating, options),
+    ceiling
+  };
+}
+function gainTable(levelValue, options = {}) {
+  if (!Number.isFinite(levelValue) || levelValue <= 0)
+    return [];
+  const ascending = [...DX_RATING_COEFFICIENTS].reverse();
+  const rows = [];
+  let previousRating = 0;
+  for (const step of ascending) {
+    const achievement = Math.min(step.minimum, ACHIEVEMENT_CAP);
+    const rating = calculateDxRating(levelValue, achievement, options);
+    rows.push({
+      achievement,
+      rating,
+      gain: rating - previousRating,
+      note: step.note
+    });
+    previousRating = rating;
+  }
+  return rows;
+}
+function improvementCandidates(entries, pick, limit = 5) {
+  const candidates = [];
+  for (const entry of entries) {
+    const values = pick(entry);
+    if (!values)
+      continue;
+    if (!Number.isFinite(values.levelValue) || values.levelValue <= 0)
+      continue;
+    const ceiling = maxRatingForLevel(values.levelValue);
+    const headroom = ceiling - values.rating;
+    if (headroom <= 0)
+      continue;
+    candidates.push({ entry, current: values.rating, ceiling, headroom });
+  }
+  candidates.sort((a, b) => b.headroom - a.headroom);
+  return candidates.slice(0, limit);
+}
+
 // packages/core/dist/maimai/format.js
 function formatInt(value) {
   if (value === null || value === void 0 || !Number.isFinite(value))
@@ -1627,6 +1728,110 @@ function buildPhigrosView(response, options = {}) {
     challengeModeRank: summary && typeof summary.challenge_mode_rank === "number" ? summary.challenge_mode_rank : null,
     generatedAt: (_m = options.generatedAt) != null ? _m : (/* @__PURE__ */ new Date()).toISOString()
   };
+}
+
+// packages/core/dist/osu/types.js
+var OSU_RULESETS = ["osu", "taiko", "fruits", "mania"];
+var OSU_RULESET_LABEL = {
+  osu: "osu!standard",
+  taiko: "osu!taiko",
+  fruits: "osu!catch",
+  mania: "osu!mania"
+};
+function formatOsuAccuracy(accuracy) {
+  if (!Number.isFinite(accuracy))
+    return "\u2014";
+  return `${(accuracy * 100).toFixed(2)}%`;
+}
+function formatOsuPp(pp) {
+  if (!Number.isFinite(pp))
+    return "\u2014";
+  if (pp >= 1e4)
+    return `${Math.round(pp)}`;
+  if (pp >= 1e3)
+    return pp.toFixed(1);
+  return pp.toFixed(2);
+}
+function formatOsuRank(rank) {
+  if (rank === null || !Number.isFinite(rank))
+    return "\u2014";
+  return `#${Math.round(rank).toLocaleString("en-US")}`;
+}
+
+// packages/core/dist/osu/bests.js
+function formatStar(value) {
+  return Number.isFinite(value) && value > 0 ? value.toFixed(1) : "\u2014";
+}
+function formatWeight(value) {
+  if (!Number.isFinite(value))
+    return "0";
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+function toOsuScoreEntry(score, position) {
+  return {
+    position,
+    pp: score.pp,
+    ppText: formatOsuPp(score.pp),
+    weightedPp: score.weightedPp,
+    weightPercent: score.weightPercent,
+    weightPercentText: `${formatWeight(score.weightPercent)}%`,
+    accuracy: score.accuracy,
+    accuracyText: formatOsuAccuracy(score.accuracy),
+    rank: score.rank,
+    mods: score.mods,
+    modsText: score.mods.join(" "),
+    score: score.score,
+    maxCombo: score.maxCombo,
+    beatmapId: score.beatmapId,
+    version: score.version,
+    starRating: score.starRating,
+    starRatingText: formatStar(score.starRating),
+    songTitle: score.songTitle,
+    artist: score.artist,
+    title: score.title,
+    coverUrl: score.coverUrl
+  };
+}
+function buildOsuBestsView(input) {
+  var _a, _b;
+  const { player, bests } = input;
+  const scores = bests.scores.map((score, index) => toOsuScoreEntry(score, index + 1));
+  const listedPpSum = scores.reduce((sum2, entry) => sum2 + entry.weightedPp, 0);
+  const rawPpSum = scores.reduce((sum2, entry) => sum2 + entry.pp, 0);
+  return {
+    game: "osu",
+    player: {
+      id: player.id,
+      name: player.username,
+      pp: player.pp,
+      ppText: formatOsuPp(player.pp),
+      globalRank: player.globalRank,
+      globalRankText: formatOsuRank(player.globalRank),
+      countryRank: player.countryRank,
+      countryCode: player.countryCode,
+      accuracy: player.accuracy,
+      accuracyText: formatOsuAccuracy(player.accuracy),
+      playCount: player.playCount,
+      ruleset: player.ruleset,
+      rulesetLabel: OSU_RULESET_LABEL[player.ruleset],
+      avatarUrl: player.avatarUrl
+    },
+    scores,
+    stats: {
+      count: scores.length,
+      listedPpSum,
+      rawPpSum,
+      totalPp: bests.totalPp,
+      totalPpText: formatOsuPp(bests.totalPp),
+      topPp: scores.length > 0 ? (_b = (_a = scores[0]) == null ? void 0 : _a.pp) != null ? _b : 0 : 0,
+      topStarRating: scores.reduce((max, entry) => Math.max(max, entry.starRating), 0)
+    },
+    truncated: bests.truncated,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+function weightText(entry) {
+  return `${formatWeight(entry.weightPercent)}%`;
 }
 
 // packages/core/dist/qr/tables.js
@@ -2797,6 +3002,8 @@ export {
   MIN_VERSION,
   MODE_BYTE,
   NUM_EC_BLOCKS,
+  OSU_RULESETS,
+  OSU_RULESET_LABEL,
   PHIGROS_API_BASE,
   PHIGROS_DIFFICULTIES,
   PHIGROS_DIFFICULTY_COLORS,
@@ -2815,6 +3022,7 @@ export {
   assetImageUrl,
   buildB50View,
   buildChunithmBestsView,
+  buildOsuBestsView,
   buildPhigrosView,
   buildSongIndex,
   byteModeCharCountBits,
@@ -2848,10 +3056,15 @@ export {
   formatFixed,
   formatInt,
   formatLevelValue,
+  formatOsuAccuracy,
+  formatOsuPp,
+  formatOsuRank,
   formatRelative,
   formatUtcToLocal,
+  gainTable,
   gfMultiply,
   hexToBytes,
+  improvementCandidates,
   isAllPerfect,
   isChunithmNormalDifficulty,
   isChunithmWorldsEnd,
@@ -2860,6 +3073,7 @@ export {
   maimaiEndpoints,
   maxDxScoreFromNotes,
   maxRatingForLevel,
+  minRatingForLevel,
   minimumAchievementForRate,
   musicUrl,
   normalDifficultiesPresent,
@@ -2869,6 +3083,7 @@ export {
   parseWahlapQrPayload,
   phigrosDifficultyColor,
   projectRating,
+  pushPlan,
   qrSizeOfVersion,
   qrToBlockArt,
   qrToPathData,
@@ -2877,17 +3092,20 @@ export {
   rateFromAchievement,
   ratingTier,
   rawDataModules,
+  requiredAchievement,
   requiredLevelValue,
   rsGeneratorPolynomial,
   rsRemainder,
   serializeLxnsError,
   titleFromSongId,
   toChunithmScoreEntry,
+  toOsuScoreEntry,
   truncate,
   unwrapEnvelope,
   utf8Decode,
   utf8Encode,
   verifyScoreRating,
   versionTitleOf,
-  wahlapQrContentOf
+  wahlapQrContentOf,
+  weightText
 };

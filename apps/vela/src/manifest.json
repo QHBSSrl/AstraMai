@@ -82,6 +82,10 @@
       "pages/Welcome": {
         "component": "welcome",
         "path": "/welcome"
+      },
+      "pages/Push": {
+        "component": "push",
+        "path": "/push"
       }
     }
   },

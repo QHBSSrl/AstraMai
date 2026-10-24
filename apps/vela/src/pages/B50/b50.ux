@@ -80,7 +80,7 @@
 
       <!-- <list> 必须显式给高度，否则高度为 0、成绩一条都画不出来 -->
       <list class="list" onscrollbottom="onScrollBottom">
-        <list-item class="row" type="item" for="{{ entries }}">
+        <list-item class="row" type="item" for="{{ entries }}" @click="openPush($item)">
           <text class="row__rank">{{ $idx + 1 }}</text>
           <!-- 没有图就不渲染：Phigros 平台不提供曲绘，渲染空的 <image> 会显示成灰块 -->
           <image class="row__cover" if="{{ $item.jacketUrl }}" src="{{ $item.jacketUrl }}"></image>
@@ -443,7 +443,7 @@
   const { chunithmDifficultyColor } = core;
   const { gameById, readCurrentGame, queryKindsOf, b50TitleOf } = games;
   const { mark } = diag;
-  const { goBack } = navigation;
+  const { goBack, push } = navigation;
   const { readSetting, warmUp, writeSetting } = store;
   const {
     KIND_LABELS,
@@ -562,6 +562,41 @@
     /** 返回上一页。失败也不会把用户困住——goBack 内部会兜底跳首页。 */
     onBack() {
       goBack('/');
+    },
+
+    /**
+     * 点某条成绩 → 打开推分页。
+     *
+     * 跨页传数据走 **storage**，不用路由参数 —— 这个 App 一直是这么做的
+     * （`Song` 页读 `songDetail` 也是这套）。路由参数要自己拼字符串、
+     * 还得处理编码，而曲名里有空格和各种符号。
+     *
+     * 传的是**数值**（`raw*` 系列字段），不是模板里那些格式化过的字符串。
+     */
+    openPush(item) {
+      if (!item) return;
+
+      const level = typeof item.rawLevelValue === 'number' ? item.rawLevelValue : null;
+      if (level === null || level <= 0) {
+        // 曲库里查不到定数就没法推分 —— 直接不跳，免得打开一个空页面
+        console.warn('[AstraMai] 这条成绩没有定数，无法推分');
+        return;
+      }
+
+      const seed = {
+        title: item.title || '',
+        levelValue: level,
+        achievement: typeof item.rawAchievement === 'number' ? item.rawAchievement : 0,
+        rating: typeof item.rawRating === 'number' ? item.rawRating : 0,
+      };
+
+      try {
+        writeSetting('pushSeed', JSON.stringify(seed));
+      } catch (error) {
+        console.warn('[AstraMai] 写推分种子失败：', error);
+      }
+
+      push('/push');
     },
 
     onReady() {
@@ -1012,9 +1047,21 @@
           difficulty: entry.difficultyShort,
           // 难度配色与游戏内一致：绿 / 黄 / 红 / 紫 / 白
           diffColor: DIFFICULTY_COLOR[entry.levelIndex] || '#9bacd0',
+          /*
+           * ⚠️ 下面三个字段同时存**两种形态**：
+           *   `levelValue` / `rating` / `achievements` 是给界面看的字符串
+           *   `raw*` 是给推分页用的数值
+           *
+           * 不合并成一个字段的原因：模板里要的是"14.0"这种格式化结果，
+           * 而推分要的是能参与计算的数字。把格式化结果反解回数字
+           * （parseFloat('14.0')）在 `--` 时会变成 NaN，更容易出错。
+           */
           levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
           rating: entry.rating === null ? '--' : String(entry.rating),
           achievements: entry.achievements.toFixed(4) + '%',
+          rawLevelValue: entry.levelValue,
+          rawRating: entry.rating,
+          rawAchievement: entry.achievements,
           // 封面直链（已裁剪到列表尺寸），服务端组装 B50 视图时已经带上
           jacketUrl: entry.jacketUrl || '',
           // 版本名由 core 的 versionTitleOf 解析（曲目里是细粒度版本号，版本表是千位步长）
