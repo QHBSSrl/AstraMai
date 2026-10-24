@@ -78,6 +78,13 @@
         line4="{{ statLine4 }}"
       ></score-summary>
 
+      <!--
+        成绩对比：这次和上次查的比。
+        放在成绩卡和列表之间，**只在有变化时渲染**——
+        显示"较上次持平"既占地方又没信息量。
+      -->
+      <text class="diff" if="{{ diffLine }}">{{ diffLine }}</text>
+
       <!-- <list> 必须显式给高度，否则高度为 0、成绩一条都画不出来 -->
       <list class="list" onscrollbottom="onScrollBottom">
         <list-item class="row" type="item" for="{{ entries }}" @click="openPush($item)">
@@ -305,6 +312,24 @@
 
 
 
+
+  /*
+   * 成绩对比那一行。
+   *
+   * 只在有变化时才渲染（模板里 `if="{{ diffLine }}"`），所以这里不用考虑
+   * "隐藏时占位"的问题 —— 没变化时它压根不存在。
+   *
+   * 高度固定 34px：它出现时列表会被 flex 压缩同样的高度，
+   * 而不是把整个页面顶下去。
+   */
+  .diff {
+    width: 100%;
+    height: 34px;
+    font-size: 15px;
+    color: @ui-primary;
+    text-align: center;
+    lines: 1;
+  }
 
   .list {
     width: 100%;
@@ -552,6 +577,8 @@
       statLine2: '',
       statLine3: '',
       statLine4: '',
+      /** 成绩对比的一句话总结；空串表示不显示。 */
+      diffLine: '',
       /** 当前游戏 id。决定请求哪个接口、以及统计行怎么写。 */
       gameId: 'maimai',
       /** 标题按游戏变：舞萌 Best 50 / 中二 B30 / Phigros RKS / osu Best Plays。 */
@@ -778,6 +805,8 @@
           this.apply(view);
           this.saving = '';
           this.refreshInputState();
+          // 先比上一次（此时 cache 里还是旧数据），再覆盖
+          this.compareWithCache(view, code);
           // 成功就缓存一份，没网/服务器挂了还能看
           this.saveCache(view, code);
         })
@@ -808,6 +837,42 @@
     /** 缓存的键。code 里可能有特殊字符，但 storage 的键是任意字符串，不用转义。 */
     cacheKey(code) {
       return `b50Cache:${this.gameId}:${code}`;
+    },
+
+    /**
+     * 和上一次查到的比一比，把一句话总结放进 `diffLine`。
+     *
+     * ⚠️ **必须在 `saveCache` 之前调用** —— 那时缓存里还是上次的数据。
+     * 顺序反了就是拿新数据和新数据比，永远是"没有变化"。
+     *
+     * 没有上次数据（第一次查）时 `diffB50` 返回 `comparable: false`，
+     * `summarizeDiff` 给 `null`，`diffLine` 保持空串 → 模板不渲染任何东西。
+     */
+    compareWithCache(view, code) {
+      this.diffLine = '';
+
+      // 只有舞萌有这个对比（中二/Phigros 的视图结构不同，先不做）
+      if (this.gameId !== 'maimai') return;
+
+      let previous = null;
+      try {
+        const raw = readSetting(this.cacheKey(code), '');
+        if (raw) previous = JSON.parse(raw);
+      } catch (error) {
+        console.warn('[AstraMai] 读旧缓存用于对比失败：', error);
+        return;
+      }
+
+      if (!previous || typeof previous !== 'object') return;
+
+      try {
+        const diff = core.diffB50(previous, view);
+        const text = core.summarizeDiff(diff);
+        if (text) this.diffLine = text;
+      } catch (error) {
+        // 旧缓存是旧版本写的、结构对不上 —— 对比失败不影响看成绩
+        console.warn('[AstraMai] 成绩对比失败：', error);
+      }
     },
 
     /**

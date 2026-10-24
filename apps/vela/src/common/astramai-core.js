@@ -805,6 +805,127 @@ function improvementCandidates(entries, pick, limit = 5) {
   return candidates.slice(0, limit);
 }
 
+// packages/core/dist/maimai/diff.js
+function entryKey(entry) {
+  const id = typeof entry.songId === "number" && entry.songId > 0 ? String(entry.songId) : entry.title;
+  return `${id}:${String(entry.type)}:${entry.levelIndex}`;
+}
+function toSnapshot(entry) {
+  return {
+    rating: typeof entry.rating === "number" ? entry.rating : 0,
+    achievements: typeof entry.achievements === "number" ? entry.achievements : 0
+  };
+}
+function toDiffEntry(key, previous, next) {
+  var _a, _b, _c, _d;
+  const source = next != null ? next : previous;
+  const before = previous ? toSnapshot(previous) : null;
+  const after = next ? toSnapshot(next) : null;
+  return {
+    key,
+    songId: typeof source.songId === "number" ? source.songId : 0,
+    title: source.title || "",
+    difficultyShort: source.difficultyShort || "",
+    difficultyColor: source.difficultyColor || "",
+    levelValue: typeof source.levelValue === "number" ? source.levelValue : null,
+    previous: before,
+    next: after,
+    deltaRating: ((_a = after == null ? void 0 : after.rating) != null ? _a : 0) - ((_b = before == null ? void 0 : before.rating) != null ? _b : 0),
+    deltaAchievement: ((_c = after == null ? void 0 : after.achievements) != null ? _c : 0) - ((_d = before == null ? void 0 : before.achievements) != null ? _d : 0)
+  };
+}
+function diffB50(previous, next) {
+  var _a, _b;
+  const nextRating = typeof ((_a = next.player) == null ? void 0 : _a.rating) === "number" ? next.player.rating : 0;
+  if (!previous) {
+    return {
+      gained: [],
+      lost: [],
+      entered: [],
+      left: [],
+      unchanged: 0,
+      previousRating: 0,
+      nextRating,
+      ratingDelta: 0,
+      comparable: false
+    };
+  }
+  const previousRating = typeof ((_b = previous.player) == null ? void 0 : _b.rating) === "number" ? previous.player.rating : 0;
+  const flatten = (view) => {
+    var _a2, _b2;
+    const map = /* @__PURE__ */ new Map();
+    for (const entry of [...(_a2 = view.standard) != null ? _a2 : [], ...(_b2 = view.dx) != null ? _b2 : []]) {
+      map.set(entryKey(entry), entry);
+    }
+    return map;
+  };
+  const before = flatten(previous);
+  const after = flatten(next);
+  const gained = [];
+  const lost = [];
+  const entered = [];
+  const left = [];
+  let unchanged = 0;
+  for (const [key, entry] of after) {
+    const old = before.get(key);
+    if (!old) {
+      entered.push(toDiffEntry(key, null, entry));
+      continue;
+    }
+    const diff = toDiffEntry(key, old, entry);
+    if (diff.deltaRating > 0)
+      gained.push(diff);
+    else if (diff.deltaRating < 0)
+      lost.push(diff);
+    else
+      unchanged += 1;
+  }
+  for (const [key, entry] of before) {
+    if (after.has(key))
+      continue;
+    left.push(toDiffEntry(key, entry, null));
+  }
+  gained.sort((a, b) => b.deltaRating - a.deltaRating);
+  lost.sort((a, b) => a.deltaRating - b.deltaRating);
+  entered.sort((a, b) => {
+    var _a2, _b2, _c, _d;
+    return ((_b2 = (_a2 = b.next) == null ? void 0 : _a2.rating) != null ? _b2 : 0) - ((_d = (_c = a.next) == null ? void 0 : _c.rating) != null ? _d : 0);
+  });
+  left.sort((a, b) => {
+    var _a2, _b2, _c, _d;
+    return ((_b2 = (_a2 = b.previous) == null ? void 0 : _a2.rating) != null ? _b2 : 0) - ((_d = (_c = a.previous) == null ? void 0 : _c.rating) != null ? _d : 0);
+  });
+  return {
+    gained,
+    lost,
+    entered,
+    left,
+    unchanged,
+    previousRating,
+    nextRating,
+    ratingDelta: nextRating - previousRating,
+    comparable: true
+  };
+}
+function summarizeDiff(diff) {
+  if (!diff.comparable)
+    return null;
+  const parts = [];
+  if (diff.ratingDelta !== 0) {
+    const sign = diff.ratingDelta > 0 ? "+" : "";
+    parts.push(`\u603B Rating ${sign}${diff.ratingDelta}`);
+  }
+  if (diff.gained.length > 0)
+    parts.push(`${diff.gained.length} \u9996\u6DA8`);
+  if (diff.lost.length > 0)
+    parts.push(`${diff.lost.length} \u9996\u8DCC`);
+  if (diff.entered.length > 0)
+    parts.push(`${diff.entered.length} \u9996\u65B0\u8FDB`);
+  if (parts.length === 0)
+    return null;
+  return parts.join(" \xB7 ");
+}
+
 // packages/core/dist/maimai/format.js
 function formatInt(value) {
   if (value === null || value === void 0 || !Number.isFinite(value))
@@ -3039,6 +3160,7 @@ export {
   createSyntheticSongList,
   decodeHexUtf8,
   describeValidity,
+  diffB50,
   difficultyColor,
   difficultyName,
   difficultyShortName,
@@ -3097,6 +3219,7 @@ export {
   rsGeneratorPolynomial,
   rsRemainder,
   serializeLxnsError,
+  summarizeDiff,
   titleFromSongId,
   toChunithmScoreEntry,
   toOsuScoreEntry,
