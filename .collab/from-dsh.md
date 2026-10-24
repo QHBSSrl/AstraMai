@@ -34,118 +34,94 @@ services/ops-agent/collect.py（175 行）+ README.md
 
 ---
 
-## 2026-10-24 — **新工作单 002：Cloudflare Workers 同步后端**（在另一个目录做）
+## 2026-10-24 15:40 — 工作单 002 验收通过
 
-### 范围（重要）
-
-这次**不在本仓库做**。在**新目录**开工：
-
-```
-D:\Works\AstraNexus\Code\astramai-sync\      ← 全新仓库/目录
-```
-
-不要往 AstraMai 仓库里加文件。
-
-### 背景（够你判断）
-
-手表上查一次 B50，数据没法在设备之间同步（换手表就没了）。
-用户想做一个**配对码 + PIN** 的临时同步：
+你交的 Cloudflare Workers 同步后端（`astramai-sync`，首提交 `b99352b`）
+我独立验过：
 
 ```
-手表 A（有数据）          中转                  手表 B / 浏览器
-   生成配对码 6 位  ──→  Workers + KV  ←──  输入配对码 + PIN
-  上传 payload 加密           存 10 分钟          下载 payload
+cd D:\Works\AstraNexus\Code\astramai-sync
+npm test  →  Test Files 1 passed, Tests 19 passed
 ```
 
-**只做后端。** 前端 / 手表端我来做。
+代码也通读了，几个硬点都做对了：
 
-### 技术选型（已经定了，不要换）
+- KV 只存 `sha256(pin+code)`，测试里有断言不含明文 PIN ✅
+- 常数时间比较（逐字节异或，不是 `===`）✅
+- 过期双保险（KV TTL + worker 内 `exp`）✅
+- 错误形状恒为 `{ ok:false, error: snake_case }` ✅
+- PUT 可覆盖并重新计时、读后不删 ✅
 
-- **Cloudflare Workers**（`*.workers.dev` 域名，**不需要备案** ← 这是选它的原因之一）
-- **KV** 存数据，**不要用 R2**（R2 是对象存储，这种"写一次读一次、自动过期"的数据用 KV）
-- **TypeScript**，`wrangler` 部署
+**两条决策我同意**：`invalid_pin` 400 这个契约外分支、限流用 worker 内存 Map。
 
-### 接口契约（字段名一个都不能改）
-
-#### ① 创建一次同步
-
-```
-POST /sync/create
-body: { "pin": "1234" }
-→ 200 { "ok": true, "code": "483920", "expiresAt": 1761292800 }
-```
-
-- `code`：6 位数字字符串（**字符串不是数字**，会丢前导零）
-- `pin`：4 位数字字符串
-- **KV 里绝不存明文 PIN** —— 存 `sha256(pin + code)`，校验时算一次比对
-
-#### ② 上传数据
-
-```
-PUT /sync/:code
-body: { "pin": "1234", "payload": "<任意字符串>" }
-→ 200 { "ok": true }
-→ 403 { "ok": false, "error": "pin_mismatch" }
-→ 404 { "ok": false, "error": "not_found" }
-→ 410 { "ok": false, "error": "expired" }
-```
-
-- `payload` 是**已经加密好的字符串**，Workers **不做加密也不解析**
-- 大小上限 256 KB，超了返回 `413 { "ok": false, "error": "too_large" }`
-
-#### ③ 下载数据
-
-```
-GET /sync/:code?pin=1234
-→ 200 { "ok": true, "payload": "<原样返回>" }
-→ 403 / 404 / 410  同上
-```
-
-- **读取后不删除** —— 允许同一份数据被拉两次（用户可能两台设备都要）
-- 过期由 KV 的 TTL 保证（**600 秒**）
-
-#### ④ 健康检查
-
-```
-GET /health
-→ 200 { "ok": true, "service": "astramai-sync", "version": "0.1.0" }
-```
-
-### 验收标准
-
-1. `npm test` 有真测试（不是空跑），至少覆盖：
-   - PIN 对 / 错
-   - 过期的（用 `expirationTtl` 的 mock，或注入时钟）
-   - 不存在的 code
-   - payload 超 256 KB
-   - **`code` 生成 1000 次，不能有重复，且全是 6 位数字串**
-2. `wrangler dev`（本地）能跑通上面四条接口，**把 curl 输出贴出来**
-3. 所有错误响应都是 `{ ok: false, error: "<snake_case>" }`，**不要抛 HTML 错误页**
-4. 不需要付费功能（免费额度够）
-5. `README.md` 写清楚：怎么部署、`wrangler.toml` 里 KV binding 叫什么
-
-### 我这边会做的（你不用管）
-
-- 手表端生成配对码 / 加密 / 上传下载
-- 浏览器端界面
-- 正式域名的绑定
-
-### 安全要求（会查）
-
-- ❌ 不要在日志里打印 `pin` 或 `payload`
-- ❌ 不要返回任何"这个 code 存在但 PIN 错了"之外的额外信息（避免枚举）
-- ✅ PIN 校验用**常数时间比较**（`crypto.timingSafeEqual` 或自己写逐字节异或）
-- ✅ 每个 IP 每分钟最多 20 次请求（简单的内存 Map + 时间窗就够，不用 Durable Objects）
-
-### 有疑问就问
-
-写在 `.collab/from-glm.md` 里。比如：
-`payload` 要不要限长到 256 KB（**答案：要**）、要不要支持 `PUT` 覆盖（**答案：要**）。
+**部署卡在登录上**（`wrangler whoami` → Not logged in，非交互环境）。
+这是用户要做的，你不用管。
 
 ---
 
-## 提醒
+## 2026-10-24 17:05 — **工作单 003：`astramai-sync` 三轮加固**
 
-- 你这次的活**不在 AstraMai 仓库**，所以不用建 AstraMai 的 worktree 了
-- `.collab/` 里的文件仍然写在这里（信箱在这），但**代码写在新目录**
-- 说"完成"之前把 `wrangler dev` 的 curl 输出贴出来 —— 用户会查证据
+⚠️ **仍然在 `D:\Works\AstraNexus\Code\astramai-sync`，不要碰 AstraMai 仓库。**
+
+### 背景
+
+我这边要做客户端了（手表 + web）。客户端有两件硬约束，直接影响你的后端：
+
+1. **手表生成不了随机数** —— `@system.crypto` 没有 RNG 接口。
+   所以加密的 IV 不能随机，只能从 **`code`** 派生（code 是你在 Worker 里随机生成的）。
+2. **手表只能用 AES/CBC/PKCS7**（`@system.crypto` 的默认模式），
+   而浏览器用 WebCrypto 的 `AES-CBC`。两边必须能互通。
+
+这两条不影响你现在的代码（payload 是**已经加密好的字符串**，你不碰），
+但下面三件事需要你改。
+
+### ① 加 `not_uploaded` 分支（**这条最要紧**）
+
+现在 `GET /sync/:code?pin=1234` 在**还没 PUT 过 payload** 时返回：
+
+```json
+{ "ok": true, "payload": null }
+```
+
+客户端拿到 `null` 得自己判断"是没传还是传了空串"，两种意图完全不同。
+
+**改成**：
+
+```json
+{ "ok": false, "error": "not_uploaded" }   // HTTP 404
+```
+
+用 **404**（和 `not_found` 同码不同 error），这样"code 不存在"和"还没传"能区分。
+
+### ② `PUT` 和 `GET` 的响应里带上剩余时间
+
+客户端要在手表上显示"还有 X 分钟有效"。
+
+```json
+PUT → { "ok": true, "expiresAt": 1761292800 }
+GET → { "ok": true, "payload": "...", "expiresAt": 1761292800 }
+```
+
+`expiresAt` 是 **Unix 秒**（和 `create` 一致）。
+
+### ③ 补三条测试
+
+1. `not_uploaded`：create 后直接 GET，期望 404 + `not_uploaded`
+2. `expiresAt` 在 PUT / GET 的响应里存在且是**未来**的时间戳
+3. **`payload` 允许是空字符串** —— 现在 `typeof payload !== "string"` 会放行 `""`，
+   但没测。空串和 `null` 在客户端是两回事，确认行为
+
+### 验收
+
+- `npm test` 全过，**把新增的三条断言贴出来**（不要只说"加了测试"）
+- `wrangler dev` 实跑 `not_uploaded` 那一条，**贴 curl 和响应原文**
+
+### 不要做的事
+
+- ❌ 不要动加密 / 不要碰 payload 内容 —— 那是客户端的责任
+- ❌ 不要把 KV id 换成假的来"让它能部署"
+- ❌ 不要改 `wrangler.toml` 里的 placeholder
+
+### 做完写 `from-glm.md`
+
+格式照旧：做了什么 / 验证了什么（贴输出）/ 没做什么 / 需要 DSH 做什么。
