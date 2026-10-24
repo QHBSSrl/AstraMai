@@ -1422,3 +1422,144 @@ textarea.input {
   border-color: rgba(79, 214, 255, 0.35);
   background: rgba(79, 214, 255, 0.07);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   推分计算器（PushPlanner）
+   ──────────────────────────────────────────────────────────────────────
+   只做两件事：一排输入框、几行等宽的对齐列表。
+   没用 grid 排版数字列 —— 用等宽数字 + flex 让列自己对齐，
+   这样以后加一列不用动容器。
+   ══════════════════════════════════════════════════════════════════════ */
+
+.push {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.push__inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 16px 0 4px;
+}
+
+.push__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.push__label {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.push__input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  font: inherit;
+  /* 等宽数字：填 14.0 / 300 时不会因为字形宽度跳来跳去 */
+  font-variant-numeric: tabular-nums;
+}
+
+.push__input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+
+.push__result {
+  margin-top: 18px;
+}
+
+.push__hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.push__hint--warn {
+  color: var(--warn);
+}
+
+.push__gains {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.push__gain {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  /* 等宽数字，让每一列自然对齐 */
+  font-variant-numeric: tabular-nums;
+}
+
+.push__gain-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.push__gain-ach {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
+.push__gain-rating {
+  flex: 0 0 64px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.push__gain-delta {
+  flex: 0 0 92px;
+  text-align: right;
+}
+
+.push__notes {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+.push__notes strong {
+  color: var(--text);
+}
+
+@media (max-width: 620px) {
+  .push__gain {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+
+  .push__gain-note {
+    flex: 1 1 100%;
+  }
+
+  .push__gain-rating,
+  .push__gain-delta {
+    flex: 0 0 auto;
+    text-align: left;
+  }
+}

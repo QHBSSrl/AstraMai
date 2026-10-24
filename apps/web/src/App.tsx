@@ -22,6 +22,7 @@ import { PlayerCard } from './components/PlayerCard';
 import { QrStudio } from './components/QrStudio';
 import { QueryBar } from './components/QueryBar';
 import { ScoreDetail } from './components/ScoreDetail';
+import { PushPlanner } from './components/PushPlanner';
 import { ScoreTable, entryKey } from './components/ScoreTable';
 import { SelfCheckPanel } from './components/SelfCheckPanel';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -34,7 +35,7 @@ const DEMO_FRIEND_CODE = '888888888888888';
 type Tab = 'mix' | 'standard' | 'dx' | 'selections';
 
 /** 顶层页面。B50 查分、二维码工作台、同步到手表各自独立，互不干扰对方的状态。 */
-type Page = 'b50' | 'qr' | 'sync';
+type Page = 'b50' | 'qr' | 'sync' | 'push';
 
 interface Result {
   view: B50View;
@@ -125,6 +126,11 @@ export function App() {
 
     if (parts[0] === 'sync') {
       setPage('sync');
+      return;
+    }
+
+    if (parts[0] === 'push') {
+      setPage('push');
       return;
     }
 
@@ -276,10 +282,22 @@ export function App() {
         >
           同步到手表
         </button>
+        <button
+          type="button"
+          aria-current={page === 'push' ? 'page' : undefined}
+          onClick={() => {
+            setPage('push');
+            window.location.hash = '#/push';
+          }}
+        >
+          推分
+        </button>
       </nav>
 
       {page === 'sync' ? (
         <SyncToWatch />
+      ) : page === 'push' ? (
+        <PushPlanner entries={result ? [...result.view.standard, ...result.view.dx] : null} />
       ) : page === 'qr' ? (
         <QrStudio />
       ) : (
