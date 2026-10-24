@@ -25,6 +25,7 @@ export * from './lxns/client.js';
 // ── 舞萌 DX 领域逻辑 ────────────────────────────────────────────────────
 export * from './maimai/constants.js';
 export * from './maimai/rating.js';
+export * from './maimai/push.js';
 export * from './maimai/format.js';
 export * from './maimai/b50.js';
 export * from './maimai/qr-payload.js';
