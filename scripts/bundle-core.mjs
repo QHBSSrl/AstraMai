@@ -24,12 +24,44 @@ const iifeOut = resolve(root, '.probe/verify/astramai-core.iife.js');
 mkdirSync(outDir, { recursive: true });
 mkdirSync(dirname(iifeOut), { recursive: true });
 
+/*
+ * 手表包里把「网页专用的 AES 适配」替换成空实现。
+ *
+ * `packages/core/src/sync/aes-web.ts` 用的是 WebCrypto（`crypto.subtle`）
+ * 加 `TextEncoder` / `TextDecoder` —— 手表上一个都没有。
+ *
+ * 它本身是死代码（只在函数体内引用，模块加载时不执行），
+ * 但项目的约定是**产物里不许出现宿主 API 裸引用**，
+ * 而且留着它在包里迟早有人误用。所以直接替换掉。
+ *
+ * 手表侧的 AES 在 `apps/vela/src/common/sync-aes.js`（用 @system.crypto）。
+ */
+const stubWebOnlyAes = {
+  name: 'stub-web-only-aes',
+  setup(build) {
+    build.onResolve({ filter: /sync[\\/]aes-web\.js$/ }, () => ({ path: 'stub', namespace: 'stub' }));
+    build.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({
+      contents: [
+        '// 网页专用模块，手表包里为空实现（见 bundle-core.mjs 的说明）',
+        'export async function encryptSyncPayload() {',
+        "  throw new Error('encryptSyncPayload 只在网页端可用');",
+        '}',
+        'export async function decryptSyncPayload() {',
+        "  throw new Error('decryptSyncPayload 只在网页端可用');",
+        '}',
+      ].join('\n'),
+      loader: 'js',
+    }));
+  },
+};
+
 const shared = {
   entryPoints: [entry],
   bundle: true,
   platform: 'neutral',
   target: ['es2017'],
   legalComments: 'none',
+  plugins: [stubWebOnlyAes],
 };
 
 // Vela 侧使用：保留 ESM，便于 `import { encodeQr } from '../common/astramai-core.js'`

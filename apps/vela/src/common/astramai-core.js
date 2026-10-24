@@ -1462,6 +1462,113 @@ function decodeHexParam(value) {
   return decodeHexUtf8(value);
 }
 
+// packages/core/dist/sync/payload.js
+var SYNC_VERSION = 1;
+var KEY_BYTES = 16;
+function padAscii(text, bytes) {
+  const out = [];
+  for (let i = 0; i < bytes; i += 1) {
+    out.push(i < text.length ? text.charCodeAt(i) & 255 : 48);
+  }
+  return out;
+}
+function bytesToBase64(bytes) {
+  var _a;
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = (_a = bytes[i]) != null ? _a : 0;
+    const b1 = bytes[i + 1];
+    const b2 = bytes[i + 2];
+    out += alphabet[b0 >> 2];
+    out += alphabet[(b0 & 3) << 4 | (b1 != null ? b1 : 0) >> 4];
+    out += b1 === void 0 ? "=" : alphabet[(b1 & 15) << 2 | (b2 != null ? b2 : 0) >> 6];
+    out += b2 === void 0 ? "=" : alphabet[b2 & 63];
+  }
+  return out;
+}
+function base64ToBytes(text) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const clean = text.replace(/=+$/, "");
+  const out = [];
+  let buffer = 0;
+  let bits = 0;
+  for (const ch of clean) {
+    const value = alphabet.indexOf(ch);
+    if (value < 0)
+      throw new Error(`base64 \u91CC\u6709\u975E\u6CD5\u5B57\u7B26\uFF1A${ch}`);
+    buffer = buffer << 6 | value;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push(buffer >> bits & 255);
+    }
+  }
+  return out;
+}
+function isValidPin(pin) {
+  return typeof pin === "string" && /^\d{4}$/.test(pin);
+}
+function isValidCode(code) {
+  return typeof code === "string" && /^\d{6}$/.test(code);
+}
+function deriveKeyBase64(pin, code) {
+  if (!isValidPin(pin))
+    throw new Error("PIN \u5FC5\u987B\u662F 4 \u4F4D\u6570\u5B57");
+  if (!isValidCode(code))
+    throw new Error("\u914D\u5BF9\u7801\u5FC5\u987B\u662F 6 \u4F4D\u6570\u5B57");
+  return bytesToBase64(padAscii(`${pin}${code}`, KEY_BYTES));
+}
+function deriveIvBase64(code) {
+  if (!isValidCode(code))
+    throw new Error("\u914D\u5BF9\u7801\u5FC5\u987B\u662F 6 \u4F4D\u6570\u5B57");
+  return bytesToBase64(padAscii(code, KEY_BYTES));
+}
+function encodeSyncPayload(game, view, now = /* @__PURE__ */ new Date()) {
+  const payload = {
+    version: SYNC_VERSION,
+    game,
+    createdAt: now.toISOString(),
+    view
+  };
+  return JSON.stringify(payload);
+}
+function decodeSyncPayload(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    throw new Error("\u540C\u6B65\u6570\u636E\u4E0D\u662F\u5408\u6CD5 JSON");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("\u540C\u6B65\u6570\u636E\u4E0D\u662F\u4E00\u4E2A\u5BF9\u8C61");
+  }
+  const candidate = parsed;
+  if (candidate.version !== SYNC_VERSION) {
+    throw new Error(`\u540C\u6B65\u6570\u636E\u7248\u672C\u662F ${String(candidate.version)}\uFF0C\u672C\u7248\u672C\u53EA\u8BA4 ${SYNC_VERSION}`);
+  }
+  if (typeof candidate.game !== "string" || !candidate.game) {
+    throw new Error("\u540C\u6B65\u6570\u636E\u7F3A\u5C11\u6E38\u620F\u6807\u8BC6");
+  }
+  if (typeof candidate.createdAt !== "string") {
+    throw new Error("\u540C\u6B65\u6570\u636E\u7F3A\u5C11\u751F\u6210\u65F6\u95F4");
+  }
+  return {
+    version: candidate.version,
+    game: candidate.game,
+    createdAt: candidate.createdAt,
+    view: candidate.view
+  };
+}
+
+// stub:stub
+async function encryptSyncPayload() {
+  throw new Error("encryptSyncPayload \u53EA\u5728\u7F51\u9875\u7AEF\u53EF\u7528");
+}
+async function decryptSyncPayload() {
+  throw new Error("decryptSyncPayload \u53EA\u5728\u7F51\u9875\u7AEF\u53EF\u7528");
+}
+
 // packages/core/dist/chunithm/constants.js
 var CHUNITHM_NORMAL_DIFFICULTY_COUNT = 5;
 var CHUNITHM_WORLD_S_END_INDEX = 5;
@@ -3128,6 +3235,7 @@ export {
   EC_LEVEL_FORMAT_BITS,
   FC_LABELS,
   FS_LABELS,
+  KEY_BYTES,
   LEVEL_INDEXES,
   LXNS_API_BASE,
   LxnsClient,
@@ -3150,17 +3258,20 @@ export {
   RATE_THRESHOLDS,
   RATING_TIERS,
   SONG_TYPE_LABELS,
+  SYNC_VERSION,
   TROPHY_COLOR_CSS,
   TROPHY_COLOR_LABELS,
   WAHLAP_QR_CONTENT_PREFIX,
   alignmentPatternPositions,
   assetImageUrl,
+  base64ToBytes,
   buildB50View,
   buildChunithmBestsView,
   buildOsuBestsView,
   buildPhigrosView,
   buildSongIndex,
   byteModeCharCountBits,
+  bytesToBase64,
   bytesToHex,
   calculateDxRating,
   chunithmAliasMap,
@@ -3173,6 +3284,10 @@ export {
   createMockPlayer,
   createSyntheticSongList,
   decodeHexUtf8,
+  decodeSyncPayload,
+  decryptSyncPayload,
+  deriveIvBase64,
+  deriveKeyBase64,
   describeValidity,
   diffB50,
   difficultyColor,
@@ -3183,6 +3298,8 @@ export {
   dxScoreRatio,
   encodeQr,
   encodeQrBytes,
+  encodeSyncPayload,
+  encryptSyncPayload,
   findDifficulty,
   formatAchievement,
   formatAchievementShort,
@@ -3204,6 +3321,8 @@ export {
   isAllPerfect,
   isChunithmNormalDifficulty,
   isChunithmWorldsEnd,
+  isValidCode,
+  isValidPin,
   jacketUrl,
   kindFromStatus,
   maimaiEndpoints,
