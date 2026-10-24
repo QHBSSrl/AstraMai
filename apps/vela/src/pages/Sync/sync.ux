@@ -22,9 +22,24 @@
     <text class="status" style="color: {{ statusColor }}" if="{{ statusText }}">{{ statusText }}</text>
     <text class="hint" if="{{ hint }}">{{ hint }}</text>
 
+    <!-- 生成之前：让用户自己设一个 4 位密码 -->
+    <div class="pin-box" if="{{ needPin }}">
+      <text class="pin-box__label">设一个 4 位密码</text>
+      <text class="pin-box__value">{{ pinInput || '____' }}</text>
+      <text class="pin-box__hint">待会在电脑上要输同一个</text>
+      <div class="keys">
+        <div class="key" for="{{ d in digits }}" @click="tapDigit(d)">
+          <text class="key__text">{{ d }}</text>
+        </div>
+        <div class="key key--wide" @click="tapBack">
+          <text class="key__text">←</text>
+        </div>
+      </div>
+    </div>
+
     <div class="actions">
       <div class="action" if="{{ canCreate }}" @click="onCreate">
-        <text class="action__text">{{ creating ? '正在生成…' : '生成配对码' }}</text>
+        <text class="action__text">{{ creating ? '正在生成…' : (needPin ? '用这个密码生成配对码' : '生成配对码') }}</text>
       </div>
 
       <div class="action action--primary" if="{{ canFetch }}" @click="onFetch">
@@ -143,6 +158,63 @@
     lines: 4;
   }
 
+  /* 密码输入区 */
+  .pin-box {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 12px;
+    padding: 12px 0;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .pin-box__label {
+    font-size: 14px;
+    color: @ui-on-surface-variant;
+    lines: 1;
+  }
+
+  .pin-box__value {
+    font-size: 34px;
+    font-weight: bold;
+    color: @ui-primary;
+    letter-spacing: 10px;
+    margin: 2px 0;
+    lines: 1;
+  }
+
+  .pin-box__hint {
+    font-size: 12px;
+    color: @ui-on-surface-muted;
+    lines: 1;
+  }
+
+  /* 数字键盘：3 列，0 单独一行再退格 */
+  .keys {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  .key {
+    width: 84px;
+    height: 54px;
+    margin: 4px;
+    border-radius: 12px;
+    background-color: @ui-surface-container;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .key__text {
+    font-size: 24px;
+    color: @ui-on-surface;
+    lines: 1;
+  }
+
   .actions {
     width: 100%;
     flex-direction: column;
@@ -180,16 +252,6 @@
   const { candidateBases, createSyncCode, getSyncPayload } = syncClient;
   const { parseSyncPayload, storageWritesFor, describePayload } = syncPayload;
 
-  /**
-   * 4 位密码。
-   *
-   * `@system.crypto` 没有随机数接口，所以用 `Math.random()`。
-   * 强度要求不高 —— 它是**第二道门**，第一道是 6 位配对码，且 10 分钟过期。
-   */
-  function makePin() {
-    return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  }
-
   export default {
     private: {
       leadText: '',
@@ -203,6 +265,10 @@
       creating: false,
       fetching: false,
       bases: [],
+      /** 还没生成配对码时，先让用户自己设 4 位密码。 */
+      needPin: true,
+      pinInput: '',
+      digits: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
     },
 
     onInit() {
@@ -233,11 +299,33 @@
       this.hint = '点「生成配对码」，然后在电脑上打开网页「同步」，输入这组号码。';
     },
 
-    /** 生成配对码 —— 码由手表出，这样取回时不用输入任何东西。 */
+    /** 点一个数字。 */
+    tapDigit(value) {
+      if (this.pinInput.length >= 4) return;
+      this.pinInput = this.pinInput + String(value);
+    },
+
+    /** 退一位。 */
+    tapBack() {
+      this.pinInput = this.pinInput.slice(0, -1);
+    },
+
+    /**
+     * 生成配对码 —— 码由手表出，这样取回时不用输入任何东西。
+     *
+     * **密码由用户自己设**，不随机生成：随机的话用户还得从手表抄到电脑，
+     * 等于把麻烦又搬回来了。设一个自己记得住的，两边输同一个就行。
+     */
     onCreate() {
       if (this.creating) return;
 
-      const pin = makePin();
+      const pin = this.pinInput;
+      if (pin.length !== 4) {
+        this.statusText = '先设一个 4 位密码';
+        this.statusColor = '#ffb020';
+        this.hint = '点上面的数字键，输满 4 位。待会在电脑上要输同一个。';
+        return;
+      }
       this.creating = true;
       this.statusText = '正在生成…';
       this.statusColor = '#9bacd0';
@@ -249,6 +337,7 @@
           this.pin = pin;
           this.canCreate = false;
           this.canFetch = true;
+          this.needPin = false;
           this.statusText = '配对码已生成';
           this.statusColor = '#3ddc84';
           this.hint = '现在到电脑上输入上面的配对码和密码，填好好友码后回到这里点「取回数据」。';

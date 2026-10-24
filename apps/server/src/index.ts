@@ -101,25 +101,55 @@ const guard = createGuard(config);
 const router = createRouter(service, config, guard, diag, pairing, phigros);
 const hasWebDist = existsSync(config.webDist);
 
-/** 仅对本地来源放开 CORS；其他来源不下发 CORS 头，浏览器会自行拦截。 */
+/**
+ * 允许跨域调用的来源。
+ *
+ * ── 为什么需要这个 ──────────────────────────────────────────────────
+ *
+ * 网页搬到了 Cloudflare Pages，API 还在大陆这台机器上 —— 两者**不同源**。
+ * 原来这里只对 localhost 放开，所以 Pages 上的网页会**调不通 API**，
+ * 而且浏览器只报一个笼统的 CORS 错误，看起来像"服务挂了"。
+ *
+ * 这些来源是**明确列出来的固定域名**，不是 `*`：
+ * 这个 API 虽然是开放网关（不校验令牌），但没必要让任意网站
+ * 都能拿它刷请求额度。
+ */
+const ALLOWED_ORIGINS = new Set([
+  'https://astramai.pages.dev',
+  'https://astramai-sync.pages.dev',
+  // 顺带允许自定义域（如果以后绑了）
+  'https://astramai.astranexus.cn',
+  'https://worksync.astramai.astranexus.cn',
+]);
+
+/** 本地开发的来源一律放开。 */
+function isLocalOrigin(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname === '::1'
+  );
+}
+
+/** 对允许的来源下发 CORS 头；其他来源不发声，浏览器自行拦截。 */
 function applyCors(req: IncomingMessage, res: ServerResponse): void {
   const origin = req.headers.origin;
   if (!origin) return;
+
   try {
     const parsed = new URL(origin);
-    const isLocal =
-      parsed.hostname === 'localhost' ||
-      parsed.hostname === '127.0.0.1' ||
-      parsed.hostname === '[::1]' ||
-      parsed.hostname === '::1';
-    if (!isLocal) return;
+    if (!isLocalOrigin(parsed.hostname) && !ALLOWED_ORIGINS.has(origin)) return;
   } catch {
     return;
   }
+
   res.setHeader('access-control-allow-origin', origin);
+  // 按 origin 变化，别让 CDN / 代理把 A 站的响应发给 B 站
   res.setHeader('vary', 'origin');
   res.setHeader('access-control-allow-headers', 'content-type,x-lxns-key');
   res.setHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
+  res.setHeader('access-control-max-age', '600');
 }
 
 const server = createServer((req, res) => {
