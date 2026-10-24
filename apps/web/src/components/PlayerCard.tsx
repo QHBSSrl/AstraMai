@@ -1,5 +1,5 @@
 import type { B50View, PlayerView } from '@astramai/core';
-import { formatInt, formatRelative } from '@astramai/core';
+import { formatInt, formatRelative, nextTier } from '@astramai/core';
 import { useState } from 'react';
 
 interface PlayerCardProps {
@@ -9,6 +9,8 @@ interface PlayerCardProps {
 /** 玩家名片：左侧身份信息，右侧总 Rating 与 B35/B15 构成。 */
 export function PlayerCard({ view }: PlayerCardProps) {
   const { player, stats } = view;
+  // 算一次就够 —— 在 JSX 里重复调用 nextTier 是浪费
+  const tierInfo = nextTier(player.rating);
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const hide = (key: string) => setFailed((prev) => ({ ...prev, [key]: true }));
 
@@ -85,6 +87,16 @@ export function PlayerCard({ view }: PlayerCardProps) {
           </div>
           <div className="rating__tier" style={{ color: player.tier.color }}>
             {player.tier.label}
+          </div>
+          {/*
+            距下一档还差多少。
+            玩家最常问的问题之一是「我还差多少上虹」，而 `player.tier`
+            只说明现在在哪一档。已经在最高档时换成一句话，不显示"还差 0 分"。
+          */}
+          <div className="rating__next">
+            {tierInfo.next
+              ? `距${tierInfo.next.label} 还差 ${formatInt(tierInfo.gap)}`
+              : '已是最高档'}
           </div>
         </div>
 

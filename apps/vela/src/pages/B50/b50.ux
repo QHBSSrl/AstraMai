@@ -869,18 +869,14 @@
      * `summarizeDiff` 给 `null`，`diffLine` 保持空串 → 模板不渲染任何东西。
      */
     compareWithCache(view, code) {
-      this.diffLine = '';
-
       // 只有舞萌有这个对比（中二/Phigros 的视图结构不同，先不做）
       if (this.gameId !== 'maimai') return;
 
-      // 上一轮的对比结果先清掉 —— 否则这次的查询失败了，
-      // 用户点开对比页会看到上一次的旧对比，还以为是新的
-      try {
-        writeSetting(DIFF_KEY, '');
-      } catch (error) {
-        console.warn('[AstraMai] 清除旧对比失败：', error);
-      }
+      /*
+       * 注意：`diffLine` 和 `DIFF_KEY` 的清理在 `apply()` 里做过了，
+       * 这里不用重复。`apply()` 是所有渲染路径的入口，
+       * 在它那里清一次就够 —— 写两处以后一定会有一处被忘掉。
+       */
 
       let previous = null;
       try {
@@ -1006,6 +1002,25 @@
        * 这类残留最难发现，因为只有"切过游戏"的人才会看到。
        */
       this.statLine5 = '';
+
+      /*
+       * 对比行和对比数据也一起清。
+       *
+       * `apply` 是**所有**渲染路径的入口（正常查询、离线缓存、切游戏），
+       * 所以在这里清一次就能覆盖全部：
+       *
+       *   · 查询失败读缓存 → 不该显示上一次查询的「+112」，
+       *     那是**上一次**的对比结果，配着缓存里的旧成绩会误导人
+       *   · 切到中二 → 不该还显示舞萌的对比，而且点进去看的是别的游戏的详情
+       *
+       * 正常查询时 `compareWithCache` 会在 `apply` 之后重新写回来。
+       */
+      this.diffLine = '';
+      try {
+        writeSetting(DIFF_KEY, '');
+      } catch (error) {
+        console.warn('[AstraMai] 清除对比数据失败：', error);
+      }
 
       if (this.gameId === 'chunithm') {
         this.applyChunithm(view);

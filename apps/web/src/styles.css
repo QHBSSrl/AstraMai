@@ -1563,3 +1563,11 @@ textarea.input {
     text-align: left;
   }
 }
+
+/* 距下一档。放在段位下面一行，弱化处理 —— 副信息。 */
+.rating__next {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
