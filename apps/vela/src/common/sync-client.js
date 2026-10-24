@@ -25,18 +25,7 @@ import { createVelaFetch } from './vela-fetch.js';
  */
 export const DEFAULT_SYNC_BASE = 'https://worksync.astramai.astranexus.cn';
 
-/**
- * 阿里云反代（回落）。
- *
- * 手表走的是自己的 WiFi/蓝牙链路，TLS 栈和电脑不一样，
- * 有可能连不上 Cloudflare。那就换这条路：
- *
- *     手表 ──35ms──▶ 阿里云 ──▶ Cloudflare Worker
- *
- * 慢一些（实测 ~800ms），但走的是**已经证明可用**的大陆链路。
- * 代码逻辑一行不改，只是换个 URL。
- */
-export const FALLBACK_SYNC_BASE = 'http://101.132.148.117:8788';
+
 
 /** 本地 `wrangler dev` 的地址。 */
 export const LOCAL_SYNC_BASE = 'http://127.0.0.1:8787';
@@ -87,7 +76,7 @@ export function candidateBases(readSetting) {
   const saved = readSetting ? String(readSetting(SYNC_BASE_KEY, '') || '').trim() : '';
   if (saved) return [saved];
 
-  return [DEFAULT_SYNC_BASE, FALLBACK_SYNC_BASE];
+  return [DEFAULT_SYNC_BASE];
 }
 
 /** 保存同步服务的基址（去掉末尾斜杠，否则拼出来是 `//sync/create`）。 */
@@ -202,7 +191,6 @@ export default {
   SYNC_BASE_KEY,
   getSyncBase,
   candidateBases,
-  FALLBACK_SYNC_BASE,
   setSyncBase,
   syncErrorMessage,
   createSyncCode,

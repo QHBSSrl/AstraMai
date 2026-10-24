@@ -22,13 +22,12 @@
     <text class="section">功能</text>
     <div class="rows">
       <!--
-        同步暂时关闭：后端目前是裸 IP，等换成能绑域名的服务器再放出来。
-        这里不做成「点了报错」，而是**直接告诉用户暂不可用**——
-        点进去再失败对用户更糟。
+        同步到手表：在电脑上敲好友码，手表取过来。
+        手表上没有好用的输入法，所以这是唯一舒服的填法。
       -->
-      <div class="row row--off" @click="explainSyncUnavailable">
-        <text class="row__label row__label--off">同步到手表</text>
-        <text class="row__mark">暂不可用</text>
+      <div class="row" @click="goSync">
+        <text class="row__label">同步到手表</text>
+        <text class="row__mark">›</text>
       </div>
       <!--
         Phigros 的凭证来自 TapTap 扫码，只能在这里登一次。
@@ -39,7 +38,7 @@
         <text class="row__mark">{{ phigrosStatus }}</text>
       </div>
     </div>
-    <text class="hint">同步功能依赖的服务端正在迁移，暂时不可用。</text>
+    <text class="hint">同步：在电脑上填好友码，手表取过来。手表上不用打字。</text>
     <text class="hint hint--warn" if="{{ syncNotice }}">{{ syncNotice }}</text>
     <text class="hint">Phigros 需要先用 TapTap 扫码登录一次，之后就不用再扫。</text>
 
@@ -308,6 +307,17 @@
      */
     explainSyncUnavailable() {
       this.syncNotice = 'API 服务器问题，功能暂不可用。';
+    },
+
+    /**
+     * 去同步页。
+     *
+     * 放在设置里而不是首页：它是**一次性配置**，不是日常功能。
+     * 首页那几个（B50 / 搜索 / 二维码）天天用，同步一个月用一次，
+     * 摆在一起只会把常用的挤下去。
+     */
+    goSync() {
+      push('/sync');
     },
 
     goPhigrosLogin() {

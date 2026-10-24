@@ -34,16 +34,8 @@
         <text class="entry__sub">{{ qrSummary }}</text>
       </div>
 
-      <!--
-        同步是**设备能力**，不是游戏特性 —— 它不挂在 gameHasFeature 上，
-        而是看这台设备有没有 AES 加密（手环系列没有，手表才有）。
-      -->
-      <div class="entry" if="{{ showSync }}" @click="go('sync')">
-        <text class="entry__title">同步</text>
-        <text class="entry__sub">{{ syncSummary }}</text>
-      </div>
 
-      <text class="empty" if="{{ !showB50 && !showSearch && !showQr && !showSync }}">
+      <text class="empty" if="{{ !showB50 && !showSearch && !showQr }}">
         这个游戏还没有可用功能
       </text>
     </div>
@@ -229,8 +221,6 @@
       showB50: false,
       showSearch: false,
       showQr: false,
-      showSync: false,
-      syncSummary: '在两台设备间搬数据',
     },
 
     onReady() {
@@ -277,13 +267,6 @@
         this.showB50 = gameHasFeature(game, 'b50');
         this.showSearch = gameHasFeature(game, 'search');
         this.showQr = gameHasFeature(game, 'qr');
-
-      /*
-       * 同步不看游戏，看**设备能力**。
-       * 手环系列没有 AES（官方支持明细写明），所以不能显示这个入口 ——
-       * 点进去只会看到「这台设备不支持同步」。
-       */
-      this.showSync = syncAes.isSyncCryptoAvailable();
 
         // 已保存的查分目标——展示出来让用户知道不用再输一遍
         const kind = readSetting('queryKind', 'friendCode') === 'qq' ? 'qq' : 'friendCode';

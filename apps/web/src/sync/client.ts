@@ -14,18 +14,14 @@
 
 /** 默认的 Worker 地址。部署后改这里，或在设置里覆盖。 */
 /**
- * 网页端**必须**走阿里云反代，不能直连 Worker。
+ * 直连 Cloudflare Worker（自定义域）。
  *
- * 原因：Worker 没有 CORS 头（实测 Access-Control-* 一个都没有），
- * 浏览器跨域请求会被直接拦下 —— 控制台只报一个笼统的 CORS 错误，
- * 看起来像"网络问题"，其实请求根本没发出去。
+ * Worker 已经带 CORS 头了（2026-10-24 加的），浏览器可以跨域调用，
+ * **不需要任何反代**。
  *
- * 反代（scripts/server/sync-proxy.py）补了 CORS，而且在大陆，
- * 到这儿约 100ms，再转发到 Worker。
- *
- * ⚠️ 不要改回直连 workers 或自定义域 —— 会静默挂掉。
+ * ⚠️ 不要用 workers.dev 那个 —— 已禁用，而且国内 DNS 被污染。
  */
-const DEFAULT_BASE_URL = 'http://101.132.148.117:8788';
+const DEFAULT_BASE_URL = 'https://worksync.astramai.astranexus.cn';
 
 /** 本地 `wrangler dev` 的地址（开发时用）。 */
 export const LOCAL_BASE_URL = 'http://127.0.0.1:8787';
