@@ -3,15 +3,15 @@
     "id": "com.astranexus.astramai",
     "restype": "quick_app",
     "name": "AstraMai",
-    "description": "AstraMai是AstraNexus团队开发的一款音乐游戏工具软件，可以在腕上查询自己的Best数据，曲目信息，获取玩家登录二维码等功能，一切基础功能均为免费，软件需要连接互联网。目前为v0测试版，欢迎加入交流群帮助我们改进项目：308532898",
+    "description": "AstraMai是AstraNexus团队开发的一款音乐游戏工具软件，目前支持舞萌DX(lxns api)，中二节奏(lxns api)，Phigros，osu!可以在腕上查询自己的Best数据，曲目信息，获取玩家登录二维码等功能，一切基础功能均为免费。目前为v0测试版，欢迎加入交流群帮助我们改进项目：308532898",
     "preview": [
-      "media/redmi_watch-2026-10-11-10-22-44.png",
-      "media/redmi_watch-2026-10-11-10-22-08.png",
-      "media/redmi_watch-2026-10-11-10-21-40.png",
-      "media/redmi_watch-2026-10-11-10-21-19.png"
+      "media/redmi_watch-2026-10-24-20-30-16.png",
+      "media/redmi_watch-2026-10-24-20-30-34.png",
+      "media/redmi_watch-2026-10-24-20-31-11.png",
+      "media/Vela_Virtual_Device-2026-10-24-20-51-39.png"
     ],
     "icon": "media/icon.png",
-    "cover": "media/QQ20261011-191126 (自定义).png",
+    "cover": "media/7DE50FD6AC346BEEB0951B76792DEB32 (自定义).png",
     "author": [
       {
         "name": "QHBSSrl",
@@ -22,10 +22,14 @@
   "links": [],
   "downloads": {
     "xmrw5xring": {
-      "version": "0.1.1",
-      "file_name": "downloads/com.astranexus.astramai.release.0.1.1.rpk",
-      "versionCode": 101,
+      "version": "0.1.2",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.2.rpk",
+      "versionCode": 102,
       "updatelogs": [
+        {
+          "version": "0.1.2",
+          "content": "10月24日 BETAv0.1.2更新日志\n0.支持了小米手环Pro系列8以上系列\n1.支持了音游osu!（暂仅支持standard）\n2.“同步到设备”开始测试使用！同步网页：https://sync.astramai.astnx.com/\n3.更改应用Logo为圆形，更好的适配了Vela软件的设计美学\n4.开放了OOBE功能\n5.支持了AstroBox插件与AstraMai手机App互联支持（功能暂不开放）\n6.新增了推分计算器\n7.新增了离线缓存\n8.新增了缓存分数与最新分数对比\n9.新增了距离下一段还剩余分数（比如距虹 300）\n欢迎向我们反馈你的使用意见和想要的功能/音游等！"
+        },
         {
           "version": "0.1.1",
           "content": "10月18日v0.1.1测试版更新内容\n1.更新了UI及其颜色搭配（虽然还是有点丑丑的）\n2.更新了乐曲分类功能，（目前）适用于舞萌DX和中二节奏\n3.修复了Phigros和中二节奏搜索曲目出来的结果是舞萌DX的歌的问题"
@@ -33,10 +37,14 @@
       ]
     },
     "xmrw5": {
-      "version": "0.1.1",
-      "file_name": "downloads/com.astranexus.astramai.release.0.1.1.rpk",
-      "versionCode": 101,
+      "version": "0.1.2",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.2.rpk",
+      "versionCode": 102,
       "updatelogs": [
+        {
+          "version": "0.1.2",
+          "content": "10月24日 BETAv0.1.2更新日志\n0.支持了小米手环Pro系列8以上系列\n1.支持了音游osu!（暂仅支持standard）\n2.“同步到设备”开始测试使用！同步网页：https://sync.astramai.astnx.com/\n3.更改应用Logo为圆形，更好的适配了Vela软件的设计美学\n4.开放了OOBE功能\n5.支持了AstroBox插件与AstraMai手机App互联支持（功能暂不开放）\n6.新增了推分计算器\n7.新增了离线缓存\n8.新增了缓存分数与最新分数对比\n9.新增了距离下一段还剩余分数（比如距虹 300）\n欢迎向我们反馈你的使用意见和想要的功能/音游等！"
+        },
         {
           "version": "0.1.1",
           "content": "首个支持REDMI Watch5标准版的版本"
@@ -44,13 +52,39 @@
       ]
     },
     "xmrw6": {
-      "version": "0.1.1",
-      "file_name": "downloads/com.astranexus.astramai.release.0.1.1.rpk",
-      "versionCode": 101,
+      "version": "0.1.2",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.2.rpk",
+      "versionCode": 102,
       "updatelogs": [
+        {
+          "version": "0.1.2",
+          "content": "10月24日 BETAv0.1.2更新日志\n0.支持了小米手环Pro系列8以上系列\n1.支持了音游osu!（暂仅支持standard）\n2.“同步到设备”开始测试使用！同步网页：https://sync.astramai.astnx.com/\n3.更改应用Logo为圆形，更好的适配了Vela软件的设计美学\n4.开放了OOBE功能\n5.支持了AstroBox插件与AstraMai手机App互联支持（功能暂不开放）\n6.新增了推分计算器\n7.新增了离线缓存\n8.新增了缓存分数与最新分数对比\n9.新增了距离下一段还剩余分数（比如距虹 300）\n欢迎向我们反馈你的使用意见和想要的功能/音游等！"
+        },
         {
           "version": "0.1.1",
           "content": "首个支持REDMI Watch6的版本"
+        }
+      ]
+    },
+    "xmb9p": {
+      "version": "0.1.2",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.2.rpk",
+      "versionCode": 102,
+      "updatelogs": [
+        {
+          "version": "0.1.2",
+          "content": "首个支持了小米手环Pro系列8以上系列的版本！\n欢迎向我们反馈你的使用意见和想要的功能/音游等！"
+        }
+      ]
+    },
+    "xmb10p": {
+      "version": "0.1.2",
+      "file_name": "downloads/com.astranexus.astramai.release.0.1.2.rpk",
+      "versionCode": 102,
+      "updatelogs": [
+        {
+          "version": "0.1.2",
+          "content": "首个支持了小米手环Pro系列8以上系列的版本！\n欢迎向我们反馈你的使用意见和想要的功能/音游等！"
         }
       ]
     }
