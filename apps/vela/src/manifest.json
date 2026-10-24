@@ -90,6 +90,10 @@
       "pages/Diff": {
         "component": "diff",
         "path": "/diff"
+      },
+      "pages/Plan": {
+        "component": "plan",
+        "path": "/plan"
       }
     }
   },

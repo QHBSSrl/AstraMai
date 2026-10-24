@@ -50,6 +50,14 @@
         <text class="result__note">这个定数最高只有 {{ ceilingText }}</text>
       </div>
 
+      <!--
+        顺手的下一步：这一首推到目标之后，整体该练什么。
+        放在底部但**不抢主按钮的位置** —— 它是个入口，不是这一页的主任务。
+      -->
+      <div class="more" @click="openPlan">
+        <text class="more__text">练哪条最划算 ›</text>
+      </div>
+
       <text class="foot">天花板 {{ ceilingText }}</text>
     </div>
   </div>
@@ -236,6 +244,23 @@
     lines: 1;
   }
 
+  /* 「练哪条最划算」入口。低调一点，它不是这一页的主任务。 */
+  .more {
+    width: 100%;
+    height: 40px;
+    border-radius: @ui-radius-full;
+    background-color: @ui-surface-container;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .more__text {
+    font-size: 15px;
+    color: @ui-on-surface-variant;
+    lines: 1;
+  }
+
   .foot {
     font-size: 13px;
     color: @ui-on-surface-muted;
@@ -248,7 +273,7 @@
 
 <script>
   const { core, navigation, store } = global.AstraMai;
-  const { goBack } = navigation;
+  const { goBack, push } = navigation;
   const { readSetting, warmUp } = store;
 
   /** 种子数据的存储键。B50 / Song 页写，这里读。 */
@@ -369,6 +394,11 @@
 
     hasCurrentValue() {
       return this.achievement > 0;
+    },
+
+    /** 去「练哪条最划算」——它自己从 B50 缓存里读数据，不用这里传。 */
+    openPlan() {
+      push('/plan');
     },
 
     onBack() {

@@ -1,0 +1,285 @@
+<template>
+  <div class="page-root">
+    <div class="page">
+      <div class="topbar">
+        <div class="back" @click="onBack">
+          <text class="back__text">‹ 返回</text>
+        </div>
+      </div>
+
+      <text class="title">练哪条</text>
+
+      <!-- 总览 -->
+      <div class="summary" if="{{ hasData }}">
+        <text class="summary__value">+{{ totalHeadroom }}</text>
+        <text class="summary__caption">这 {{ count }} 条打满还能加这么多</text>
+      </div>
+
+      <div class="empty" if="{{ !hasData }}">
+        <text class="empty__text">{{ emptyText }}</text>
+      </div>
+
+      <!-- 列表 -->
+      <list class="list" if="{{ rows.length > 0 }}">
+        <list-item class="row" type="item" for="{{ rows }}">
+          <text class="row__rank">{{ $idx + 1 }}</text>
+          <div class="row__main">
+            <text class="row__title">{{ $item.title }}</text>
+            <text class="row__sub" style="color: {{ $item.color }}">{{ $item.difficulty }} · {{ $item.level }}</text>
+          </div>
+          <div class="row__right">
+            <text class="row__gain">+{{ $item.headroom }}</text>
+            <text class="row__current">{{ $item.current }}</text>
+          </div>
+        </list-item>
+      </list>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  .page-root {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
+
+  .page {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    padding: 14px 20px;
+    background-color: @ui-surface;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: @ui-surface-container;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: @ui-on-surface;
+  }
+
+  .title {
+    font-size: 30px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    margin-top: 4px;
+    lines: 1;
+  }
+
+  .summary {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 10px;
+    padding: 12px 0;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .summary__value {
+    font-size: 36px;
+    font-weight: bold;
+    color: @ui-primary;
+    lines: 1;
+  }
+
+  .summary__caption {
+    font-size: 15px;
+    color: @ui-on-surface-variant;
+    margin-top: 2px;
+    lines: 1;
+  }
+
+  .empty {
+    flex: 1;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty__text {
+    font-size: 17px;
+    color: @ui-on-surface-muted;
+    text-align: center;
+    lines: 3;
+  }
+
+  .list {
+    flex: 1;
+    width: 100%;
+    min-height: 110px;
+    margin-top: 8px;
+  }
+
+  .row {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 62px;
+  }
+
+  .row__rank {
+    width: 34px;
+    font-size: 16px;
+    color: @ui-on-surface-muted;
+    lines: 1;
+  }
+
+  .row__main {
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .row__title {
+    font-size: 16px;
+    color: @ui-on-surface;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
+
+  .row__sub {
+    font-size: 13px;
+    margin-top: 2px;
+    lines: 1;
+  }
+
+  .row__right {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .row__gain {
+    font-size: 18px;
+    font-weight: bold;
+    color: #3ddc84;
+    lines: 1;
+  }
+
+  .row__current {
+    font-size: 13px;
+    color: @ui-on-surface-muted;
+    margin-top: 2px;
+    lines: 1;
+  }
+</style>
+
+<script>
+  const { core, navigation, store } = global.AstraMai;
+  const { goBack } = navigation;
+  const { readSetting, warmUp } = store;
+
+  /** 最多列几条。手表上滚太久没人看。 */
+  const MAX_ROWS = 10;
+
+  export default {
+    private: {
+      hasData: false,
+      totalHeadroom: 0,
+      count: 0,
+      emptyText: '',
+      rows: [],
+    },
+
+    onInit() {
+      console.debug('[AstraMai] Plan onInit');
+      warmUp(['currentGame', 'queryValue'])
+        .then(() => this.load())
+        .catch((error) => console.error('[AstraMai] Plan 初始化失败：', error));
+    },
+
+    /**
+     * 从上一次查询的**离线缓存**里读 B50，算出「练哪条收益最大」。
+     *
+     * 为什么不走种子（storage 传参）：
+     * 推分页只带一首曲子，而这里要的是**整个 B50**。
+     * 缓存里本来就有完整视图，直接读它，不用让 B50 页多传十几 KB。
+     */
+    load() {
+      const game = readSetting('currentGame', 'maimai') || 'maimai';
+      const code = readSetting('queryValue', '');
+
+      if (game !== 'maimai') {
+        this.fail('只有舞萌支持上分规划。');
+        return;
+      }
+      if (!code) {
+        this.fail('先查一次 B50，这里才有数据。');
+        return;
+      }
+
+      let view = null;
+      try {
+        const raw = readSetting(`b50Cache:${game}:${code}`, '');
+        if (raw) view = JSON.parse(raw);
+      } catch (error) {
+        console.warn('[AstraMai] 读 B50 缓存失败：', error);
+      }
+
+      if (!view || typeof view !== 'object') {
+        this.fail('没有 B50 数据。先查一次成绩再来。');
+        return;
+      }
+
+      const entries = [...(view.standard || []), ...(view.dx || [])];
+      if (entries.length === 0) {
+        this.fail('缓存里没有成绩。先查一次 B50。');
+        return;
+      }
+
+      const candidates = core.improvementCandidates(
+        entries,
+        (entry) => {
+          // 两个字段任一缺失就算不了提升空间 —— 不用 0 兜底，
+          // 那会算出"提升空间巨大"的假建议
+          if (typeof entry.levelValue !== 'number' || entry.levelValue <= 0) return null;
+          if (typeof entry.rating !== 'number' || entry.rating <= 0) return null;
+          return { levelValue: entry.levelValue, rating: entry.rating };
+        },
+        MAX_ROWS,
+      );
+
+      if (candidates.length === 0) {
+        this.fail('这批成绩都已经打满了，没有提升空间。');
+        return;
+      }
+
+      this.hasData = true;
+      this.count = candidates.length;
+      this.totalHeadroom = candidates.reduce((sum, item) => sum + item.headroom, 0);
+      this.rows = candidates.map((item) => ({
+        title: item.entry.title || '未知曲目',
+        difficulty: item.entry.difficultyShort || '',
+        level: item.levelValue === null ? '--' : item.levelValue.toFixed(1),
+        color: item.entry.difficultyColor || '#9bacd0',
+        headroom: item.headroom,
+        current: item.current,
+      }));
+    },
+
+    fail(text) {
+      this.hasData = false;
+      this.emptyText = text;
+      this.rows = [];
+    },
+
+    onBack() {
+      goBack('/b50');
+    },
+  };
+</script>
