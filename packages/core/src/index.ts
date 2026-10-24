@@ -31,6 +31,7 @@ export * from './maimai/format.js';
 export * from './maimai/b50.js';
 export * from './maimai/qr-payload.js';
 export * from './sync/payload.js';
+export * from './sync/aes-web.js';
 
 // ── 中二节奏领域逻辑 ────────────────────────────────────────────────────
 export * from './chunithm/constants.js';
