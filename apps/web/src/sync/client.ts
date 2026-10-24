@@ -14,13 +14,18 @@
 
 /** 默认的 Worker 地址。部署后改这里，或在设置里覆盖。 */
 /**
- * 正式地址（自定义域）。
+ * 网页端**必须**走阿里云反代，不能直连 Worker。
  *
- * ⚠️ **不要用 workers.dev 那个** —— 已禁用，而且在国内被 DNS 污染。
- * 自定义域解析到真 Cloudflare IP，但直连仍可能被 SNI 干扰
- * （GLM 和 DSH 都实测到了，走代理才通）。手表端走的链路另说。
+ * 原因：Worker 没有 CORS 头（实测 Access-Control-* 一个都没有），
+ * 浏览器跨域请求会被直接拦下 —— 控制台只报一个笼统的 CORS 错误，
+ * 看起来像"网络问题"，其实请求根本没发出去。
+ *
+ * 反代（scripts/server/sync-proxy.py）补了 CORS，而且在大陆，
+ * 到这儿约 100ms，再转发到 Worker。
+ *
+ * ⚠️ 不要改回直连 workers 或自定义域 —— 会静默挂掉。
  */
-const DEFAULT_BASE_URL = 'https://worksync.astramai.astranexus.cn';
+const DEFAULT_BASE_URL = 'http://101.132.148.117:8788';
 
 /** 本地 `wrangler dev` 的地址（开发时用）。 */
 export const LOCAL_BASE_URL = 'http://127.0.0.1:8787';

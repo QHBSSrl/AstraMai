@@ -198,7 +198,7 @@
   const { readSetting, warmUp } = store;
   const { deriveIvBase64, deriveKeyBase64, encodeSyncPayload, decodeSyncPayload } = core;
   const { isSyncCryptoAvailable, encryptSyncPayload, decryptSyncPayload } = syncAes;
-  const { getSyncBase, createSyncCode, putSyncPayload, getSyncPayload } = syncClient;
+  const { candidateBases, createSyncCode, putSyncPayload, getSyncPayload } = syncClient;
 
   /**
    * 4 位密码。
@@ -226,6 +226,7 @@
       keyboardHidden: true,
       /** 用户正在输入的「配对码+密码」，形如 `123456-7890`。 */
       entryText: '',
+      bases: [],
       base: '',
     },
 
@@ -246,7 +247,7 @@
     },
 
     begin() {
-      this.base = getSyncBase(readSetting);
+      this.bases = candidateBases(readSetting);
 
       if (!isSyncCryptoAvailable()) {
         this.leadText = '这台设备不支持同步';
@@ -296,7 +297,8 @@
       const pin = makePin();
       let issued = '';
 
-      createSyncCode(this.base, pin)
+      // 先建码（这一步会试所有候选地址，成功后记住能用的那个）
+      this.withFallback((base) => createSyncCode(base, pin))
         .then((created) => {
           issued = created.code;
           this.code = created.code;
@@ -307,7 +309,7 @@
             plaintext,
             deriveKeyBase64(pin, issued),
             deriveIvBase64(issued),
-          ).then((cipher) => putSyncPayload(this.base, issued, pin, cipher));
+          ).then((cipher) => this.withFallback((base) => putSyncPayload(base, issued, pin, cipher)));
         })
         .then(() => {
           this.uploading = false;
@@ -322,6 +324,42 @@
           this.statusText = error && error.message ? error.message : '上传失败';
           this.statusColor = '#f2564b';
         });
+    },
+
+    /**
+     * 按候选地址**依次尝试**，第一个成功的记住并返回。
+     *
+     * 为什么值得多花一次超时：手表到 Cloudflare 通不通我无法验证。
+     * 与其赌一条路，不如两条都试 —— 失败的那次只浪费十几秒，
+     * 总比"点了没反应"好。
+     *
+     * 一旦某个地址成功，`this.bases` 会被收敛成它 ——
+     * 后续请求不再重新试坏的那条。
+     */
+    withFallback(run) {
+      const bases = this.bases && this.bases.length > 0 ? this.bases : [''];
+      let lastError = null;
+
+      const attempt = (index) => {
+        if (index >= bases.length) {
+          return Promise.reject(lastError || new Error('连不上同步服务'));
+        }
+
+        return run(bases[index]).then(
+          (result) => {
+            // 成功了就锁定这条链路
+            this.bases = [bases[index]];
+            return result;
+          },
+          (error) => {
+            lastError = error;
+            console.warn('[AstraMai] 同步地址失败：', bases[index], error && error.message);
+            return attempt(index + 1);
+          },
+        );
+      };
+
+      return attempt(0);
     },
 
     toggleKeyboard() {
@@ -366,7 +404,7 @@
       this.statusText = '正在拉取…';
       this.statusColor = '#9bacd0';
 
-      getSyncPayload(this.base, code, pin)
+      this.withFallback((base) => getSyncPayload(base, code, pin))
         .then((body) =>
           decryptSyncPayload(body.payload, deriveKeyBase64(pin, code), deriveIvBase64(code)),
         )

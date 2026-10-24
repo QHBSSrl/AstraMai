@@ -19,13 +19,24 @@ import { createVelaFetch } from './vela-fetch.js';
 
 /** 默认的 Worker 地址。部署后如果换了域名，在设置里改即可。 */
 /**
- * 正式地址（自定义域）。
+ * 直连 Cloudflare（首选）。
  *
- * ⚠️ **不要用 workers.dev 那个** —— 已禁用，而且在国内被 DNS 污染。
- * 自定义域解析到真 Cloudflare IP，但直连仍可能被 SNI 干扰。
- * 如果手表连不上，在设置里改成能通的地址。
+ * 大陆实测中位数 **272ms**，能通。不需要中转。
  */
 export const DEFAULT_SYNC_BASE = 'https://worksync.astramai.astranexus.cn';
+
+/**
+ * 阿里云反代（回落）。
+ *
+ * 手表走的是自己的 WiFi/蓝牙链路，TLS 栈和电脑不一样，
+ * 有可能连不上 Cloudflare。那就换这条路：
+ *
+ *     手表 ──35ms──▶ 阿里云 ──▶ Cloudflare Worker
+ *
+ * 慢一些（实测 ~800ms），但走的是**已经证明可用**的大陆链路。
+ * 代码逻辑一行不改，只是换个 URL。
+ */
+export const FALLBACK_SYNC_BASE = 'http://101.132.148.117:8788';
 
 /** 本地 `wrangler dev` 的地址。 */
 export const LOCAL_SYNC_BASE = 'http://127.0.0.1:8787';
@@ -52,10 +63,31 @@ function getFetchModule() {
   return fetchModule;
 }
 
-/** 读同步服务的基址。设置页可以覆盖。 */
+/** 读同步服务的首选基址。设置页可以覆盖。 */
 export function getSyncBase(readSetting) {
   const saved = readSetting ? String(readSetting(SYNC_BASE_KEY, '') || '').trim() : '';
   return saved || DEFAULT_SYNC_BASE;
+}
+
+/**
+ * 这次请求要试哪些地址，按顺序。
+ *
+ * ── 为什么要试多个 ──────────────────────────────────────────────
+ *
+ * 手表走的是它自己的 WiFi / 蓝牙链路，和电脑用的不是一条路，
+ * TLS 栈也不一样。**我没法在这里验证它到 Cloudflare 通不通。**
+ *
+ * 所以：先试直连（快，272ms），不通就换大陆反代（慢些但确定能到）。
+ * 多花一次失败的 12 秒，换"总有一条路能用"。
+ *
+ * 用户在设置里指定了地址时**只试那个** —— 他既然手动填了，
+ * 就说明他知道自己在干什么，别自作主张换路。
+ */
+export function candidateBases(readSetting) {
+  const saved = readSetting ? String(readSetting(SYNC_BASE_KEY, '') || '').trim() : '';
+  if (saved) return [saved];
+
+  return [DEFAULT_SYNC_BASE, FALLBACK_SYNC_BASE];
 }
 
 /** 保存同步服务的基址（去掉末尾斜杠，否则拼出来是 `//sync/create`）。 */
@@ -169,6 +201,8 @@ export default {
   LOCAL_SYNC_BASE,
   SYNC_BASE_KEY,
   getSyncBase,
+  candidateBases,
+  FALLBACK_SYNC_BASE,
   setSyncBase,
   syncErrorMessage,
   createSyncCode,
