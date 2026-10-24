@@ -247,8 +247,18 @@
   const { core, keys, navigation, store, syncAes, syncClient, syncPayload } = global.AstraMai;
   const { goBack, push } = navigation;
   const { readSetting, writeSetting, warmUp } = store;
-  const { deriveIvBase64, deriveKeyBase64, decodeSyncPayload, decryptSyncPayload } = core;
-  const { isSyncCryptoAvailable } = syncAes;
+  /*
+   * ⚠️ **`decryptSyncPayload` 必须从 `syncAes` 取，不能从 `core` 取。**
+   *
+   * core 里那个是 `sync/aes-web.ts`（WebCrypto 实现），打包进手表时
+   * 被替换成了空实现（见 scripts/bundle-core.mjs）—— 在手表上调用它
+   * 只会得到「只在网页端可用」。
+   *
+   * 手表真正的 AES 在 `common/sync-aes.js`（用 @system.crypto）。
+   * 两者签名一样，所以取错了**不会有类型错误**，只在运行时炸。
+   */
+  const { deriveIvBase64, deriveKeyBase64, decodeSyncPayload } = core;
+  const { isSyncCryptoAvailable, decryptSyncPayload } = syncAes;
   const { candidateBases, createSyncCode, getSyncPayload } = syncClient;
   const { parseSyncPayload, storageWritesFor, describePayload } = syncPayload;
 
