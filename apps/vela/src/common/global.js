@@ -28,6 +28,8 @@ import * as syncPayload from './sync-payload.js';
 import * as games from './games.js';
 import * as community from './community.js';
 import * as keys from './keys.js';
+import * as syncAes from './sync-aes.js';
+import * as syncClient from './sync-client.js';
 import * as legal from './legal.js';
 import * as bridge from './bridge.js';
 
@@ -49,6 +51,8 @@ global.AstraMai = {
   games,
   community,
   keys,
+  syncAes,
+  syncClient,
   legal,
   bridge,
 };

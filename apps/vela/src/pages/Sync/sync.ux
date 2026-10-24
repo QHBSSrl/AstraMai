@@ -1,3 +1,5 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+
 <template>
   <div class="sync-page">
     <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
@@ -7,43 +9,70 @@
       </div>
     </div>
 
+    <text class="title">同步</text>
     <text class="lead">{{ leadText }}</text>
 
-    <!-- 配对码：整页的主角，给到最大字号 -->
-    <div class="code-box" if="{{ token }}">
-      <text class="code">{{ tokenText }}</text>
+    <!--
+      配对码：抄到电脑上。
+      上传成功后才出现 —— 没有码的时候显示一块空面板只会让人困惑。
+    -->
+    <div class="code-box" if="{{ code }}">
+      <text class="code-box__label">配对码</text>
+      <text class="code-box__value">{{ code }}</text>
+      <text class="code-box__label">密码</text>
+      <text class="code-box__value">{{ pin }}</text>
+      <text class="code-box__ttl">10 分钟内有效</text>
     </div>
-    <text class="countdown" if="{{ token }}">{{ countdownText }}</text>
 
-    <text class="status" style="color: {{ statusColor }}">{{ statusText }}</text>
-
-    <div class="actions">
-      <!--
-        刻意**不做自动轮询**：轮询是 O(用户数) 的持续负载，人多起来会把服务端压垮；
-        手动刷新是 O(点击次数) 的，代价只在玩家真的需要时才付。
-      -->
-      <div class="action" if="{{ !success && token }}" @click="refreshNow">
-        <text class="action__text action__text--filled">刷新</text>
-      </div>
-      <div class="action action--ghost" if="{{ !success }}" @click="restart">
-        <text class="action__text action__text--ghost">重新获取</text>
-      </div>
-      <div class="action action--ghost" @click="onBack">
-        <text class="action__text action__text--ghost">{{ success ? '完成' : '返回' }}</text>
-      </div>
-    </div>
+    <text class="status" style="color: {{ statusColor }}" if="{{ statusText }}">{{ statusText }}</text>
 
     <text class="hint" if="{{ hint }}">{{ hint }}</text>
+
+    <!-- 输入中的配对码 -->
+    <text class="entry" if="{{ entryText }}">{{ entryText }}</text>
+
+    <div class="actions">
+      <div class="action" if="{{ canUpload }}" @click="onUpload">
+        <text class="action__text">{{ uploading ? '加密上传中…' : '上传成绩到电脑' }}</text>
+      </div>
+
+      <div class="action" if="{{ canPull }}" @click="toggleKeyboard">
+        <text class="action__text">{{ keyboardHidden ? '输入配对码' : '收起键盘' }}</text>
+      </div>
+    </div>
+
+    <!-- 键盘提到根容器下：它靠 position:absolute 定位，父容器有 padding 就会缩进去 -->
+    <input-method
+      hide="{{ keyboardHidden }}"
+      keyboardtype="T9"
+      screentype="rect"
+      vibratemode="short"
+      maxlength="12"
+      @complete="onComplete"
+      @delete="onDelete"
+    ></input-method>
   </div>
 </template>
 
 <style lang="less">
   @import '../../common/theme-tokens.less';
 
+  /*
+   * 同步页（方案 B：Cloudflare Workers + 端到端加密）。
+   *
+   * Vela 的硬限制（都踩过，别改回去）：
+   *   · 样式是**页面级**的 —— 别的页面的 .action 在这里不存在，必须重定义
+   *   · 没有后代选择器隔离，同名 class 会互相影响
+   *   · div 默认 flex-direction: row（不是 block）
+   *   · margin-top: auto / align-self 都不生效
+   *   · 不支持 var() / linear-gradient
+   */
+
   .sync-page {
     flex-direction: column;
-    align-items: center;
-    padding: 14px;
+    width: 100%;
+    height: 100%;
+    padding: 14px 20px;
     background-color: @ui-surface;
   }
 
@@ -65,330 +94,320 @@
     color: @ui-on-surface;
   }
 
-  .lead {
-    font-size: 17px;
-    color: @ui-on-surface-variant;
-    text-align: center;
+  .title {
+    font-size: 30px;
+    font-weight: bold;
+    color: @ui-on-surface;
     margin-top: 4px;
-    line-height: 1.5;
+    lines: 1;
   }
 
-  .code-box {
-    margin-top: 18px;
-    padding: 14px 26px;
-    border-radius: 16px;
-    background-color: @ui-surface;
-  }
-
-  /* 配对码要一眼看清，字号给足、字距拉开 */
-  .code {
-    font-size: 46px;
-    color: #ffffff;
-    letter-spacing: 6px;
-  }
-
-  .countdown {
+  .lead {
     font-size: 16px;
     color: @ui-on-surface-variant;
-    margin-top: 10px;
+    margin-top: 8px;
+    lines: 3;
+  }
+
+  /* 配对码要能一眼抄走：大、字距拉开、居中 */
+  .code-box {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 12px;
+    padding: 12px 0;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .code-box__label {
+    font-size: 14px;
+    color: @ui-on-surface-muted;
+    lines: 1;
+  }
+
+  .code-box__value {
+    font-size: 34px;
+    font-weight: bold;
+    color: @ui-primary;
+    letter-spacing: 4px;
+    margin-bottom: 4px;
+    lines: 1;
+  }
+
+  .code-box__ttl {
+    font-size: 13px;
+    color: @ui-on-surface-muted;
+    lines: 1;
   }
 
   .status {
-    font-size: 19px;
+    width: 100%;
+    font-size: 16px;
+    margin-top: 12px;
     text-align: center;
-    margin-top: 16px;
-    line-height: 1.5;
+    lines: 3;
+  }
+
+  .hint {
+    width: 100%;
+    font-size: 13px;
+    color: @ui-on-surface-muted;
+    margin-top: 8px;
+    lines: 4;
+  }
+
+  /* 正在输入的配对码 */
+  .entry {
+    width: 100%;
+    font-size: 26px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    letter-spacing: 6px;
+    text-align: center;
+    margin-top: 10px;
+    lines: 1;
   }
 
   .actions {
-    flex-direction: row;
-    justify-content: center;
-    margin-top: 18px;
+    width: 100%;
+    flex-direction: column;
+    margin-top: 14px;
   }
 
-  /* 三个按钮要挤进 432px 宽的屏幕，所以收紧内边距和字号 */
   .action {
-    height: 56px;
-    padding: 0 18px;
-    margin: 0 4px;
-    border-radius: 28px;
-    background-color: @ui-primary;
+    width: 100%;
+    height: 60px;
+    border-radius: @ui-radius-full;
+    background-color: @ui-surface-container;
     align-items: center;
     justify-content: center;
-  }
-
-  .action--ghost {
-    background-color: @ui-surface-container;
+    margin-bottom: 10px;
   }
 
   .action__text {
-    /* 只留尺寸。**颜色必须拆到变体类上**——
-       写在基类里会和变体规则打架，谁赢取决于编译顺序。 */
-    font-size: 20px;
-  }
-
-  /* 主按钮上的文字：深色，压在粉色底上 */
-  .action__text--filled {
-    color: @ui-on-primary;
-  }
-
-  /* 次要按钮上的文字：浅色，压在深色底上 */
-  .action__text--ghost {
+    font-size: 18px;
     color: @ui-on-surface;
-  }
-
-  /* 禁用态：中间灰。**不再借用 opacity**，手表上小字号容易糊 */
-  .action__text--disabled {
-    color: @ui-on-surface-variant;
-  }
-
-
-  .hint {
-    font-size: 15px;
-    color: @ui-on-surface-variant;
-    text-align: center;
-    margin-top: 16px;
-    line-height: 1.6;
-  }
-
-  /*
-   * ── 圆形屏适配 ─────────────────────────────────────────────────
-   * 依据官方《多屏适配 · 页面标题栏》：
-   *   「在圆屏、胶囊屏等存在边缘剪切的设备上，标题栏会使用多行设计，
-   *     保证顶部的展示内容长度不会超出屏幕；而在矩形屏幕上则做单行左右布局。」
-   *
-   * 圆屏四角是物理裁掉的：466×466 的屏，顶栏中心 y≈44 处可用宽度只有约 272px，
-   * 而「标题在左 + 设置在右」需要整幅 466px，两端必然被切。
-   * 所以这里改竖排居中，并加左右内边距把内容压进圆内接矩形。
-   *
-   * **只影响 shape: circle**，矩形屏样式与行为完全不变。
-   */
-  @media (shape: circle) {
-    .sync-page {
-      padding-left: 40px;
-      padding-right: 40px;
-    }
-
-    /* 顶栏改竖排居中：单行左右布局在圆屏上两端必被裁 */
-    .topbar {
-      flex-direction: column;
-      align-items: center;
-      height: auto;
-    }
-
-    /* 返回键/标题不再靠边，改为居中并留出上下间距 */
-    .back {
-      margin-bottom: 8px;
-    }
+    lines: 1;
   }
 </style>
 
 <script>
-  // 共享模块从 global 取，不再 import（官方内存优化建议）。
-  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { api, diag, navigation, secret, store, syncPayload } = global.AstraMai;
-  const { consumePairing, pollPairing, startPairing } = api;
-  const { mark } = diag;
+  const { core, keys, navigation, store, syncAes, syncClient } = global.AstraMai;
   const { goBack } = navigation;
-  const { deviceSecretHash, getDeviceSecret, isCryptoAvailable } = secret;
-  const { readSetting, warmUp, writeSetting } = store;
-  const { describePayload, parseSyncPayload, storageWritesFor } = syncPayload;
+  const { readSetting, warmUp } = store;
+  const { deriveIvBase64, deriveKeyBase64, encodeSyncPayload, decodeSyncPayload } = core;
+  const { isSyncCryptoAvailable, encryptSyncPayload, decryptSyncPayload } = syncAes;
+  const { getSyncBase, createSyncCode, putSyncPayload, getSyncPayload } = syncClient;
 
+  /**
+   * 4 位密码。
+   *
+   * `@system.crypto` 没有随机数接口，所以用 `Math.random()`。
+   * 这里的强度要求不高 —— 它只是**第二道门**，第一道是那 6 位配对码
+   * （服务器随机生成），而且 10 分钟就过期。
+   */
+  function makePin() {
+    const n = Math.floor(Math.random() * 10000);
+    return String(n).padStart(4, '0');
+  }
 
   export default {
     private: {
-      leadText: '正在获取配对码…',
-      token: '',
-      tokenText: '',
-      countdownText: '',
+      leadText: '',
+      code: '',
+      pin: '',
       statusText: '',
       statusColor: '#9bacd0',
       hint: '',
-      success: false,
-      // 未声明的字段在 Vela 里行为不可靠，这几个必须显式列出来
-      deviceSecret: '',
-      expiresAt: 0,
-    },
-
-    onReady() {
-      mark('Sync:onReady');
+      canUpload: false,
+      canPull: false,
+      uploading: false,
+      keyboardHidden: true,
+      /** 用户正在输入的「配对码+密码」，形如 `123456-7890`。 */
+      entryText: '',
+      base: '',
     },
 
     onInit() {
-      mark('Sync:onInit');
       console.debug('[AstraMai] Sync onInit');
-
-      // 设备密钥要落盘，先把存储模块热起来
-      warmUp(['deviceSecret', 'queryKind', 'queryValue', 'friendCode', 'qrInput'])
+      warmUp([
+        keys.QUERY_VALUE_KEY,
+        keys.CURRENT_GAME_KEY,
+        keys.B50_CACHE_INDEX_KEY,
+      ])
         .then(() => this.begin())
         .catch((error) => {
           console.error('[AstraMai] Sync 初始化失败：', error);
           this.leadText = '初始化失败';
-          this.statusText = '存储不可用，无法配对';
+          this.statusText = '存储不可用，无法同步';
           this.statusColor = '#f2564b';
         });
     },
-
-    /**
-     * 没有定时器要清——配对是完全手动的。
-     * 钩子留着是因为将来若加了需要清理的资源，这里是唯一正确的落点。
-     */
-    onHide() {},
-
-    onDestroy() {},
 
     begin() {
-      if (!isCryptoAvailable()) {
-        this.leadText = '这台设备不支持配对';
-        this.statusText = '缺少加密能力（@system.crypto），无法生成设备密钥';
+      this.base = getSyncBase(readSetting);
+
+      if (!isSyncCryptoAvailable()) {
+        this.leadText = '这台设备不支持同步';
+        this.statusText = '缺少 AES 加密能力';
         this.statusColor = '#f2564b';
-        this.hint = '配对依赖设备密钥来保证别人猜中配对码也读不走你的数据。';
+        this.hint = '手环系列不支持 AES。Watch S3 及以后、REDMI Watch 5/6 才行。';
         return;
       }
 
-      this.deviceSecret = getDeviceSecret(readSetting, writeSetting);
-      const hash = deviceSecretHash(this.deviceSecret);
-      if (!hash) {
-        this.leadText = '无法生成设备密钥';
-        this.statusText = '摘要算法不可用，请重试';
-        this.statusColor = '#f2564b';
+      this.leadText = '在两个设备之间搬数据';
+      this.canPull = true;
+      this.canUpload = true;
+      this.hint = '上传：把手表上的成绩加密送到电脑。拉取：输入电脑上显示的配对码和密码。';
+    },
+
+    /**
+     * 上传当前成绩。
+     *
+     * 流程：建码 → 读缓存 → 加密 → 上传。
+     * **顺序不能反** —— 密钥里含配对码，没有码就没法加密。
+     */
+    onUpload() {
+      if (this.uploading) return;
+
+      const game = readSetting(keys.CURRENT_GAME_KEY, 'maimai') || 'maimai';
+      const target = readSetting(keys.QUERY_VALUE_KEY, '');
+
+      let view = null;
+      try {
+        const raw = readSetting(keys.b50CacheKey(game, target), '');
+        if (raw) view = JSON.parse(raw);
+      } catch (error) {
+        console.warn('[AstraMai] 读 B50 缓存失败：', error);
+      }
+
+      if (!view) {
+        this.statusText = '还没有成绩可以上传';
+        this.statusColor = '#ffb020';
+        this.hint = '先在 B50 页查一次成绩，再回来上传。';
         return;
       }
 
-      startPairing(hash)
-        .then((data) => {
-          this.token = data.token;
-          this.expiresAt = data.expiresAt || Date.now() + 10 * 60 * 1000;
-          // 数字之间留空，手表小屏上更好认
-          this.tokenText = String(data.token).split('').join(' ');
-          this.leadText = '在网页「同步到手表」里填入这串数字';
-          this.statusText = '网页提交后，点下面的「刷新」';
-          this.statusColor = '#9bacd0';
-          this.updateCountdown();
+      this.uploading = true;
+      this.statusText = '正在加密上传…';
+      this.statusColor = '#9bacd0';
+
+      const pin = makePin();
+      let issued = '';
+
+      createSyncCode(this.base, pin)
+        .then((created) => {
+          issued = created.code;
+          this.code = created.code;
+          this.pin = pin;
+
+          const plaintext = encodeSyncPayload(game, view);
+          return encryptSyncPayload(
+            plaintext,
+            deriveKeyBase64(pin, issued),
+            deriveIvBase64(issued),
+          ).then((cipher) => putSyncPayload(this.base, issued, pin, cipher));
+        })
+        .then(() => {
+          this.uploading = false;
+          this.statusText = '已加密上传';
+          this.statusColor = '#3ddc84';
+          this.hint = '在网页「同步 → 从手表取」输入上面的配对码和密码。';
         })
         .catch((error) => {
-          console.error('[AstraMai] 获取配对码失败：', error);
-          this.leadText = '获取配对码失败';
-          this.statusText = error && error.message ? error.message : '请检查网络后重试';
+          this.uploading = false;
+          this.code = '';
+          this.pin = '';
+          this.statusText = error && error.message ? error.message : '上传失败';
           this.statusColor = '#f2564b';
         });
     },
 
+    toggleKeyboard() {
+      this.keyboardHidden = !this.keyboardHidden;
+    },
+
+    onDelete() {
+      this.entryText = this.entryText.slice(0, -1);
+    },
+
     /**
-     * 手动刷新：查一次服务端。
+     * 输入完成 —— 期望 `配对码-密码`（6 位数字 + 4 位数字）。
      *
-     * **刻意不做自动轮询。** 轮询是 O(用户数) 的持续负载——每个开着配对页的
-     * 人都在定时打服务端，人一多就把它压垮了；而手动刷新是 O(点击次数) 的，
-     * 代价只在玩家真的需要时才付。
-     *
-     * 相应地，界面上的时间提示也只在点刷新时更新——**不显示会自己变旧的数据**，
-     * 免得停在那儿误导人。
+     * 为什么用 T9 数字键盘而不是两个输入框：
+     * 手表屏幕太小，两个框来回切焦点的体验很差。
+     * 连起来输、用一个分隔符识别，用户少点一次。
      */
-    refreshNow() {
-      if (this.success || !this.token) return;
+    onComplete(value) {
+      const digits = String(value || '').replace(/\D/g, '');
+      this.entryText = digits;
 
-      this.updateCountdown();
-      if (Date.now() > this.expiresAt) {
-        this.statusText = '配对码已过期，请点「重新获取」';
-        this.statusColor = '#f2a33c';
+      if (digits.length < 10) {
+        this.statusText = '还差 ' + (10 - digits.length) + ' 位';
+        this.statusColor = '#9bacd0';
         return;
       }
 
-      this.statusText = '正在检查…';
+      const code = digits.slice(0, 6);
+      const pin = digits.slice(6, 10);
+
+      this.keyboardHidden = true;
+      this.pullingCode(code, pin);
+    },
+
+    /**
+     * 拉取并解密。
+     *
+     * 拉回来的数据存进 `syncInbox`，B50 页可以读它直接渲染 ——
+     * 这样"在电脑上填好友码，手表取过来查"这条路才闭合。
+     */
+    pullingCode(code, pin) {
+      this.statusText = '正在拉取…';
       this.statusColor = '#9bacd0';
-      this.pollOnce();
-    },
 
-    /** 查一次服务端。只有手动刷新会调它——没有定时器。 */
-    pollOnce() {
-      pollPairing(this.token, this.deviceSecret)
-        .then((data) => {
-          if (data.status === 'ready' && data.payload) {
-            this.receive(data.payload);
-            return;
+      getSyncPayload(this.base, code, pin)
+        .then((body) =>
+          decryptSyncPayload(body.payload, deriveKeyBase64(pin, code), deriveIvBase64(code)),
+        )
+        .then((plaintext) => {
+          const decoded = decodeSyncPayload(plaintext);
+          this.statusText = '取到了：' + summarize(decoded.view);
+          this.statusColor = '#3ddc84';
+          this.hint = '回到 B50 页用这份数据查询。';
+          this.entryText = '';
+
+          try {
+            store.writeSetting('syncInbox', JSON.stringify(decoded));
+          } catch (error) {
+            console.warn('[AstraMai] 保存同步数据失败：', error);
           }
-          if (data.status === 'expired') {
-            this.statusText = '配对码已失效，请点「重新获取」';
-            this.statusColor = '#f2a33c';
-            return;
-          }
-          // 给个明确的「还没到」反馈，否则玩家会以为按钮没反应
-          this.statusText = '网页还没提交，请稍后再点刷新';
-          this.statusColor = '#9bacd0';
         })
         .catch((error) => {
-          console.warn('[AstraMai] 刷新失败：', error);
-          this.statusText = error && error.message ? error.message : '网络不太好，请重试';
-          this.statusColor = '#f2a33c';
+          this.statusText = error && error.message ? error.message : '拉取失败';
+          this.statusColor = '#f2564b';
+          this.hint = '密码错了，或者这组码已经过期。';
         });
-    },
-
-    /** 收到数据：存下来 → 让服务端立刻删除 → 停止轮询。 */
-    receive(raw) {
-      const payload = parseSyncPayload(raw);
-      if (!payload) {
-        this.statusText = '收到的数据是空的';
-        this.statusColor = '#f2564b';
-        return;
-      }
-
-      // 映射逻辑单独抽在 common/sync-payload.js 里并做了测试——
-      // 键名写错的表现是「同步成功但查分还是空的」，在手表上极难排查
-      const writes = storageWritesFor(payload);
-      try {
-        for (const item of writes) writeSetting(item.key, item.value);
-      } catch (error) {
-        console.error('[AstraMai] 保存同步数据失败：', error);
-        this.statusText = '数据已收到但保存失败';
-        this.statusColor = '#f2564b';
-        return;
-      }
-
-      this.success = true;
-      this.leadText = '已同步';
-      this.statusText = `已保存${describePayload(payload)}`;
-      this.statusColor = '#58d68d';
-      this.countdownText = '';
-      this.hint =
-        payload.kind === 'qr'
-          ? '回到首页即可用这个二维码查分。'
-          : '回到首页或 B50 页即可用它查分。';
-
-      // 玩家的明确诉求：取走之后要求服务端立刻删除
-      consumePairing(this.token, this.deviceSecret)
-        .then((removed) => {
-          if (!removed) console.warn('[AstraMai] 服务端未确认删除，数据最多 10 分钟后自动过期');
-        })
-        .catch((error) => {
-          console.warn('[AstraMai] 请求删除失败（不影响本地数据）：', error);
-        });
-    },
-
-    updateCountdown() {
-      if (!this.expiresAt) return;
-      const left = Math.max(0, Math.round((this.expiresAt - Date.now()) / 1000));
-      const minutes = Math.floor(left / 60);
-      const seconds = left % 60;
-      this.countdownText = left > 0
-        ? `${minutes} 分 ${String(seconds).padStart(2, '0')} 秒后过期`
-        : '已过期';
-    },
-
-    /** 换一个配对码重新开始。 */
-    restart() {
-      this.token = '';
-      this.tokenText = '';
-      this.countdownText = '';
-      this.statusText = '';
-      this.hint = '';
-      this.success = false;
-      this.expiresAt = 0;
-      this.leadText = '正在获取配对码…';
-      this.begin();
     },
 
     onBack() {
       goBack('/');
     },
   };
+
+  /** 给载荷生成一句摘要 —— 手表上放不下细节。 */
+  function summarize(view) {
+    if (!view || typeof view !== 'object') return '空数据';
+
+    const record = view;
+    if (typeof record.kind === 'string' && typeof record.value === 'string') {
+      return record.kind === 'friendCode' ? '好友码 ' + record.value : String(record.value);
+    }
+
+    const standard = Array.isArray(record.standard) ? record.standard.length : 0;
+    const dx = Array.isArray(record.dx) ? record.dx.length : 0;
+    if (standard || dx) return 'Best 50（' + standard + ' + ' + dx + '）';
+
+    return '数据';
+  }
 </script>
