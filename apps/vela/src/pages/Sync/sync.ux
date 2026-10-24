@@ -265,6 +265,8 @@
       creating: false,
       fetching: false,
       bases: [],
+      /** 失败时用来定位是哪一步。 */
+      stage: '',
       /** 还没生成配对码时，先让用户自己设 4 位密码。 */
       needPin: true,
       pinInput: '',
@@ -367,16 +369,27 @@
       const code = this.code;
       const pin = this.pin;
 
+      /*
+       * 每一步打一个阶段标记，catch 时把阶段名带上。
+       *
+       * 之前报了个光秃秃的 `not a function`，完全看不出是哪一行 ——
+       * 手表上又没法看堆栈。这次让它自己说出阶段。
+       */
+      this.stage = '拉取';
+
       this.withFallback((base) => getSyncPayload(base, code, pin))
-        .then((body) =>
-          decryptSyncPayload(body.payload, deriveKeyBase64(pin, code), deriveIvBase64(code)),
-        )
+        .then((body) => {
+          this.stage = '解密';
+          return decryptSyncPayload(body.payload, deriveKeyBase64(pin, code), deriveIvBase64(code));
+        })
         .then((plaintext) => {
+          this.stage = '解码';
           const decoded = decodeSyncPayload(plaintext);
           const payload = parseSyncPayload(JSON.stringify(decoded.view));
 
           if (!payload) throw new Error('收到的数据看不懂');
 
+          this.stage = '落地' ;
           const writes = storageWritesFor(payload);
           if (writes.length === 0) throw new Error('收到的数据是空的');
 
@@ -385,6 +398,7 @@
           }
 
           this.fetching = false;
+          this.stage = '完成';
           this.statusText = '已同步：' + describePayload(payload);
           this.statusColor = '#3ddc84';
           this.hint = '跳到 B50 页就能用这份数据查分了。';
@@ -394,7 +408,9 @@
         })
         .catch((error) => {
           this.fetching = false;
-          this.statusText = error && error.message ? error.message : '取回失败';
+          const message = error && error.message ? error.message : '取回失败';
+          // 带上阶段名 —— 光一个 "not a function" 在手表上没法查
+          this.statusText = this.stage + '失败：' + message;
           this.statusColor = '#ffb020';
           /*
            * 「电脑上还没点提交」和「密码错了」在客户端看起来很像
