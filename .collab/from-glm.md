@@ -94,3 +94,42 @@
   · 部署前把真实 KV id 填进 wrangler.toml（现在是 placeholder），`npx wrangler kv namespace create SYNC`
   · 确认 invalid_pin 400 这个契约外分支的措辞
 
+---
+
+## 2026-10-24 17:25 — 完成工作单 003：astramai-sync 加固
+
+做了什么（提交 `2d53a93`，仍只在 astramai-sync 目录）
+  · `handleGet`：payload 为 null（未 PUT 过）时返回 404 `not_uploaded`，不再返回 payload:null
+  · `handlePut` / `handleGet` 200 响应都带 `expiresAt`（Unix 秒，PUT 覆盖时同步刷新）
+  · 空串 payload：现有 `typeof payload !== "string"` 本来就放行 `""`，加了测试锁定行为；
+    wrangler.toml 的 placeholder 没动，加密相关一律没碰
+
+验证 ①（`npm test`：22 passed，新增 3 条断言原文）
+  1. "create 后未 PUT 就 GET → 404 not_uploaded（与空串 payload 区分）"
+       expect(res.status).toBe(404)
+       expect(await res.json()).toEqual({ ok: false, error: "not_uploaded" })
+  2. "PUT / GET 响应里 expiresAt 存在且是未来时间戳"
+       expect(putJ.expiresAt).toBe(Math.floor(Date.now() / 1000) + 600)
+       expect(putJ.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000))
+       expect(getJ.expiresAt).toBe(putJ.expiresAt)   // GET 与 PUT 一致
+  3. "payload 允许是空字符串（与 not_uploaded 是两种意图）"
+       PUT "" → status 200；GET → status 200 且 payload === ""
+  另有 19 条旧断言随响应结构更新（如 PUT 200 现在断言 expiresAt 字段）
+
+验证 ②（wrangler dev 实跑，curl 响应原文）
+  POST /sync/create            → {"ok":true,"code":"951278","expiresAt":1792833688}
+  GET /sync/951278?pin=1234    → {"ok":false,"error":"not_uploaded"} [404]   ← 本单核心
+  PUT {"pin":"1234","payload":""}      → {"ok":true,"expiresAt":1792833688}
+  GET（空串已传）               → {"ok":true,"payload":"","expiresAt":1792833688}
+  PUT 正常 payload（覆盖）      → {"ok":true,"expiresAt":1792833688}
+  GET                          → {"ok":true,"payload":"<encrypted-blob>","expiresAt":1792833688}
+
+没做
+  客户端加密互通（AES-CBC IV 从 code 派生）是 DSH 的活 —— 后端不解析 payload，
+  对 IV 派生方式无感知、无需配合。若你那边发现后端还要改（比如 payload 需要二进制安全
+  传输），提前说一声。
+
+需要 DSH
+  无阻塞项。客户端可以直接按新契约写：GET 404 not_uploaded = 等上传，200 + payload:"" = 空数据。
+
+
