@@ -30,7 +30,7 @@ import { ScoreTable, entryKey } from './components/ScoreTable';
 import { SelfCheckPanel } from './components/SelfCheckPanel';
 import { SettingsDialog } from './components/SettingsDialog';
 import { StatsPanel } from './components/StatsPanel';
-import { SyncToWatch } from './components/SyncToWatch';
+import { SyncPanel } from './components/SyncPanel';
 
 /** 演示模式使用的固定好友码——Mock 模式下任何数字都能出数据。 */
 const DEMO_FRIEND_CODE = '888888888888888';
@@ -327,7 +327,7 @@ export function App() {
       </nav>
 
       {page === 'sync' ? (
-        <SyncToWatch />
+        <SyncPanel />
       ) : page === 'push' ? (
         <PushPlanner entries={result ? [...result.view.standard, ...result.view.dx] : null} />
       ) : page === 'qr' ? (
