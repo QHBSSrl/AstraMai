@@ -194,12 +194,10 @@
 </style>
 
 <script>
-  const { navigation, store } = global.AstraMai;
+  const { keys, navigation, store } = global.AstraMai;
   const { goBack } = navigation;
   const { readSetting, warmUp } = store;
 
-  /** 和 B50 页共用的键。改一边要改另一边。 */
-  const DIFF_KEY = 'b50LastDiff';
 
   /** 每类最多列几条。手表上滚太久没人看，而且列表越长越卡。 */
   const MAX_PER_SECTION = 8;
@@ -215,7 +213,7 @@
 
     onInit() {
       console.debug('[AstraMai] Diff onInit');
-      warmUp([DIFF_KEY])
+      warmUp([keys.B50_DIFF_KEY])
         .then(() => this.load())
         .catch((error) => console.error('[AstraMai] Diff 初始化失败：', error));
     },
@@ -223,7 +221,7 @@
     load() {
       let diff = null;
       try {
-        const raw = readSetting(DIFF_KEY, '');
+        const raw = readSetting(keys.B50_DIFF_KEY, '');
         if (raw) diff = JSON.parse(raw);
       } catch (error) {
         console.warn('[AstraMai] 读对比数据失败：', error);

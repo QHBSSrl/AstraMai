@@ -180,7 +180,7 @@
 </style>
 
 <script>
-  const { core, navigation, store } = global.AstraMai;
+  const { core, keys, navigation, store } = global.AstraMai;
   const { goBack } = navigation;
   const { readSetting, warmUp } = store;
 
@@ -198,7 +198,7 @@
 
     onInit() {
       console.debug('[AstraMai] Plan onInit');
-      warmUp(['currentGame', 'queryValue'])
+      warmUp([keys.CURRENT_GAME_KEY, keys.QUERY_VALUE_KEY])
         .then(() => this.load())
         .catch((error) => console.error('[AstraMai] Plan 初始化失败：', error));
     },
@@ -211,8 +211,8 @@
      * 缓存里本来就有完整视图，直接读它，不用让 B50 页多传十几 KB。
      */
     load() {
-      const game = readSetting('currentGame', 'maimai') || 'maimai';
-      const code = readSetting('queryValue', '');
+      const game = readSetting(keys.CURRENT_GAME_KEY, 'maimai') || 'maimai';
+      const code = readSetting(keys.QUERY_VALUE_KEY, '');
 
       if (game !== 'maimai') {
         this.fail('只有舞萌支持上分规划。');
@@ -225,7 +225,7 @@
 
       let view = null;
       try {
-        const raw = readSetting(`b50Cache:${game}:${code}`, '');
+        const raw = readSetting(keys.b50CacheKey(game, code), '');
         if (raw) view = JSON.parse(raw);
       } catch (error) {
         console.warn('[AstraMai] 读 B50 缓存失败：', error);

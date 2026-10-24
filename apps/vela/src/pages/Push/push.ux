@@ -272,12 +272,10 @@
 </style>
 
 <script>
-  const { core, navigation, store } = global.AstraMai;
+  const { core, keys, navigation, store } = global.AstraMai;
   const { goBack, push } = navigation;
   const { readSetting, warmUp } = store;
 
-  /** 种子数据的存储键。B50 / Song 页写，这里读。 */
-  const SEED_KEY = 'pushSeed';
 
   /** 目标分的调整范围。超出直接夹住，不做提示。 */
   const TARGET_MIN = 1;
@@ -313,7 +311,7 @@
     onInit() {
       console.debug('[AstraMai] Push onInit');
 
-      warmUp([SEED_KEY])
+      warmUp([keys.PUSH_SEED_KEY])
         .then(() => {
           this.loadSeed();
           this.refresh();
@@ -323,7 +321,7 @@
 
     /** 读上一页留下的种子。没有就用默认值。 */
     loadSeed() {
-      const raw = readSetting(SEED_KEY, '');
+      const raw = readSetting(keys.PUSH_SEED_KEY, '');
       if (!raw) return;
 
       try {

@@ -459,7 +459,7 @@
 <script>
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { api, core, diag, games, navigation, store, validate } = global.AstraMai;
+  const { api, core, diag, games, keys, navigation, store, validate } = global.AstraMai;
   const {
     fetchB50,
     fetchB50ByQq,
@@ -537,16 +537,6 @@
   /** 缓存索引的键。索引里记 `[{key, at}]`，按最近使用排序。 */
   const CACHE_INDEX_KEY = 'b50CacheIndex';
 
-  /**
-   * 最近一次对比结果的存储键。
-   *
-   * 只存**最后一次**，不分游戏、不分查询目标 ——
-   * 对比详情页是"我刚才那次查询比上次多了什么"，
-   * 用户不会回头翻三天前某个好友的对比。
-   *
-   * 每次查询都会先清空再写，所以不会残留旧数据。
-   */
-  const DIFF_KEY = 'b50LastDiff';
 
   /**
    * 把时间戳格式化成「10月18日 14:32」。
@@ -650,7 +640,7 @@
       };
 
       try {
-        writeSetting('pushSeed', JSON.stringify(seed));
+        writeSetting(keys.PUSH_SEED_KEY, JSON.stringify(seed));
       } catch (error) {
         console.warn('[AstraMai] 写推分种子失败：', error);
       }
@@ -856,7 +846,7 @@
 
     /** 缓存的键。code 里可能有特殊字符，但 storage 的键是任意字符串，不用转义。 */
     cacheKey(code) {
-      return `b50Cache:${this.gameId}:${code}`;
+      return keys.b50CacheKey(this.gameId, code);
     },
 
     /**
@@ -904,7 +894,7 @@
          * 存算好的结果，详情页只管渲染 —— 数据只算一次，两边不会不一致。
          */
         try {
-          writeSetting(DIFF_KEY, JSON.stringify(diff));
+          writeSetting(keys.B50_DIFF_KEY, JSON.stringify(diff));
         } catch (error) {
           console.warn('[AstraMai] 保存对比结果失败：', error);
         }
@@ -1017,7 +1007,7 @@
        */
       this.diffLine = '';
       try {
-        writeSetting(DIFF_KEY, '');
+        writeSetting(keys.B50_DIFF_KEY, '');
       } catch (error) {
         console.warn('[AstraMai] 清除对比数据失败：', error);
       }
