@@ -17,6 +17,7 @@ import {
   encodeQr,
   encodeQrBytes,
   numDataCodewords,
+  parseWahlapQrPayload,
   qrSizeOfVersion,
   qrToBlockArt,
   qrToPathData,
@@ -217,4 +218,75 @@ test('相同输入必须得到完全相同的结果（可复现）', () => {
   const second = encodeQr(text, { ecLevel: 'M' });
   assert.equal(digestOf(first), digestOf(second));
   assert.equal(first.mask, second.mask);
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// 真实样例（2026-10-24 从华立页面抓的）
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * 华立登录二维码的**真实**样例。
+ *
+ * 抓这条是因为用户报「华立好像改了二维码页面的逻辑」——
+ * 拿真数据验一遍比读代码可靠。结论：**格式没变**。
+ *
+ * 这条同时覆盖了几个容易出错的点：
+ *   · URL 里的 `l` 是**十进制秒**，不是 hex
+ *   · `t` / `d` 是 **hex 编码的 UTF-8**，不是百分号编码
+ *   · 路径里是 `MAID...`，而二维码内容是 `SGWC` + `MAID...`
+ *   · 时间戳藏在 id 里（`261024190635` = 26-10-24 19:06:35）
+ */
+const REAL_URL =
+  'https://wq.wahlap.net/qrcode/req/MAID261024190635A885B648BD4982F5C6723923998CD5F0B235DEF851881170EC396CCEADD6219B.html' +
+  '?l=1792840595' +
+  '&t=E8889EE8908C4458202F20E4B8ADE4BA8CE88A82E5A58F20E799BBE585A5E4BA8CE7BBB4E7A081' +
+  '&d=E68A8AE4B88BE696B9E4BA8CE7BBB4E7A081E5AFB9E58786E69CBAE58FB0E689ABE68F8FE5A484EFBC8CE58FAFE794A8E69CBAE58FB0E69C89E38090E8889EE8908C4458E38091E5928CE38090E4B8ADE4BA8CE88A82E5A58FE38091';
+
+const REAL_CONTENT =
+  'SGWCMAID261024190635A885B648BD4982F5C6723923998CD5F0B235DEF851881170EC396CCEADD6219B';
+
+test('真实 URL：字段全解析对', () => {
+  const parsed = parseWahlapQrPayload(REAL_URL);
+
+  assert.equal(parsed.recognized, true);
+  assert.equal(parsed.source, 'html-url');
+  assert.equal(parsed.host, 'wq.wahlap.net');
+  assert.equal(parsed.content, REAL_CONTENT);
+  assert.equal(parsed.machinePrefix, 'MAID');
+  assert.equal(parsed.contentPrefix, 'SGWC');
+
+  // 标题和描述是 hex 编码的 UTF-8，解出来必须是正常中文
+  assert.equal(parsed.title, '舞萌DX / 中二节奏 登入二维码');
+  assert.equal(parsed.description, '把下方二维码对准机台扫描处，可用机台有【舞萌DX】和【中二节奏】');
+});
+
+test('真实 URL：有效期正好 10 分钟', () => {
+  const parsed = parseWahlapQrPayload(REAL_URL);
+
+  // id 里带生成时间：261024190635 = 2026-10-24 19:06:35 (+08:00)
+  assert.equal(parsed.generatedAt.toISOString(), '2026-10-24T11:06:35.000Z');
+  // l=1792840595 是十进制的过期时间，不是 hex
+  assert.equal(parsed.expiresAt.toISOString(), '2026-10-24T11:16:35.000Z');
+  assert.equal(parsed.validForMs, 10 * 60 * 1000);
+});
+
+test('真实二维码内容：能从内容反推出同一份信息', () => {
+  const parsed = parseWahlapQrPayload(REAL_CONTENT);
+
+  assert.equal(parsed.recognized, true);
+  assert.equal(parsed.source, 'content');
+  assert.equal(parsed.id, 'MAID261024190635A885B648BD4982F5C6723923998CD5F0B235DEF851881170EC396CCEADD6219B');
+  assert.equal(parsed.generatedAt.toISOString(), '2026-10-24T11:06:35.000Z');
+  // 纯内容里没有过期时间 —— 那个只在 URL 上
+  assert.equal(parsed.expiresAt, null);
+});
+
+test('URL 和它的二维码内容互相能对上', () => {
+  const fromUrl = parseWahlapQrPayload(REAL_URL);
+  const fromContent = parseWahlapQrPayload(REAL_CONTENT);
+
+  assert.equal(fromUrl.content, fromContent.content);
+  assert.equal(fromUrl.id, fromContent.id);
+  assert.equal(fromUrl.generatedAt.getTime(), fromContent.generatedAt.getTime());
+  assert.equal(fromUrl.tokenPreview, fromContent.tokenPreview);
 });
