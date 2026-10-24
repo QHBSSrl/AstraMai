@@ -1104,10 +1104,24 @@
       this.tierText =
         player.globalRankText && player.globalRankText !== '—' ? player.globalRankText : '';
 
-      this.statLine1 = '准确率　' + (player.accuracyText ?? '—');
+      /*
+       * ⚠️ **没有成绩的时候显示「—」而不是 0。**
+       *
+       * 大白号的真实数据就是 pp=0 / accuracy=0 / 没有 top play。
+       * 显示「准确率 0.00%」「最佳单曲 0.00pp」会让人以为 App 算错了 ——
+       * 而这其实是 osu 官方的真实状态。
+       *
+       * 判断"有没有成绩"看两个数：
+       *   accuracy  > 0  → 才有准确率可显示
+       *   topPp     > 0  → 才有 pp 可显示（玩过但没进 top 也算没有）
+       */
+      const hasAccuracy = (player.accuracy ?? 0) > 0;
+      const hasTop = (stats.topPp ?? 0) > 0;
+
+      this.statLine1 = '准确率　' + (hasAccuracy ? (player.accuracyText ?? '—') : '—');
       this.statLine2 = '游玩次数　' + (player.playCount ?? 0);
-      this.statLine3 = '最佳单曲　' + formatPp(stats.topPp != null ? stats.topPp : 0) + 'pp';
-      this.statLine4 = '列表合计　' + formatPp(stats.listedPpSum || 0) + 'pp';
+      this.statLine3 = '最佳单曲　' + (hasTop ? formatPp(stats.topPp) + 'pp' : '—');
+      this.statLine4 = '列表合计　' + (hasTop ? formatPp(stats.listedPpSum || 0) + 'pp' : '—');
 
       allEntries = scores.map((entry) => ({
         title: entry.songTitle || entry.title || '未知曲目',
