@@ -1,0 +1,332 @@
+<template>
+  <div class="page-root">
+    <div class="page">
+      <div class="topbar">
+        <div class="back" @click="onBack">
+          <text class="back__text">‹ 返回</text>
+        </div>
+      </div>
+
+      <text class="title">对比</text>
+
+      <!-- 总 Rating 变化 -->
+      <div class="summary" if="{{ hasData }}">
+        <text class="summary__value">{{ ratingText }}</text>
+        <text class="summary__caption">{{ ratingCaption }}</text>
+      </div>
+
+      <!-- 没有任何数据 -->
+      <div class="empty" if="{{ !hasData }}">
+        <text class="empty__text">{{ emptyText }}</text>
+      </div>
+
+      <!--
+        四类变化铺在一个列表里，用 `kind` 区分标题行和条目行。
+        Vela 的 <list> 要显式高度，而且要混合两种行，所以这里拍平成一个数组，
+        模板里按 `$item.kind` 分支渲染 —— 比用四个 list 各自算高度稳。
+      -->
+      <list class="list" if="{{ rows.length > 0 }}">
+        <list-item class="row" type="item" for="{{ rows }}">
+
+          <!-- 分区标题 -->
+          <text class="head" if="{{ $item.kind === 'head' }}">{{ $item.text }}</text>
+
+          <!-- 一条变化 -->
+          <div class="item" if="{{ $item.kind === 'item' }}">
+            <div class="item__main">
+              <text class="item__title">{{ $item.title }}</text>
+              <text class="item__sub" style="color: {{ $item.color }}">{{ $item.difficulty }} · {{ $item.level }}</text>
+            </div>
+            <text class="item__delta" style="color: {{ $item.deltaColor }}">{{ $item.delta }}</text>
+          </div>
+        </list-item>
+      </list>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 对比详情页。
+   *
+   * ── 它解决什么 ──────────────────────────────────────────────────
+   *
+   * B50 页只有一行总结（「总 Rating +112 · 3 首涨」），
+   * 玩家真正想知道的是**具体哪几首涨了**。
+   *
+   * ── 四类为什么要分开列 ──────────────────────────────────────────
+   *
+   * 「掉出 B50」和「跌了」是两件事：
+   * 前者是被别的谱挤出去了，成绩可能一点没变。
+   * 混在一起列，用户会以为自己成绩丢了。
+   */
+
+  .page-root {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
+
+  .page {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    padding: 14px 20px;
+    background-color: @ui-surface;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: @ui-surface-container;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: @ui-on-surface;
+  }
+
+  .title {
+    font-size: 30px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    margin-top: 4px;
+    lines: 1;
+  }
+
+  /* 总 Rating */
+  .summary {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 10px;
+    padding: 12px 0;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .summary__value {
+    font-size: 34px;
+    font-weight: bold;
+    color: @ui-primary;
+    lines: 1;
+  }
+
+  .summary__caption {
+    font-size: 15px;
+    color: @ui-on-surface-variant;
+    margin-top: 2px;
+    lines: 1;
+  }
+
+  .empty {
+    flex: 1;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty__text {
+    font-size: 17px;
+    color: @ui-on-surface-muted;
+    text-align: center;
+    lines: 3;
+  }
+
+  .list {
+    flex: 1;
+    width: 100%;
+    min-height: 110px;
+    margin-top: 8px;
+  }
+
+  /* 分区标题：小、暗、不占高 */
+  .head {
+    width: 100%;
+    height: 34px;
+    font-size: 14px;
+    color: @ui-on-surface-muted;
+    padding-top: 8px;
+    lines: 1;
+  }
+
+  .item {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 54px;
+  }
+
+  .item__main {
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .item__title {
+    font-size: 16px;
+    color: @ui-on-surface;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
+
+  .item__sub {
+    font-size: 13px;
+    margin-top: 1px;
+    lines: 1;
+  }
+
+  .item__delta {
+    font-size: 17px;
+    font-weight: bold;
+    lines: 1;
+  }
+</style>
+
+<script>
+  const { navigation, store } = global.AstraMai;
+  const { goBack } = navigation;
+  const { readSetting, warmUp } = store;
+
+  /** 和 B50 页共用的键。改一边要改另一边。 */
+  const DIFF_KEY = 'b50LastDiff';
+
+  /** 每类最多列几条。手表上滚太久没人看，而且列表越长越卡。 */
+  const MAX_PER_SECTION = 8;
+
+  export default {
+    private: {
+      hasData: false,
+      ratingText: '',
+      ratingCaption: '',
+      emptyText: '',
+      rows: [],
+    },
+
+    onInit() {
+      console.debug('[AstraMai] Diff onInit');
+      warmUp([DIFF_KEY])
+        .then(() => this.load())
+        .catch((error) => console.error('[AstraMai] Diff 初始化失败：', error));
+    },
+
+    load() {
+      let diff = null;
+      try {
+        const raw = readSetting(DIFF_KEY, '');
+        if (raw) diff = JSON.parse(raw);
+      } catch (error) {
+        console.warn('[AstraMai] 读对比数据失败：', error);
+      }
+
+      if (!diff || typeof diff !== 'object') {
+        this.hasData = false;
+        this.emptyText = '还没有对比数据。\n换一台设备或清过数据后，第一次查询没有可比的上一次。';
+        return;
+      }
+
+      this.hasData = true;
+      this.buildSummary(diff);
+      this.buildRows(diff);
+    },
+
+    buildSummary(diff) {
+      const delta = typeof diff.ratingDelta === 'number' ? diff.ratingDelta : 0;
+      const sign = delta > 0 ? '+' : '';
+
+      this.ratingText = `${diff.nextRating}（${sign}${delta}）`;
+      this.ratingCaption =
+        delta === 0
+          ? '总 Rating 没有变化'
+          : delta > 0
+            ? `比上次高 ${delta} 分`
+            : `比上次低 ${-delta} 分`;
+    },
+
+    /**
+     * 把四类变化拍平成一个数组。
+     *
+     * 每一行有个 `kind`：`head` 是分区标题，`item` 是一条变化。
+     * 模板按 `kind` 分支渲染 —— Vela 的 list 里混排两种行，
+     * 比开四个 list 各自算高度稳得多。
+     */
+    buildRows(diff) {
+      const rows = [];
+
+      const section = (label, list) => {
+        if (!Array.isArray(list) || list.length === 0) return;
+
+        rows.push({ kind: 'head', text: `${label}（${list.length}）` });
+
+        for (const item of list.slice(0, MAX_PER_SECTION)) {
+          rows.push({
+            kind: 'item',
+            title: item.title || '未知曲目',
+            difficulty: item.difficultyShort || '',
+            level: typeof item.levelValue === 'number' ? item.levelValue.toFixed(1) : '--',
+            color: item.difficultyColor || '#9bacd0',
+            delta: formatDelta(item, label),
+            deltaColor: deltaColor(label),
+          });
+        }
+
+        if (list.length > MAX_PER_SECTION) {
+          rows.push({
+            kind: 'item',
+            title: `还有 ${list.length - MAX_PER_SECTION} 首…`,
+            difficulty: '',
+            level: '',
+            color: '#9bacd0',
+            delta: '',
+            deltaColor: '#9bacd0',
+          });
+        }
+      };
+
+      // 顺序按"玩家最关心"排：涨 → 跌 → 新进 → 掉出
+      section('涨了', diff.gained);
+      section('跌了', diff.lost);
+      section('新进', diff.entered);
+      section('掉出', diff.left);
+
+      this.rows = rows;
+    },
+
+    onBack() {
+      goBack('/b50');
+    },
+  };
+
+  /**
+   * 每类显示什么数字。
+   *
+   * 涨/跌显示 rating 差值；新进显示「+总分」；掉出显示「原来的分」。
+   * 掉出不能显示负数 —— 那张谱的成绩没变，只是不在榜上了。
+   */
+  function formatDelta(item, label) {
+    const previous = item.previous && typeof item.previous.rating === 'number' ? item.previous.rating : 0;
+    const next = item.next && typeof item.next.rating === 'number' ? item.next.rating : 0;
+
+    if (label === '涨了') return `+${item.deltaRating}`;
+    if (label === '跌了') return String(item.deltaRating);
+    if (label === '新进') return `+${next}`;
+    return `-${previous}`;
+  }
+
+  function deltaColor(label) {
+    if (label === '涨了' || label === '新进') return '#3ddc84';
+    if (label === '跌了') return '#ff6b6b';
+    // 掉出用灰的：它不代表退步，只是被挤出去了
+    return '#9bacd0';
+  }
+</script>

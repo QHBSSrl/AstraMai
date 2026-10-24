@@ -86,6 +86,10 @@
       "pages/Push": {
         "component": "push",
         "path": "/push"
+      },
+      "pages/Diff": {
+        "component": "diff",
+        "path": "/diff"
       }
     }
   },

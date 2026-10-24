@@ -82,8 +82,10 @@
         成绩对比：这次和上次查的比。
         放在成绩卡和列表之间，**只在有变化时渲染**——
         显示"较上次持平"既占地方又没信息量。
+
+        点它进「对比详情」（哪几首涨了/跌了）。
       -->
-      <text class="diff" if="{{ diffLine }}">{{ diffLine }}</text>
+      <text class="diff" if="{{ diffLine }}" @click="openDiff">{{ diffLine }} ›</text>
 
       <!-- <list> 必须显式给高度，否则高度为 0、成绩一条都画不出来 -->
       <list class="list" onscrollbottom="onScrollBottom">
@@ -535,6 +537,17 @@
   const CACHE_INDEX_KEY = 'b50CacheIndex';
 
   /**
+   * 最近一次对比结果的存储键。
+   *
+   * 只存**最后一次**，不分游戏、不分查询目标 ——
+   * 对比详情页是"我刚才那次查询比上次多了什么"，
+   * 用户不会回头翻三天前某个好友的对比。
+   *
+   * 每次查询都会先清空再写，所以不会残留旧数据。
+   */
+  const DIFF_KEY = 'b50LastDiff';
+
+  /**
    * 把时间戳格式化成「10月18日 14:32」。
    *
    * 只用来标注「这是什么时候的数据」，不需要秒、不需要年份。
@@ -601,6 +614,11 @@
     /** 返回上一页。失败也不会把用户困住——goBack 内部会兜底跳首页。 */
     onBack() {
       goBack('/');
+    },
+
+    /** 点对比那一行 → 看详情（哪几首涨了/跌了）。 */
+    openDiff() {
+      push('/diff');
     },
 
     /**
@@ -854,6 +872,14 @@
       // 只有舞萌有这个对比（中二/Phigros 的视图结构不同，先不做）
       if (this.gameId !== 'maimai') return;
 
+      // 上一轮的对比结果先清掉 —— 否则这次的查询失败了，
+      // 用户点开对比页会看到上一次的旧对比，还以为是新的
+      try {
+        writeSetting(DIFF_KEY, '');
+      } catch (error) {
+        console.warn('[AstraMai] 清除旧对比失败：', error);
+      }
+
       let previous = null;
       try {
         const raw = readSetting(this.cacheKey(code), '');
@@ -868,7 +894,22 @@
       try {
         const diff = core.diffB50(previous, view);
         const text = core.summarizeDiff(diff);
-        if (text) this.diffLine = text;
+        if (!text) return;
+
+        this.diffLine = text;
+
+        /*
+         * 把完整对比也存下来，供「对比详情」页读。
+         *
+         * 为什么不存 `previous` 视图再让详情页自己算：
+         * 那要多存十几 KB，而且详情页得再依赖一次 diffB50 的签名。
+         * 存算好的结果，详情页只管渲染 —— 数据只算一次，两边不会不一致。
+         */
+        try {
+          writeSetting(DIFF_KEY, JSON.stringify(diff));
+        } catch (error) {
+          console.warn('[AstraMai] 保存对比结果失败：', error);
+        }
       } catch (error) {
         // 旧缓存是旧版本写的、结构对不上 —— 对比失败不影响看成绩
         console.warn('[AstraMai] 成绩对比失败：', error);
