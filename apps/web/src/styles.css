@@ -1571,3 +1571,98 @@ textarea.input {
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   成绩对比面板（B50DiffPanel）
+   ──────────────────────────────────────────────────────────────────────
+   四列并排（涨/跌/新进/掉出），空列不渲染。
+   窄屏退化成一列堆叠 —— 并排四个在手机上什么也看不清。
+   ══════════════════════════════════════════════════════════════════════ */
+
+.diffcard__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diffcard__total {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.diffcard__hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.diffcard__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.diffcol__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diffcol__count {
+  font-size: 12px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text-faint);
+}
+
+.diffcol__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diffrow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.diffrow__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.diffrow__level {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.diffrow__value {
+  flex: 0 0 56px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.diffcol__more {
+  padding-top: 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+}

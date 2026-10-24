@@ -1,5 +1,6 @@
-import type { B50Entry, B50View } from '@astramai/core';
+import type { B50Diff, B50Entry, B50View } from '@astramai/core';
 import {
+  diffB50,
   FC_LABELS,
   FS_LABELS,
   formatAchievement,
@@ -22,7 +23,9 @@ import { PlayerCard } from './components/PlayerCard';
 import { QrStudio } from './components/QrStudio';
 import { QueryBar } from './components/QueryBar';
 import { ScoreDetail } from './components/ScoreDetail';
+import { B50DiffPanel } from './components/B50DiffPanel';
 import { PushPlanner } from './components/PushPlanner';
+import { readPreviousView, writePreviousView } from './diff-store';
 import { ScoreTable, entryKey } from './components/ScoreTable';
 import { SelfCheckPanel } from './components/SelfCheckPanel';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -54,6 +57,8 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+  /** 这次和上次的对比。null 表示没有可比的上一次。 */
+  const [diff, setDiff] = useState<B50Diff | null>(null);
 
   const [tab, setTab] = useState<Tab>('mix');
   const [page, setPage] = useState<Page>('b50');
@@ -91,8 +96,32 @@ export function App() {
       setSelectedKey(null);
       try {
         const response = await queryB50({ kind, value, ...(mock ? { mock: true } : {}) });
+        const view = response.data;
+
+        /*
+         * 对比：**先读旧的 → 算 → 再存新的**。
+         *
+         * 顺序反了就是拿新数据和新数据比，永远"没有变化"。
+         * （手表端踩过一次，这里照抄那条注释。）
+         *
+         * mock 数据不参与对比 —— 拿模拟数据和真实数据比出来的差值是假的。
+         */
+        if (!mock) {
+          try {
+            const previous = readPreviousView();
+            setDiff(diffB50(previous, view));
+            writePreviousView(view);
+          } catch (err) {
+            // 对比失败绝不能让查询失败
+            console.warn('[AstraMai] 成绩对比失败：', err);
+            setDiff(null);
+          }
+        } else {
+          setDiff(null);
+        }
+
         setResult({
-          view: response.data,
+          view,
           mode: response.mode ?? 'live',
           usedServerKey: response.usedServerKey ?? true,
           librarySource: response.librarySource ?? 'lxns',
@@ -103,6 +132,9 @@ export function App() {
         void refreshHealth();
       } catch (err) {
         setResult(null);
+        // 查询失败就清掉对比 —— 否则会残留上一次查询的对比结果，
+        // 配着"查询失败"的空白页面很误导
+        setDiff(null);
         setError(err instanceof ApiError ? err : new ApiError({ kind: 'unknown', message: String(err) }));
       } finally {
         setLoading(false);
@@ -357,6 +389,12 @@ export function App() {
           ) : null}
 
           <PlayerCard view={view} />
+          {/*
+            和上次比。
+            放在名片下面第一屏就能看到 —— 这是"我进步了吗"，
+            比后面的统计面板更贴近玩家当下的关心。
+          */}
+          {diff ? <B50DiffPanel diff={diff} /> : null}
           <StatsPanel stats={view.stats} />
           <SelfCheckPanel selfCheck={view.selfCheck} stats={view.stats} />
 
