@@ -82,9 +82,36 @@ export class LxnsSource implements DataSource {
   }
 
   async getBests(query: PlayerQuery): Promise<MaimaiBests> {
-    // 玩家信息通常已经取过，这里只再花一次；扣减按整段查询算的常量来
+    /*
+     * ⚠️ **落雪没有 `/maimai/player/qq/{qq}/bests` 这个接口。**
+     *
+     * 实测：
+     *   /maimai/player/qq/3687236844/bests  → 404
+     *   /maimai/player/3687236844/bests     → 400（好友码位数不对）
+     *
+     * 也就是说 `bests` 只认好友码，只有 `player` 支持 QQ。
+     *
+     * 所以 QQ 查询必须**先查一次 player 拿到 friend_code**，再用好友码查
+     * bests。多花一次上游调用，但这是落雪的接口限制，绕不过去。
+     *
+     * 这里踩过的坑：原来直接 `getBests(query.friendCode as number)`，
+     * QQ 查询时 friendCode 是 undefined，拼出
+     * `/maimai/player/undefined/bests`，报的是
+     * 「好友码应为 15 位数字」—— 一个和 QQ 完全无关的错误信息，
+     * 让人以为是客户端传错了参数。
+     */
     this.options.limiter.spend(COST_PER_B50 - 1, this.label);
-    return this.client().getBests(query.friendCode as number);
+    const client = this.client();
+
+    if (query.qq !== undefined) {
+      const player = await client.getPlayerByQq(query.qq);
+      if (!player.friend_code) {
+        throw new Error('这个 QQ 号没有绑定落雪好友码，无法查询成绩');
+      }
+      return client.getBests(player.friend_code);
+    }
+
+    return client.getBests(query.friendCode as number);
   }
 
   async fetchLibrary(): Promise<RawLibrary> {
