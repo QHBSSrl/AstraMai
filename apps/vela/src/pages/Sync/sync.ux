@@ -1,5 +1,3 @@
-<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
-
 <template>
   <div class="sync-page">
     <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
@@ -12,10 +10,7 @@
     <text class="title">同步</text>
     <text class="lead">{{ leadText }}</text>
 
-    <!--
-      配对码：抄到电脑上。
-      上传成功后才出现 —— 没有码的时候显示一块空面板只会让人困惑。
-    -->
+    <!-- 配对码：显示在手表上，让用户在电脑上输 -->
     <div class="code-box" if="{{ code }}">
       <text class="code-box__label">配对码</text>
       <text class="code-box__value">{{ code }}</text>
@@ -25,32 +20,17 @@
     </div>
 
     <text class="status" style="color: {{ statusColor }}" if="{{ statusText }}">{{ statusText }}</text>
-
     <text class="hint" if="{{ hint }}">{{ hint }}</text>
 
-    <!-- 输入中的配对码 -->
-    <text class="entry" if="{{ entryText }}">{{ entryText }}</text>
-
     <div class="actions">
-      <div class="action" if="{{ canUpload }}" @click="onUpload">
-        <text class="action__text">{{ uploading ? '加密上传中…' : '上传成绩到电脑' }}</text>
+      <div class="action" if="{{ canCreate }}" @click="onCreate">
+        <text class="action__text">{{ creating ? '正在生成…' : '生成配对码' }}</text>
       </div>
 
-      <div class="action" if="{{ canPull }}" @click="toggleKeyboard">
-        <text class="action__text">{{ keyboardHidden ? '输入配对码' : '收起键盘' }}</text>
+      <div class="action action--primary" if="{{ canFetch }}" @click="onFetch">
+        <text class="action__text">{{ fetching ? '正在取回…' : '取回数据' }}</text>
       </div>
     </div>
-
-    <!-- 键盘提到根容器下：它靠 position:absolute 定位，父容器有 padding 就会缩进去 -->
-    <input-method
-      hide="{{ keyboardHidden }}"
-      keyboardtype="T9"
-      screentype="rect"
-      vibratemode="short"
-      maxlength="12"
-      @complete="onComplete"
-      @delete="onDelete"
-    ></input-method>
   </div>
 </template>
 
@@ -58,14 +38,20 @@
   @import '../../common/theme-tokens.less';
 
   /*
-   * 同步页（方案 B：Cloudflare Workers + 端到端加密）。
+   * 同步页 —— 方向是 **电脑 → 手表**。
+   *
+   * 手表上没有好用的输入法，让人在表盘上敲 15 位好友码很难受。
+   * 所以：手表出一个配对码，在电脑上把数据填好，手表取回。
+   *
+   * ⚠️ 配对码必须由**手表**生成 —— 这样手表自己就知道码，
+   *    取回时不需要输入任何东西。让网页生成码、手表再手输，
+   *    等于把最痛的那一步留在了手表上。
    *
    * Vela 的硬限制（都踩过，别改回去）：
-   *   · 样式是**页面级**的 —— 别的页面的 .action 在这里不存在，必须重定义
-   *   · 没有后代选择器隔离，同名 class 会互相影响
-   *   · div 默认 flex-direction: row（不是 block）
+   *   · 样式是**页面级**的 —— 别的页面的 .action 在这里不存在
+   *   · 没有后代选择器隔离
+   *   · div 默认 flex-direction: row
    *   · margin-top: auto / align-self 都不生效
-   *   · 不支持 var() / linear-gradient
    */
 
   .sync-page {
@@ -109,7 +95,7 @@
     lines: 3;
   }
 
-  /* 配对码要能一眼抄走：大、字距拉开、居中 */
+  /* 配对码要让人能一眼抄到电脑上：大、字距拉开、居中 */
   .code-box {
     width: 100%;
     flex-direction: column;
@@ -157,18 +143,6 @@
     lines: 4;
   }
 
-  /* 正在输入的配对码 */
-  .entry {
-    width: 100%;
-    font-size: 26px;
-    font-weight: bold;
-    color: @ui-on-surface;
-    letter-spacing: 6px;
-    text-align: center;
-    margin-top: 10px;
-    lines: 1;
-  }
-
   .actions {
     width: 100%;
     flex-direction: column;
@@ -185,6 +159,11 @@
     margin-bottom: 10px;
   }
 
+  /* 主操作突出一点 */
+  .action--primary {
+    background-color: @ui-primary;
+  }
+
   .action__text {
     font-size: 18px;
     color: @ui-on-surface;
@@ -193,23 +172,22 @@
 </style>
 
 <script>
-  const { core, keys, navigation, store, syncAes, syncClient } = global.AstraMai;
-  const { goBack } = navigation;
-  const { readSetting, warmUp } = store;
-  const { deriveIvBase64, deriveKeyBase64, encodeSyncPayload, decodeSyncPayload } = core;
-  const { isSyncCryptoAvailable, encryptSyncPayload, decryptSyncPayload } = syncAes;
-  const { candidateBases, createSyncCode, putSyncPayload, getSyncPayload } = syncClient;
+  const { core, keys, navigation, store, syncAes, syncClient, syncPayload } = global.AstraMai;
+  const { goBack, push } = navigation;
+  const { readSetting, writeSetting, warmUp } = store;
+  const { deriveIvBase64, deriveKeyBase64, decodeSyncPayload, decryptSyncPayload } = core;
+  const { isSyncCryptoAvailable } = syncAes;
+  const { candidateBases, createSyncCode, getSyncPayload } = syncClient;
+  const { parseSyncPayload, storageWritesFor, describePayload } = syncPayload;
 
   /**
    * 4 位密码。
    *
    * `@system.crypto` 没有随机数接口，所以用 `Math.random()`。
-   * 这里的强度要求不高 —— 它只是**第二道门**，第一道是那 6 位配对码
-   * （服务器随机生成），而且 10 分钟就过期。
+   * 强度要求不高 —— 它是**第二道门**，第一道是 6 位配对码，且 10 分钟过期。
    */
   function makePin() {
-    const n = Math.floor(Math.random() * 10000);
-    return String(n).padStart(4, '0');
+    return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
   }
 
   export default {
@@ -220,23 +198,16 @@
       statusText: '',
       statusColor: '#9bacd0',
       hint: '',
-      canUpload: false,
-      canPull: false,
-      uploading: false,
-      keyboardHidden: true,
-      /** 用户正在输入的「配对码+密码」，形如 `123456-7890`。 */
-      entryText: '',
+      canCreate: true,
+      canFetch: false,
+      creating: false,
+      fetching: false,
       bases: [],
-      base: '',
     },
 
     onInit() {
       console.debug('[AstraMai] Sync onInit');
-      warmUp([
-        keys.QUERY_VALUE_KEY,
-        keys.CURRENT_GAME_KEY,
-        keys.B50_CACHE_INDEX_KEY,
-      ])
+      warmUp([keys.QUERY_KIND_KEY, keys.QUERY_VALUE_KEY])
         .then(() => this.begin())
         .catch((error) => {
           console.error('[AstraMai] Sync 初始化失败：', error);
@@ -254,87 +225,102 @@
         this.statusText = '缺少 AES 加密能力';
         this.statusColor = '#f2564b';
         this.hint = '手环系列不支持 AES。Watch S3 及以后、REDMI Watch 5/6 才行。';
+        this.canCreate = false;
         return;
       }
 
-      this.leadText = '在两个设备之间搬数据';
-      this.canPull = true;
-      this.canUpload = true;
-      this.hint = '上传：把手表上的成绩加密送到电脑。拉取：输入电脑上显示的配对码和密码。';
+      this.leadText = '在电脑上填好友码，手表取过来';
+      this.hint = '点「生成配对码」，然后在电脑上打开网页「同步」，输入这组号码。';
     },
 
-    /**
-     * 上传当前成绩。
-     *
-     * 流程：建码 → 读缓存 → 加密 → 上传。
-     * **顺序不能反** —— 密钥里含配对码，没有码就没法加密。
-     */
-    onUpload() {
-      if (this.uploading) return;
-
-      const game = readSetting(keys.CURRENT_GAME_KEY, 'maimai') || 'maimai';
-      const target = readSetting(keys.QUERY_VALUE_KEY, '');
-
-      let view = null;
-      try {
-        const raw = readSetting(keys.b50CacheKey(game, target), '');
-        if (raw) view = JSON.parse(raw);
-      } catch (error) {
-        console.warn('[AstraMai] 读 B50 缓存失败：', error);
-      }
-
-      if (!view) {
-        this.statusText = '还没有成绩可以上传';
-        this.statusColor = '#ffb020';
-        this.hint = '先在 B50 页查一次成绩，再回来上传。';
-        return;
-      }
-
-      this.uploading = true;
-      this.statusText = '正在加密上传…';
-      this.statusColor = '#9bacd0';
+    /** 生成配对码 —— 码由手表出，这样取回时不用输入任何东西。 */
+    onCreate() {
+      if (this.creating) return;
 
       const pin = makePin();
-      let issued = '';
+      this.creating = true;
+      this.statusText = '正在生成…';
+      this.statusColor = '#9bacd0';
 
-      // 先建码（这一步会试所有候选地址，成功后记住能用的那个）
       this.withFallback((base) => createSyncCode(base, pin))
         .then((created) => {
-          issued = created.code;
-          this.code = created.code;
+          this.creating = false;
+          this.code = String(created.code);
           this.pin = pin;
-
-          const plaintext = encodeSyncPayload(game, view);
-          return encryptSyncPayload(
-            plaintext,
-            deriveKeyBase64(pin, issued),
-            deriveIvBase64(issued),
-          ).then((cipher) => this.withFallback((base) => putSyncPayload(base, issued, pin, cipher)));
-        })
-        .then(() => {
-          this.uploading = false;
-          this.statusText = '已加密上传';
+          this.canCreate = false;
+          this.canFetch = true;
+          this.statusText = '配对码已生成';
           this.statusColor = '#3ddc84';
-          this.hint = '在网页「同步 → 从手表取」输入上面的配对码和密码。';
+          this.hint = '现在到电脑上输入上面的配对码和密码，填好好友码后回到这里点「取回数据」。';
         })
         .catch((error) => {
-          this.uploading = false;
-          this.code = '';
-          this.pin = '';
-          this.statusText = error && error.message ? error.message : '上传失败';
+          this.creating = false;
+          this.statusText = error && error.message ? error.message : '生成失败';
           this.statusColor = '#f2564b';
+          this.hint = '连不上同步服务。检查网络后重试。';
         });
     },
 
     /**
-     * 按候选地址**依次尝试**，第一个成功的记住并返回。
+     * 取回数据并落地到本地存储。
      *
-     * 为什么值得多花一次超时：手表到 Cloudflare 通不通我无法验证。
-     * 与其赌一条路，不如两条都试 —— 失败的那次只浪费十几秒，
-     * 总比"点了没反应"好。
+     * 落地用的是 `storageWritesFor` —— 它写的键（queryKind / queryValue /
+     * friendCode / qrInput）正是 B50 页读的那几个。写完直接跳过去查分，
+     * 用户不用再想"数据去哪儿了"。
+     */
+    onFetch() {
+      if (this.fetching || !this.code) return;
+
+      this.fetching = true;
+      this.statusText = '正在取回…';
+      this.statusColor = '#9bacd0';
+
+      const code = this.code;
+      const pin = this.pin;
+
+      this.withFallback((base) => getSyncPayload(base, code, pin))
+        .then((body) =>
+          decryptSyncPayload(body.payload, deriveKeyBase64(pin, code), deriveIvBase64(code)),
+        )
+        .then((plaintext) => {
+          const decoded = decodeSyncPayload(plaintext);
+          const payload = parseSyncPayload(JSON.stringify(decoded.view));
+
+          if (!payload) throw new Error('收到的数据看不懂');
+
+          const writes = storageWritesFor(payload);
+          if (writes.length === 0) throw new Error('收到的数据是空的');
+
+          for (const item of writes) {
+            writeSetting(item.key, item.value);
+          }
+
+          this.fetching = false;
+          this.statusText = '已同步：' + describePayload(payload);
+          this.statusColor = '#3ddc84';
+          this.hint = '跳到 B50 页就能用这份数据查分了。';
+
+          // 稍等一下让用户看到提示，再跳
+          setTimeout(() => push('/b50'), 700);
+        })
+        .catch((error) => {
+          this.fetching = false;
+          this.statusText = error && error.message ? error.message : '取回失败';
+          this.statusColor = '#ffb020';
+          /*
+           * 「电脑上还没点提交」和「密码错了」在客户端看起来很像
+           * （都是 not_uploaded 或解密失败）。所以提示要把两种可能都说出来，
+           * 别让用户以为坏了。
+           */
+          this.hint = '电脑上还没点「送到手表」，或者密码不对。再试一次。';
+        });
+    },
+
+    /**
+     * 按候选地址依次尝试。
      *
-     * 一旦某个地址成功，`this.bases` 会被收敛成它 ——
-     * 后续请求不再重新试坏的那条。
+     * 手表走的是自己的 WiFi/蓝牙链路，和电脑不同，我无法在这里验证它
+     * 到 Cloudflare 通不通。所以先试直连（快），不通换大陆反代（慢但确定到）。
      */
     withFallback(run) {
       const bases = this.bases && this.bases.length > 0 ? this.bases : [''];
@@ -347,7 +333,6 @@
 
         return run(bases[index]).then(
           (result) => {
-            // 成功了就锁定这条链路
             this.bases = [bases[index]];
             return result;
           },
@@ -362,90 +347,8 @@
       return attempt(0);
     },
 
-    toggleKeyboard() {
-      this.keyboardHidden = !this.keyboardHidden;
-    },
-
-    onDelete() {
-      this.entryText = this.entryText.slice(0, -1);
-    },
-
-    /**
-     * 输入完成 —— 期望 `配对码-密码`（6 位数字 + 4 位数字）。
-     *
-     * 为什么用 T9 数字键盘而不是两个输入框：
-     * 手表屏幕太小，两个框来回切焦点的体验很差。
-     * 连起来输、用一个分隔符识别，用户少点一次。
-     */
-    onComplete(value) {
-      const digits = String(value || '').replace(/\D/g, '');
-      this.entryText = digits;
-
-      if (digits.length < 10) {
-        this.statusText = '还差 ' + (10 - digits.length) + ' 位';
-        this.statusColor = '#9bacd0';
-        return;
-      }
-
-      const code = digits.slice(0, 6);
-      const pin = digits.slice(6, 10);
-
-      this.keyboardHidden = true;
-      this.pullingCode(code, pin);
-    },
-
-    /**
-     * 拉取并解密。
-     *
-     * 拉回来的数据存进 `syncInbox`，B50 页可以读它直接渲染 ——
-     * 这样"在电脑上填好友码，手表取过来查"这条路才闭合。
-     */
-    pullingCode(code, pin) {
-      this.statusText = '正在拉取…';
-      this.statusColor = '#9bacd0';
-
-      this.withFallback((base) => getSyncPayload(base, code, pin))
-        .then((body) =>
-          decryptSyncPayload(body.payload, deriveKeyBase64(pin, code), deriveIvBase64(code)),
-        )
-        .then((plaintext) => {
-          const decoded = decodeSyncPayload(plaintext);
-          this.statusText = '取到了：' + summarize(decoded.view);
-          this.statusColor = '#3ddc84';
-          this.hint = '回到 B50 页用这份数据查询。';
-          this.entryText = '';
-
-          try {
-            store.writeSetting('syncInbox', JSON.stringify(decoded));
-          } catch (error) {
-            console.warn('[AstraMai] 保存同步数据失败：', error);
-          }
-        })
-        .catch((error) => {
-          this.statusText = error && error.message ? error.message : '拉取失败';
-          this.statusColor = '#f2564b';
-          this.hint = '密码错了，或者这组码已经过期。';
-        });
-    },
-
     onBack() {
       goBack('/');
     },
   };
-
-  /** 给载荷生成一句摘要 —— 手表上放不下细节。 */
-  function summarize(view) {
-    if (!view || typeof view !== 'object') return '空数据';
-
-    const record = view;
-    if (typeof record.kind === 'string' && typeof record.value === 'string') {
-      return record.kind === 'friendCode' ? '好友码 ' + record.value : String(record.value);
-    }
-
-    const standard = Array.isArray(record.standard) ? record.standard.length : 0;
-    const dx = Array.isArray(record.dx) ? record.dx.length : 0;
-    if (standard || dx) return 'Best 50（' + standard + ' + ' + dx + '）';
-
-    return '数据';
-  }
 </script>

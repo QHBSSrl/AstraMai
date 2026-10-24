@@ -1782,3 +1782,34 @@ textarea.input {
   text-align: right;
   word-break: break-all;
 }
+
+/* 同步面板的引导文案 */
+.sync-lead {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.sync-feedback {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sync-feedback--ok {
+  background: rgba(61, 220, 132, 0.12);
+  color: var(--good);
+}
+
+.sync-feedback--error {
+  background: rgba(242, 86, 75, 0.12);
+  color: var(--bad);
+}
+
+.sync-feedback--info {
+  background: var(--bg-soft);
+  color: var(--text-dim);
+}
