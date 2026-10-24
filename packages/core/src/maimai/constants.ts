@@ -125,3 +125,41 @@ export const RATING_TIERS: readonly { minimum: number; label: string; color: str
 export function ratingTier(rating: number): { minimum: number; label: string; color: string } {
   return RATING_TIERS.find((tier) => rating >= tier.minimum) ?? RATING_TIERS[RATING_TIERS.length - 1]!;
 }
+
+/** 「离下一档还差多少」。 */
+export interface NextTierInfo {
+  /** 当前所在的档。 */
+  current: { minimum: number; label: string; color: string };
+  /** 下一档；已经是最高档（虹極）时为 `null`。 */
+  next: { minimum: number; label: string; color: string } | null;
+  /** 还差多少分才进下一档；已在最高档时为 0。 */
+  gap: number;
+}
+
+/**
+ * 算「离下一档还差多少」。
+ *
+ * 玩家最常问的两个问题之一是「我还差多少上虹」——
+ * `ratingTier` 只告诉你现在在哪一档，答不了这个。
+ *
+ * ⚠️ `RATING_TIERS` 是**降序**的（16000 在最前），所以「下一档」
+ * 是当前档在数组里的**前一项**，不是后一项。写反了会一直返回"已满级"。
+ */
+export function nextTier(rating: number): NextTierInfo {
+  const value = Number.isFinite(rating) ? Math.max(0, rating) : 0;
+  const current = ratingTier(value);
+
+  const index = RATING_TIERS.findIndex((tier) => tier.minimum === current.minimum);
+  // 找不到（理论上不会）或者已经在第 0 项 → 没有更高档
+  const higher = index > 0 ? RATING_TIERS[index - 1] : undefined;
+
+  if (!higher) {
+    return { current, next: null, gap: 0 };
+  }
+
+  return {
+    current,
+    next: higher,
+    gap: Math.max(0, higher.minimum - value),
+  };
+}

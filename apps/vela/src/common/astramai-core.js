@@ -587,6 +587,20 @@ function ratingTier(rating) {
   var _a;
   return (_a = RATING_TIERS.find((tier) => rating >= tier.minimum)) != null ? _a : RATING_TIERS[RATING_TIERS.length - 1];
 }
+function nextTier(rating) {
+  const value = Number.isFinite(rating) ? Math.max(0, rating) : 0;
+  const current = ratingTier(value);
+  const index = RATING_TIERS.findIndex((tier) => tier.minimum === current.minimum);
+  const higher = index > 0 ? RATING_TIERS[index - 1] : void 0;
+  if (!higher) {
+    return { current, next: null, gap: 0 };
+  }
+  return {
+    current,
+    next: higher,
+    gap: Math.max(0, higher.minimum - value)
+  };
+}
 
 // packages/core/dist/maimai/rating.js
 var ACHIEVEMENT_CAP = 100.5;
@@ -3198,6 +3212,7 @@ export {
   minRatingForLevel,
   minimumAchievementForRate,
   musicUrl,
+  nextTier,
   normalDifficultiesPresent,
   normalizeAchievement,
   normalizeNotes,

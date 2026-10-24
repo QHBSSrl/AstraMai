@@ -35,6 +35,7 @@
       <text class="line" if="{{ line2 }}">{{ line2 }}</text>
       <text class="line" if="{{ line3 }}">{{ line3 }}</text>
       <text class="line" if="{{ line4 }}">{{ line4 }}</text>
+      <text class="line" if="{{ line5 }}">{{ line5 }}</text>
     </div>
   </div>
 </template>
@@ -46,9 +47,13 @@
    * ⚠️ **高度固定 132px，不要改成 auto。**
    *
    * 132 是这么算的：
-   *   右侧 4 行 × (18px 字号 + 4px 间距) = 88
+   *   右侧 5 行 × (18px 字号 + 2px 间距) = 100
    *   上下的 16px 内边距 = 32
-   *   合计 120，留 12px 余量
+   *   合计 132，正好
+   *
+   * 右侧最早是 4 行、行间距 4px；后来要显示「距下一档还差多少」加了第 5 行，
+   * 于是把间距从 4 压到 2 —— **高度没变**，所以其它游戏（中二 / Phigros / osu）
+   * 的布局一点没受影响，它们只是多了一点余量。
    *
    * 左侧也在这个高度内：玩家名 20 + 大数字 40 + 小标签 18 + 间距 ≈ 86，
    * 比右侧矮，所以撑不到顶。
@@ -127,7 +132,7 @@
   .line {
     font-size: 18px;
     color: @ui-on-surface-variant;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     lines: 1;
     text-overflow: ellipsis;
   }
@@ -150,11 +155,12 @@
       valueDecimal: { default: '' },
       /** 大数字下方的小标签（段位 / 全球排名）。 */
       caption: { default: '' },
-      /** 右侧统计行，最多 4 行。 */
+      /** 右侧统计行，最多 5 行。 */
       line1: { default: '' },
       line2: { default: '' },
       line3: { default: '' },
       line4: { default: '' },
+      line5: { default: '' },
     },
   };
 </script>

@@ -76,6 +76,7 @@
         line2="{{ statLine2 }}"
         line3="{{ statLine3 }}"
         line4="{{ statLine4 }}"
+        line5="{{ statLine5 }}"
       ></score-summary>
 
       <!--
@@ -590,6 +591,7 @@
       statLine2: '',
       statLine3: '',
       statLine4: '',
+      statLine5: '',
       /** 成绩对比的一句话总结；空串表示不显示。 */
       diffLine: '',
       /** 当前游戏 id。决定请求哪个接口、以及统计行怎么写。 */
@@ -996,6 +998,15 @@
     },
 
     apply(view) {
+      /*
+       * 第 5 行先清空。
+       *
+       * 只有舞萌会用这一行（「公式对拍」），而成绩卡是全游戏共用的组件 ——
+       * 不清的话从舞萌切到中二，那一行会**残留着上一款游戏的内容**。
+       * 这类残留最难发现，因为只有"切过游戏"的人才会看到。
+       */
+      this.statLine5 = '';
+
       if (this.gameId === 'chunithm') {
         this.applyChunithm(view);
         return;
@@ -1005,6 +1016,18 @@
         return;
       }
       this.applyMaimai(view);
+    },
+
+    /**
+     * 「距下一档还差多少」那一行。
+     *
+     * 玩家最常问的两个问题之一是「我还差多少上虹」。
+     * 已经是最高档（虹極）时换成一句别的，不要显示"还差 0 分"。
+     */
+    nextTierLine(rating) {
+      const info = core.nextTier(Number(rating) || 0);
+      if (!info.next) return `段位　${info.current.label}（最高档）`;
+      return `距${info.next.label}　还差 ${info.gap}`;
     },
 
     /**
@@ -1255,7 +1278,13 @@
       this.statLine1 = '旧曲 B35　' + stats.standardTotal;
       this.statLine2 = '新曲 B15　' + stats.dxTotal;
       this.statLine3 = '平均定数　' + stats.averageLevelValue.toFixed(2);
-      this.statLine4 = '公式对拍　' + (stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta);
+      /*
+       * 第 4 行留给「距下一档还差多少」—— 玩家最常问的两个问题之一
+       * 就是「我还差多少上虹」。原来的「公式对拍」是开发用的自检，
+       * 挪到第 5 行：它对排查数据问题有用，但不该占着玩家最想看的位置。
+       */
+      this.statLine4 = this.nextTierLine(player.rating);
+      this.statLine5 = '公式对拍　' + (stats.computedDelta === 0 ? '一致' : '差 ' + stats.computedDelta);
 
       // 官方《常用业务优化》：list 内容超过 10 条建议分页渲染，
       // 切勿初始化渲染大量数据，会造成页面渲染卡顿。
