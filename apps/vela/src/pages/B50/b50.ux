@@ -498,6 +498,18 @@
   }
 
   /**
+   * 离线缓存最多保留几条。
+   *
+   * **跨游戏一起算** —— 它们共享同一份 storage 配额。
+   * 定 6 是因为一份 B50 view 十几 KB，6 条约 100 KB，
+   * 对穿戴设备的存储是个安全量级。
+   */
+  const CACHE_MAX = 6;
+
+  /** 缓存索引的键。索引里记 `[{key, at}]`，按最近使用排序。 */
+  const CACHE_INDEX_KEY = 'b50CacheIndex';
+
+  /**
    * 把时间戳格式化成「10月18日 14:32」。
    *
    * 只用来标注「这是什么时候的数据」，不需要秒、不需要年份。
@@ -766,12 +778,115 @@
           this.apply(view);
           this.saving = '';
           this.refreshInputState();
+          // 成功就缓存一份，没网/服务器挂了还能看
+          this.saveCache(view, code);
         })
         .catch((error) => {
+          this.saving = '';
+          this.refreshInputState();
+          // 先试离线缓存；有缓存就不显示错误，改成"离线数据"的提示
+          if (this.showCache(code, '查询失败。')) return;
           this.errorText = error && error.message ? error.message : '查询失败';
           this.hasResult = false;
           this.keyboardHidden = false;
         });
+    },
+
+    /*
+     * ── 离线缓存 ────────────────────────────────────────────────────
+     *
+     * 为什么需要：**音游厅在地下** —— 没信号是常事，而恰恰是在机台前
+     * 才想看成绩。服务器挂掉时同理。
+     *
+     * Phigros 早就有这套（`phigrosLastView`），但舞萌和中二没有 ——
+     * 用户正好需要的那两个反而没有。所以这里补上。
+     *
+     * 按「游戏 + 查询目标」分开存：同一个人可能查自己、查朋友，
+     * 用同一个键会互相覆盖，看到的是别人的成绩还以为是自己的。
+     */
+
+    /** 缓存的键。code 里可能有特殊字符，但 storage 的键是任意字符串，不用转义。 */
+    cacheKey(code) {
+      return `b50Cache:${this.gameId}:${code}`;
+    },
+
+    /**
+     * 查完存一份，并按 LRU 淘汰旧条目。
+     *
+     * ⚠️ **必须有淘汰。** 一份 B50 的 view 十几 KB，如果用户查过几十个好友码，
+     * 缓存会无限增长，而手表存储是有上限的 —— 写满之后
+     * `writeSetting` 会抛异常，那时候连正常设置都存不进去了。
+     *
+     * 只保留最近 `CACHE_MAX` 条（跨游戏一起算，因为共享同一份存储配额）。
+     */
+    saveCache(view, code) {
+      const key = this.cacheKey(code);
+
+      try {
+        writeSetting(key, JSON.stringify(view));
+        writeSetting(`${key}:at`, String(Date.now()));
+      } catch (error) {
+        // 存不下就算了 —— 绝不能因为缓存失败让用户看不到成绩
+        console.warn('[AstraMai] 缓存成绩失败：', error);
+        return;
+      }
+
+      try {
+        const now = Date.now();
+        let index = [];
+        const raw = readSetting(CACHE_INDEX_KEY, '');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) index = parsed;
+        }
+
+        // 去重 + 放到最前
+        index = index.filter((item) => item && item.key !== key);
+        index.unshift({ key, at: now });
+
+        // 超出上限的老条目直接删
+        while (index.length > CACHE_MAX) {
+          const dropped = index.pop();
+          if (dropped && dropped.key) {
+            writeSetting(dropped.key, '');
+            writeSetting(`${dropped.key}:at`, '');
+          }
+        }
+
+        writeSetting(CACHE_INDEX_KEY, JSON.stringify(index));
+      } catch (error) {
+        // 索引坏了不影响已写入的缓存，下次查询会重建
+        console.warn('[AstraMai] 更新缓存索引失败：', error);
+      }
+    },
+
+    /**
+     * 读缓存并渲染。
+     *
+     * @returns 有没有可用缓存（true 表示已经把缓存画出来了）
+     */
+    showCache(code, reason) {
+      let cached = null;
+      let at = 0;
+
+      try {
+        const raw = readSetting(this.cacheKey(code), '');
+        if (raw) cached = JSON.parse(raw);
+        at = Number(readSetting(`${this.cacheKey(code)}:at`, '0')) || 0;
+      } catch (error) {
+        console.warn('[AstraMai] 读缓存失败：', error);
+        return false;
+      }
+
+      if (!cached || typeof cached !== 'object') return false;
+
+      this.apply(cached);
+      this.saving = '';
+      this.refreshInputState();
+
+      const when = at > 0 ? formatCachedTime(at) : '之前';
+      this.errorText = `${reason}下面显示的是 ${when} 的数据（离线缓存）。`;
+      return true;
     },
 
     apply(view) {
