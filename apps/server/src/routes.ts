@@ -32,6 +32,7 @@ import type { GatewayService } from './gateway.js';
 import type { DiagStore } from './diag.js';
 import { POLL_INTERVAL_MS, type PairingService } from './pairing.js';
 import type { PhigrosService } from './phigros.js';
+import type { DanceCubeSource } from './sources/dancecube.js';
 
 const STATUS_BY_KIND: Record<LxnsErrorKind, number> = {
   'bad-request': 400,
@@ -153,6 +154,7 @@ export function createRouter(
   diag: DiagStore,
   pairing: PairingService,
   phigros: PhigrosService,
+  dancecube: DanceCubeSource,
 ): Router {
   const router = new Router();
 
@@ -772,6 +774,134 @@ export function createRouter(
         envelope: { ok: 'boolean', success: 'boolean', mode: 'live|mock', source: '数据源 id', data: '业务数据' },
       },
     });
+  });
+
+  // ── 舞立方 ────────────────────────────────────────────────────────────────
+  /*
+   * 舞立方的登录是**微信扫码 + OAuth**，和 Phigros 同一个模式，但更标准：
+   *   · 出码   POST /api/v1/dancecube/qr       → { qrId, qrcodeUrl }
+   *   · 轮询   GET  /api/v1/dancecube/qr/:qrId → { status, token }
+   *   · 查数据 GET  /api/v1/dancecube/bests    → 凭证走 X-DanceCube-Token
+   *
+   * 为什么凭证走**请求头**而不是 URL：URL 会进访问日志和 Referer，
+   * 而这是玩家的微信身份令牌。Phigros 那边也是这么做的。
+   */
+
+  /** 出码。上游一次只给一个，没扫就浪费一个 ID，无所谓。 */
+  router.add('POST', '/api/v1/dancecube/qr', async (ctx) => {
+    try {
+      const qr = await dancecube.createQr();
+      ok(ctx.res, { source: 'dancecube', data: { qrId: qr.id, qrcodeUrl: qr.qrcodeUrl } });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  /**
+   * 轮询。
+   *
+   * 上游没扫时返回 400，我们把它翻译成 `{ status: 'Pending' }` ——
+   * 客户端只需要判断「有没有 token」，不用理解上游的错误码。
+   */
+  router.get('/api/v1/dancecube/qr/:qrId', async (ctx) => {
+    try {
+      const qrId = (ctx.params.qrId ?? '').trim();
+      if (!qrId) {
+        bad(ctx.res, 400, '缺少 qrId');
+        return;
+      }
+
+      const token = await dancecube.pollToken(qrId);
+
+      if (!token) {
+        ok(ctx.res, { source: 'dancecube', data: { status: 'Pending' } });
+        return;
+      }
+
+      ok(ctx.res, {
+        source: 'dancecube',
+        data: {
+          status: 'Success',
+          userId: token.userId,
+          accessToken: token.accessToken,
+          refreshToken: token.refreshToken,
+        },
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  /** 读凭证：`X-DanceCube-Token` 头里是 `userId:accessToken`。 */
+  function readDanceCubeToken(ctx: RequestContext): {
+    userId: number;
+    accessToken: string;
+    refreshToken: string;
+  } | null {
+    const raw = ctx.req.headers['x-dancecube-token'];
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (!value) return null;
+
+    const [userIdText, accessToken] = String(value).split(':');
+    const userId = Number(userIdText);
+    if (!userId || !accessToken) return null;
+
+    return { userId, accessToken, refreshToken: '' };
+  }
+
+  /**
+   * 查数据。
+   *
+   * ⚠️ 一次要 **7 次上游调用**（信息 1 + 曲风 5 + 最近 1），很贵。
+   * 缓存放在服务端 —— 5 分钟内同一个 token 只打一次上游。
+   */
+  const danceCubeCache = new Map<string, { at: number; data: unknown }>();
+  const DANCE_CUBE_CACHE_MS = 5 * 60 * 1000;
+
+  router.get('/api/v1/dancecube/bests', async (ctx) => {
+    const startedAt = Date.now();
+    try {
+      const token = readDanceCubeToken(ctx);
+      if (!token) {
+        bad(ctx.res, 401, '缺少 X-DanceCube-Token（请先用微信扫码登录）');
+        return;
+      }
+
+      const cacheKey = `${token.userId}:${token.accessToken.slice(-12)}`;
+      const cached = danceCubeCache.get(cacheKey);
+      if (cached && Date.now() - cached.at < DANCE_CUBE_CACHE_MS) {
+        ok(ctx.res, {
+          source: 'dancecube',
+          cached: true,
+          elapsedMs: Date.now() - startedAt,
+          data: cached.data,
+        });
+        return;
+      }
+
+      const view = await dancecube.fetchView({
+        userId: token.userId,
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken,
+      });
+
+      danceCubeCache.set(cacheKey, { at: Date.now(), data: view });
+      // 别让这个 Map 无限长大
+      if (danceCubeCache.size > 200) {
+        for (const [key, entry] of danceCubeCache) {
+          if (Date.now() - entry.at > DANCE_CUBE_CACHE_MS) danceCubeCache.delete(key);
+        }
+      }
+
+      ok(ctx.res, {
+        source: 'dancecube',
+        cached: false,
+        elapsedMs: Date.now() - startedAt,
+        data: view,
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
   });
 
   /** 数据源清单。不可用的源也会列出并说明原因，便于客户端给出提示。 */

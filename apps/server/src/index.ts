@@ -21,6 +21,7 @@ import { sendJson, serveStatic } from './http.js';
 import { createRouter, notFound } from './routes.js';
 import { LxnsSource } from './sources/lxns.js';
 import { AstraNetSource } from './sources/astra-net.js';
+import { DanceCubeSource } from './sources/dancecube.js';
 import { OsuSource } from './sources/osu.js';
 import { SourceRegistry } from './sources/registry.js';
 
@@ -96,9 +97,17 @@ const diag = new DiagStore(config.repoRoot);
 // 配对：网页填数据 → 服务端内存暂存 → 手表凭 token 取走
 const pairing = new PairingService();
 // Phigros：玩家凭证来自 TapTap 扫码，不是一把全局密钥
-const phigros = new PhigrosService(config);
+  const phigros = new PhigrosService(config);
+  /*
+   * 舞立方：也是扫码登录（微信），但**不需要开发者密钥** ——
+   * 每个玩家用自己的微信换 token。所以无条件注册。
+   */
+  const dancecube = new DanceCubeSource({
+    limiter: registry.limiterFor('dancecube'),
+  });
+  registry.register(dancecube);
 const guard = createGuard(config);
-const router = createRouter(service, config, guard, diag, pairing, phigros);
+const router = createRouter(service, config, guard, diag, pairing, phigros, dancecube);
 const hasWebDist = existsSync(config.webDist);
 
 /**
@@ -116,6 +125,7 @@ const hasWebDist = existsSync(config.webDist);
  */
 const ALLOWED_ORIGINS = new Set([
   'https://astramai.pages.dev',
+  'https://astramai-site.pages.dev',
   'https://astramai-sync.pages.dev',
   // 顺带允许自定义域（如果以后绑了）
   'https://astramai.astranexus.cn',
