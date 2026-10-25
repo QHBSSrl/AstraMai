@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{TITLE}}</title>
+    <meta name="description" content="{{DESCRIPTION}}" />
+    <meta property="og:title" content="{{TITLE}}" />
+    <meta property="og:description" content="{{DESCRIPTION}}" />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="nav">
+      <a class="nav__brand" href="./">
+        <span class="nav__dot"></span>
+        AstraMai
+      </a>
+      <nav class="nav__links">
+        <a href="./games" class="{{NAV_GAMES}}">支持的游戏</a>
+        <a href="./features" class="{{NAV_FEATURES}}">功能</a>
+        <a href="./changelog" class="{{NAV_CHANGELOG}}">更新日志</a>
+        <a href="./faq" class="{{NAV_FAQ}}">常见问题</a>
+        <a href="./download" class="nav__cta">下载</a>
+      </nav>
+    </header>
+
+    <main>
+{{CONTENT}}
+    </main>
+
+    <footer class="footer">
+      <div class="footer__row">
+        <span>AstraMai · AstraNexus 团队</span>
+        <span>v{{VERSION}}</span>
+        <span>基础功能免费</span>
+      </div>
+      <p class="footer__thanks">
+        成绩数据来自 <a href="https://maimai.lxns.net" target="_blank" rel="noreferrer">落雪查分器</a>，
+        osu! 数据来自 <a href="https://osu.ppy.sh/docs/" target="_blank" rel="noreferrer">官方 API</a>。
+        源码在 <a href="https://github.com/AstraNexusTech/AstraMai" target="_blank" rel="noreferrer">GitHub</a>。
+      </p>
+    </footer>
+  </body>
+</html>

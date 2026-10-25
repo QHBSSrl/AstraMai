@@ -493,3 +493,203 @@ main {
   color: var(--faint);
   font-size: 12.5px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   多页布局新增的样式
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 导航当前页高亮 */
+.nav__links a.active {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.nav__cta {
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #06121b !important;
+  font-weight: 600;
+}
+
+.nav__cta:hover {
+  text-decoration: none;
+  filter: brightness(1.08);
+}
+
+/* 内页标题 */
+.section--top {
+  padding-top: 64px;
+}
+
+.page__title {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 4.4vw, 40px);
+  letter-spacing: -0.02em;
+}
+
+/* AstroBox 官方徽标 */
+.abox {
+  display: inline-block;
+  line-height: 0;
+}
+
+.abox img {
+  width: 228px;
+  height: 46px;
+}
+
+.abox:hover {
+  text-decoration: none;
+  filter: brightness(1.1);
+}
+
+/* 首页的三个数字 */
+.glance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.glance__item {
+  display: flex;
+  flex-direction: column;
+  padding: 26px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.glance__item:hover {
+  text-decoration: none;
+  border-color: var(--faint);
+}
+
+.glance__num {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.glance__label {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.glance__sub {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+/* 一段话的版面 */
+.pitch {
+  max-width: 680px;
+  padding: 32px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.pitch__title {
+  margin: 0 0 16px;
+  font-size: 22px;
+}
+
+.pitch__body {
+  margin: 0 0 14px;
+  color: var(--dim);
+  font-size: 15.5px;
+}
+
+.pitch__note {
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 13.5px;
+}
+
+/* 游戏卡片的补充说明 */
+.game__note {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 13px;
+}
+
+/* 功能列表 */
+.feature__list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.feature__list li {
+  margin: 5px 0;
+}
+
+/* 提示框 */
+.callout {
+  margin-top: 32px;
+  padding: 24px 28px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.callout--muted {
+  background: transparent;
+}
+
+.callout h3 {
+  margin: 0 0 10px;
+  font-size: 17px;
+}
+
+.callout p {
+  margin: 0 0 10px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.callout ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.callout li {
+  margin: 6px 0;
+}
+
+.callout__hint {
+  color: var(--faint) !important;
+  font-size: 13px !important;
+}
+
+/* 下载页的徽标区 */
+.dl-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 24px;
+  margin-bottom: 32px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.dl-hero__hint {
+  margin: 0;
+  color: var(--faint);
+  font-size: 13.5px;
+  text-align: center;
+}
