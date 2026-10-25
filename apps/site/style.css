@@ -693,3 +693,18 @@ main {
   font-size: 13.5px;
   text-align: center;
 }
+
+/* 功能卡片里的小标题 */
+.feature__sub {
+  margin: 20px 0 8px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.feature ol.feature__list {
+  list-style: decimal;
+}
+
+.feature ol.feature__list li {
+  margin: 6px 0;
+}

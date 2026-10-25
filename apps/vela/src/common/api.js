@@ -40,10 +40,24 @@ export function getClient(base) {
   const token = getApiToken();
   if (cachedClient && cachedBase === target && cachedToken === token) return cachedClient;
 
-  const systemFetch = getFetchModule();
-  if (!systemFetch) {
-    throw new Error('当前设备不提供 @system.fetch，无法发起网络请求');
-  }
+    const systemFetch = getFetchModule();
+    if (!systemFetch) {
+      /*
+       * ⚠️ **手环走的就是这条路。**
+       *
+       * 小米手环没有 `@system.fetch` —— 它只有蓝牙（`@system.interconnect`），
+       * 必须靠 AstroBox 网桥插件转发。所以在手环上，任何查分都会在这里失败。
+       *
+       * 原来的文案是「当前设备不提供 @system.fetch，无法发起网络请求」——
+       * 技术上没错，但用户看到只会觉得「这 App 坏了」。
+       * 现在告诉他两件事：**为什么**、**能怎么办**。
+       */
+      throw new Error(
+        '这台设备不支持直接联网（手环没有网络模块）。'
+        + '手环需要用 AstroBox 网桥插件：在电脑上装 AstroBox 桌面版和 AstraMai 网桥插件，'
+        + '然后用蓝牙连上手环。手表（Watch 系列）不受影响。',
+      );
+    }
 
   const velaFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 });
   cachedClient = new LxnsClient({
@@ -163,10 +177,24 @@ let rawFetch = null;
 
 function getRawFetch() {
   if (rawFetch) return rawFetch;
-  const systemFetch = getFetchModule();
-  if (!systemFetch) {
-    throw new Error('当前设备不提供 @system.fetch，无法发起网络请求');
-  }
+    const systemFetch = getFetchModule();
+    if (!systemFetch) {
+      /*
+       * ⚠️ **手环走的就是这条路。**
+       *
+       * 小米手环没有 `@system.fetch` —— 它只有蓝牙（`@system.interconnect`），
+       * 必须靠 AstroBox 网桥插件转发。所以在手环上，任何查分都会在这里失败。
+       *
+       * 原来的文案是「当前设备不提供 @system.fetch，无法发起网络请求」——
+       * 技术上没错，但用户看到只会觉得「这 App 坏了」。
+       * 现在告诉他两件事：**为什么**、**能怎么办**。
+       */
+      throw new Error(
+        '这台设备不支持直接联网（手环没有网络模块）。'
+        + '手环需要用 AstroBox 网桥插件：在电脑上装 AstroBox 桌面版和 AstraMai 网桥插件，'
+        + '然后用蓝牙连上手环。手表（Watch 系列）不受影响。',
+      );
+    }
   rawFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 });
   return rawFetch;
 }

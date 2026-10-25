@@ -63,6 +63,34 @@
           </article>
 
           <article class="feature feature--wide">
+            <span class="feature__tag">手环用户必读</span>
+            <h3>手环没有网络，需要网桥</h3>
+            <p>
+              小米手环<strong>没有网络模块</strong>，也没有 <code>@system.fetch</code>。
+              它只有蓝牙，所以要联网必须靠 <strong>AstroBox 网桥插件</strong>中转。
+            </p>
+            <p><strong>手表（Watch 系列）不受影响</strong>，开机就能用。</p>
+
+            <h4 class="feature__sub">手环怎么联网</h4>
+            <ol class="feature__list">
+              <li>电脑上装 <strong>AstroBox 桌面版</strong>（Tauri 版，不是手机上那个）</li>
+              <li>装 <strong>AstraMai 网桥插件</strong>（<code>astramai-bridge.abp</code>）</li>
+              <li>用蓝牙把手环和电脑连上</li>
+              <li>手环上的 AstraMai 就能查分了</li>
+            </ol>
+
+            <p class="feature__aside">
+              ⚠️ 手机上的 AstroBox <strong>装不了插件</strong> ——
+              官方只支持 Tauri 桌面端。这是平台的限制，不是我们能改的。
+            </p>
+            <p class="feature__aside">
+              如果你只有手机没有电脑，那手环上目前确实用不了查分。
+              <strong>这是我们没做好的地方</strong> ——
+              进群说一声，我们想知道有多少人卡在这一步。
+            </p>
+          </article>
+
+          <article class="feature feature--wide">
             <span class="feature__tag">顺手做的</span>
             <h3>还有一些小的</h3>
             <ul class="feature__list">
