@@ -708,3 +708,125 @@ main {
 .feature ol.feature__list li {
   margin: 6px 0;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   舞立方联调测试页（临时页面，验完可以删）
+   ══════════════════════════════════════════════════════════════════════ */
+
+.dc {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dc__panel {
+  padding: 24px 28px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.dc__title {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.dc__hint {
+  margin: 0;
+  color: var(--faint);
+  font-size: 13.5px;
+}
+
+.dc__btn {
+  margin-top: 14px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #06121b;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dc__btn:hover {
+  filter: brightness(1.08);
+}
+
+.dc__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.dc__panel--qr {
+  text-align: center;
+}
+
+.dc__qr {
+  display: block;
+  width: 260px;
+  height: 260px;
+  margin: 8px auto 16px;
+  border-radius: 12px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.dc__status {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+.dc__sub {
+  margin: 24px 0 10px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.dc__kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 20px;
+  margin: 0;
+  font-size: 14.5px;
+}
+
+.dc__kv dt {
+  color: var(--faint);
+}
+
+.dc__kv dd {
+  margin: 0;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dc__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dc__table th {
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--faint);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+}
+
+.dc__table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.dc__table td:nth-child(3),
+.dc__table td:nth-child(4),
+.dc__table td:nth-child(5),
+.dc__table td:nth-child(6) {
+  text-align: right;
+}

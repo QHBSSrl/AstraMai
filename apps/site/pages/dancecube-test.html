@@ -1,0 +1,233 @@
+      <section class="section section--top">
+        <h1 class="page__title">舞立方 · 联调测试</h1>
+        <p class="section__lead">
+          这个页面只用来验证接口，不在导航里。
+          用微信扫下面的二维码，就能确认整条链路通不通。
+        </p>
+
+        <div class="dc">
+          <div class="dc__panel">
+            <h2 class="dc__title">① 出码</h2>
+            <p class="dc__hint">
+              点下面的按钮，服务器会向上游要一个新的二维码。
+            </p>
+            <button class="dc__btn" id="create">生成二维码</button>
+          </div>
+
+          <div class="dc__panel dc__panel--qr" id="qrPanel" hidden>
+            <h2 class="dc__title">② 用微信扫这个码</h2>
+            <img class="dc__qr" id="qrImage" alt="舞立方登录二维码" />
+            <p class="dc__status" id="status">等待扫码…</p>
+            <p class="dc__hint" id="tokenHint" hidden></p>
+          </div>
+
+          <div class="dc__panel dc__panel--result" id="resultPanel" hidden>
+            <h2 class="dc__title">③ 数据</h2>
+            <div id="result"></div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <h3>这个页面在测什么</h3>
+          <ol>
+            <li><strong>出码</strong> —— 上游 `GetQrCode` 返回 ID 和微信二维码 URL</li>
+            <li><strong>轮询</strong> —— 扫码前返回 Pending，扫完返回 token</li>
+            <li><strong>查数据</strong> —— 拿 token 拉玩家信息 + B15 + Recent15</li>
+          </ol>
+          <p class="callout__hint">
+            任何一步失败，页面上会直接显示 HTTP 状态和错误原文。
+          </p>
+        </div>
+      </section>
+
+      <script>
+        /*
+         * 一个很短的联调脚本。
+         *
+         * 刻意不引入任何框架 —— 这个页面只用一次，写完就扔。
+         */
+        (function () {
+          var API = 'http://101.132.148.117:8787';
+          var timer = null;
+          var qrId = null;
+          var token = null;
+
+          var $create = document.getElementById('create');
+          var $qrPanel = document.getElementById('qrPanel');
+          var $qrImage = document.getElementById('qrImage');
+          var $status = document.getElementById('status');
+          var $tokenHint = document.getElementById('tokenHint');
+          var $resultPanel = document.getElementById('resultPanel');
+          var $result = document.getElementById('result');
+
+          function setStatus(text, color) {
+            $status.textContent = text;
+            $status.style.color = color || '';
+            console.log('[dancecube] ' + text);
+          }
+
+          function stopPolling() {
+            if (timer) {
+              clearInterval(timer);
+              timer = null;
+            }
+          }
+
+          // ── ① 出码 ──────────────────────────────────────────────────
+          $create.addEventListener('click', function () {
+            stopPolling();
+            $resultPanel.hidden = true;
+            $qrPanel.hidden = true;
+            $create.disabled = true;
+            $create.textContent = '请求中…';
+
+            fetch(API + '/api/v1/dancecube/qr', { method: 'POST' })
+              .then(function (r) {
+                return r.text().then(function (t) {
+                  if (!r.ok) throw new Error('HTTP ' + r.status + '：' + t.slice(0, 200));
+                  return JSON.parse(t);
+                });
+              })
+              .then(function (body) {
+                qrId = body.data.qrId;
+                $qrImage.src = body.data.qrcodeUrl;
+                $qrPanel.hidden = false;
+                $tokenHint.hidden = true;
+                setStatus('等待扫码…');
+                $create.disabled = false;
+                $create.textContent = '重新生成';
+                startPolling();
+              })
+              .catch(function (e) {
+                setStatus('出码失败：' + e.message, '#ff6b6b');
+                $create.disabled = false;
+                $create.textContent = '重试';
+              });
+          });
+
+          // ── ② 轮询 ──────────────────────────────────────────────────
+          function startPolling() {
+            stopPolling();
+            var started = Date.now();
+
+            timer = setInterval(function () {
+              if (Date.now() - started > 120000) {
+                stopPolling();
+                setStatus('超过两分钟没扫，已停止。点「重新生成」再来一次。', '#ffb020');
+                return;
+              }
+
+              fetch(API + '/api/v1/dancecube/qr/' + encodeURIComponent(qrId))
+                .then(function (r) {
+                  return r.text().then(function (t) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status + '：' + t.slice(0, 200));
+                    return JSON.parse(t);
+                  });
+                })
+                .then(function (body) {
+                  var data = body.data || {};
+
+                  if (data.status === 'Pending') return;
+
+                  if (data.accessToken) {
+                    stopPolling();
+                    token = data.accessToken;
+                    setStatus('登录成功！userId ' + data.userId, '#3ddc84');
+                    $tokenHint.hidden = false;
+                    $tokenHint.textContent =
+                      'token 已拿到（前 12 位：' + token.slice(0, 12) + '…）。正在拉数据…';
+                    loadBests(data.userId, token);
+                    return;
+                  }
+
+                  setStatus('未知状态：' + data.status, '#ffb020');
+                })
+                .catch(function (e) {
+                  setStatus('轮询失败：' + e.message, '#ff6b6b');
+                });
+            }, 4000);
+          }
+
+          // ── ③ 查数据 ────────────────────────────────────────────────
+          function loadBests(userId, accessToken) {
+            setStatus('拉数据中（7 次上游调用，可能要几秒）…', '#7fd1ff');
+
+            fetch(API + '/api/v1/dancecube/bests', {
+              headers: { 'X-DanceCube-Token': userId + ':' + accessToken },
+            })
+              .then(function (r) {
+                return r.text().then(function (t) {
+                  if (!r.ok) throw new Error('HTTP ' + r.status + '：' + t.slice(0, 300));
+                  return JSON.parse(t);
+                });
+              })
+              .then(function (body) {
+                var data = body.data || {};
+                setStatus('数据拿到了（' + (body.cached ? '来自缓存' : body.elapsedMs + 'ms') + '）', '#3ddc84');
+                render(data);
+              })
+              .catch(function (e) {
+                setStatus('查数据失败：' + e.message, '#ff6b6b');
+              });
+          }
+
+          function render(data) {
+            $resultPanel.hidden = false;
+            var p = data.player || {};
+            var s = data.stats || {};
+
+            var html = '';
+            html += '<dl class="dc__kv">';
+            html += kv('玩家', p.name);
+            html += kv('战力', p.ratioText);
+            html += kv('舞力', p.musicScoreText);
+            html += kv('全国排名', p.rankNationText);
+            html += kv('全连率', p.comboPercentText);
+            html += kv('城市', p.cityName);
+            html += kv('B15 均', s.bestAvgText);
+            html += kv('Recent 均', s.recentAvgText);
+            html += kv('总战力', s.totalRatioText);
+            html += kv('拉到成绩', s.totalCharts + ' 条');
+            html += '</dl>';
+
+            html += '<h3 class="dc__sub">B15</h3>';
+            html += table(data.best15);
+            html += '<h3 class="dc__sub">Recent 15</h3>';
+            html += table(data.recent15);
+
+            $result.innerHTML = html;
+          }
+
+          function kv(k, v) {
+            return '<dt>' + esc(k) + '</dt><dd>' + esc(v == null ? '—' : String(v)) + '</dd>';
+          }
+
+          function table(rows) {
+            if (!rows || !rows.length) {
+              return '<p class="dc__hint">（没有数据）</p>';
+            }
+            var out = '<table class="dc__table"><thead><tr>' +
+              '<th>#</th><th>曲名</th><th>难度</th><th>战力</th><th>准确率</th><th>分数</th>' +
+              '</tr></thead><tbody>';
+            rows.forEach(function (row) {
+              out += '<tr>' +
+                '<td>' + row.position + '</td>' +
+                '<td>' + esc(row.name) + '</td>' +
+                '<td>' + esc(row.levelText) + '</td>' +
+                '<td>' + esc(row.ratioText) + '</td>' +
+                '<td>' + esc(row.accuracyText) + '</td>' +
+                '<td>' + esc(row.scoreText) + '</td>' +
+                '</tr>';
+            });
+            return out + '</tbody></table>';
+          }
+
+          function esc(text) {
+            return String(text)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;');
+          }
+        })();
+      </script>
