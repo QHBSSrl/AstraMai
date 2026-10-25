@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AstraMai —— 把你的音游成绩戴在手腕上</title>
+    <meta
+      name="description"
+      content="AstraMai 是跑在小米手表和手环上的音游查分工具，支持舞萌 DX、中二节奏、Phigros、osu!。抬腕查 Best、推分计算、成绩对比、离线缓存。基础功能全免费。"
+    />
+    <meta property="og:title" content="AstraMai —— 把你的音游成绩戴在手腕上" />
+    <meta
+      property="og:description"
+      content="小米手表 / 手环上的音游查分工具，支持舞萌 DX、中二节奏、Phigros、osu!。"
+    />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="nav">
+      <a class="nav__brand" href="#top">
+        <span class="nav__dot"></span>
+        AstraMai
+      </a>
+      <nav class="nav__links">
+        <a href="#games">支持的游戏</a>
+        <a href="#features">功能</a>
+        <a href="#download">下载</a>
+        <a href="#changelog">更新日志</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- ── Hero ────────────────────────────────────────────────── -->
+      <section class="hero" id="top">
+        <p class="hero__eyebrow">小米手表 · 手环 8 Pro 及以上</p>
+        <h1 class="hero__title">
+          把你的音游成绩<br />
+          <span class="hero__accent">戴在手腕上</span>
+        </h1>
+        <p class="hero__lead">
+          舞萌 DX、中二节奏、Phigros、osu! —— 四个游戏的查分工具。<br />
+          抬腕就能看 Best、算推分、比成绩，没信号也能翻上次的数据。
+        </p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#download">怎么装</a>
+          <a class="btn" href="#changelog">看看更新了什么</a>
+        </div>
+        <p class="hero__note">基础功能全部免费 · 需联网 · v{{VERSION}}</p>
+      </section>
+
+      <!-- ── 支持的游戏 ──────────────────────────────────────────── -->
+      <section class="section" id="games">
+        <h2 class="section__title">支持的四个游戏</h2>
+        <p class="section__lead">每个都说清楚能查什么，不含糊。</p>
+
+        <div class="games">
+          <article class="game">
+            <div class="game__dot" style="background: #ff5f9e"></div>
+            <h3>舞萌 DX</h3>
+            <ul>
+              <li>Best 50（旧曲 B35 + 新曲 B15）</li>
+              <li>逐条 Rating 与公式对拍</li>
+              <li>DX 分数 / 星级 / 谱师 / 物量</li>
+              <li>机台登录二维码（本地渲染）</li>
+            </ul>
+          </article>
+
+          <article class="game">
+            <div class="game__dot" style="background: #7fd1ff"></div>
+            <h3>中二节奏</h3>
+            <ul>
+              <li>Best 30 + New 20</li>
+              <li>单曲 Rating 与定数</li>
+              <li>段位与 B30 合计</li>
+            </ul>
+          </article>
+
+          <article class="game">
+            <div class="game__dot" style="background: #58d68d"></div>
+            <h3>Phigros</h3>
+            <ul>
+              <li>RKS 与 Best 30</li>
+              <li>TapTap 扫码登录一次即可</li>
+              <li>曲目搜索</li>
+            </ul>
+          </article>
+
+          <article class="game">
+            <div class="game__dot" style="background: #ffb020"></div>
+            <h3>osu!</h3>
+            <ul>
+              <li>Best Plays（standard）</li>
+              <li>总 pp / 全球排名 / 准确率</li>
+              <li>每局 pp、星数、MOD、判定分布</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── 功能 ────────────────────────────────────────────────── -->
+      <section class="section" id="features">
+        <h2 class="section__title">除了查分，还能做什么</h2>
+        <p class="section__lead">这几样是别人没有的。</p>
+
+        <div class="features">
+          <article class="feature feature--wide">
+            <span class="feature__tag">最常被问的</span>
+            <h3>推分计算器</h3>
+            <p>
+              「我想打到 300 分，得打到多少达成率？」
+              从 B50 点任意一首就进，定数和当前成绩已经填好，**不用在表盘上打字**。
+              目标用 <code>-5 / -1 / +1 / +5</code> 调，还差多少实时算给你看。
+            </p>
+            <p class="feature__aside">
+              同时显示这首谱的「天花板」—— 打满能到多少。
+            </p>
+          </article>
+
+          <article class="feature">
+            <span class="feature__tag">每次查完自动比</span>
+            <h3>成绩对比</h3>
+            <p>
+              涨了 / 跌了 / 新进 / 掉出，四类分清楚。
+            </p>
+            <p class="feature__aside">
+              掉出 B50 用灰色，不用红色 ——
+              那不代表你退步了，只是被别的谱挤出去了。
+            </p>
+          </article>
+
+          <article class="feature">
+            <span class="feature__tag">地下没信号</span>
+            <h3>离线缓存</h3>
+            <p>查过一次之后，断网也能翻上次的成绩，会标注是什么时候抓的。</p>
+          </article>
+
+          <article class="feature">
+            <span class="feature__tag">一句话给答案</span>
+            <h3>距下一档</h3>
+            <p><code>距虹　还差 128</code> —— 到最高档就直说，不显示「还差 0 分」这种废话。</p>
+          </article>
+
+          <article class="feature">
+            <span class="feature__tag">表盘上打字很痛苦</span>
+            <h3>同步到手表</h3>
+            <p>
+              手表出配对码，电脑上填好友码，手表取回来。
+              数据在浏览器里先加密再上传，服务器只拿到密文。
+            </p>
+            <p class="feature__aside">⚠️ 这个还在测试，遇到问题请告诉我们。</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── 下载 ────────────────────────────────────────────────── -->
+      <section class="section section--fill" id="download">
+        <h2 class="section__title">怎么装</h2>
+
+        <div class="steps">
+          <div class="step">
+            <span class="step__num">1</span>
+            <div>
+              <h3>手机装 AstroBox</h3>
+              <p>小米手表的第三方应用分发工具，搜一下就有。</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="step__num">2</span>
+            <div>
+              <h3>搜 AstraMai</h3>
+              <p>在 AstroBox 里搜索 <code>AstraMai</code>，或者用包名 <code>com.astranexus.astramai</code>。</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="step__num">3</span>
+            <div>
+              <h3>装到手表 / 手环</h3>
+              <p>
+                小米手表（Watch S3 及以后）和<strong>小米手环 8 Pro 及以上</strong>都能用，
+                同一套界面，不用装两个版本。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p class="dl-note">
+          还没有上架任何商店，只走 AstroBox。装的时候如果提示版本不兼容，
+          多半是手环型号太老 —— 手环 8 Pro 之前的设备跑不了 Vela 应用。
+        </p>
+      </section>
+
+      <!-- ── 更新日志 ────────────────────────────────────────────── -->
+      <section class="section" id="changelog">
+        <h2 class="section__title">更新日志</h2>
+        <p class="section__lead">每一版都写了为什么做，不只是列功能。</p>
+        <div class="changelog">
+          {{CHANGELOG}}
+        </div>
+      </section>
+
+      <!-- ── 加入我们 ────────────────────────────────────────────── -->
+      <section class="section section--fill" id="community">
+        <h2 class="section__title">一起把它做好</h2>
+        <p class="section__lead">
+          现在群里五个人。人不多，但每一条反馈都真的会被改。
+        </p>
+
+        <div class="community">
+          <div class="community__card">
+            <h3>QQ 群</h3>
+            <p class="community__code">308532898</p>
+            <p class="community__hint">bug、建议、想加的游戏，直接说</p>
+          </div>
+          <div class="community__card">
+            <h3>特别想要的反馈</h3>
+            <ul>
+              <li>哪个界面在你这台表上显示得别扭</li>
+              <li>推分算得准不准</li>
+              <li>还想要哪个游戏</li>
+            </ul>
+            <p class="community__hint">
+              尤其是「哪里别扭」这种 —— 我们自己天天看，早就看不出问题了。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── FAQ ────────────────────────────────────────────────── -->
+      <section class="section" id="faq">
+        <h2 class="section__title">常见问题</h2>
+
+        <details class="faq">
+          <summary>要钱吗？</summary>
+          <p>不要。基础功能全部免费，没有内购也没有广告。</p>
+        </details>
+
+        <details class="faq">
+          <summary>我的数据安全吗？</summary>
+          <p>
+            查分走的是<strong>落雪查分器</strong>和 <strong>osu! 官方 API</strong>，
+            我们只是把它们的结果整理成手表好看的形状。
+            你的账号密码我们从来拿不到（Phigros 是 TapTap 扫码换的令牌，只存在你手表上）。
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>为什么不支持 Arcaea？</summary>
+          <p>
+            Arcaea 官方没有公开 API，第三方方案要么要求改装设备、要么依赖别人的私有服务。
+            <strong>风险太大，暂时不做。</strong>如果以后官方开放接口，会第一时间跟上。
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>支持哪些设备？</summary>
+          <p>
+            小米手表 <strong>Watch S3 及以后</strong>（含 S4 / S5、REDMI Watch 5 / 6），
+            以及<strong>小米手环 8 Pro 及以上</strong>。
+            更早的手环跑不了 Vela 应用。
+          </p>
+        </details>
+
+        <details class="faq">
+          <summary>一定要联网吗？</summary>
+          <p>
+            查分要联网。但查过一次之后会缓存，断网也能翻上次的成绩。
+          </p>
+        </details>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__row">
+        <span>AstraMai · AstraNexus 团队</span>
+        <span>基础功能免费</span>
+      </div>
+      <p class="footer__thanks">
+        成绩数据来自 <a href="https://maimai.lxns.net" target="_blank" rel="noreferrer">落雪查分器</a>，
+        osu! 数据来自 <a href="https://osu.ppy.sh/docs/" target="_blank" rel="noreferrer">官方 API</a>。
+      </p>
+    </footer>
+  </body>
+</html>

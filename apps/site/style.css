@@ -1,0 +1,495 @@
+/* AstraMai 官网 —— 和 App 里同一套暗色配色，省得看起来像两个产品 */
+:root {
+  --bg: #070b16;
+  --surface: #101827;
+  --surface-2: #182236;
+  --border: #23304a;
+  --text: #e8eefc;
+  --dim: #9bacd0;
+  --faint: #6b7a99;
+  --primary: #4fd6ff;
+  --pink: #ff5f9e;
+  --good: #3ddc84;
+  --warn: #ffb020;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 导航 ──────────────────────────────────────────────────────────── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 28px;
+  background: rgba(7, 11, 22, 0.82);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.nav__brand:hover {
+  text-decoration: none;
+}
+
+.nav__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 12px var(--primary);
+}
+
+.nav__links {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+}
+
+.nav__links a {
+  color: var(--dim);
+}
+
+.nav__links a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .nav__links {
+    display: none;
+  }
+}
+
+/* ── 通用 ──────────────────────────────────────────────────────────── */
+main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+.section {
+  padding: 72px 0 24px;
+}
+
+.section--fill {
+  padding: 72px 0;
+}
+
+.section__title {
+  margin: 0 0 8px;
+  font-size: clamp(24px, 3.6vw, 32px);
+  letter-spacing: -0.01em;
+}
+
+.section__lead {
+  margin: 0 0 32px;
+  color: var(--dim);
+  font-size: 15px;
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────── */
+.hero {
+  padding: 96px 0 56px;
+  text-align: center;
+}
+
+.hero__eyebrow {
+  margin: 0 0 18px;
+  color: var(--primary);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hero__title {
+  margin: 0 0 24px;
+  font-size: clamp(34px, 6.4vw, 60px);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+
+.hero__accent {
+  background: linear-gradient(100deg, #4fd6ff, #a06bff 55%, #ff5f9e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero__lead {
+  margin: 0 auto 32px;
+  max-width: 620px;
+  color: var(--dim);
+  font-size: 16px;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.hero__note {
+  margin: 24px 0 0;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.btn:hover {
+  text-decoration: none;
+  border-color: var(--faint);
+}
+
+.btn--primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: #06121b;
+  font-weight: 600;
+}
+
+.btn--primary:hover {
+  filter: brightness(1.08);
+}
+
+/* ── 游戏卡片 ──────────────────────────────────────────────────────── */
+.games {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.game {
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.game__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-bottom: 14px;
+}
+
+.game h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.game ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.game li {
+  margin: 4px 0;
+}
+
+/* ── 功能 ──────────────────────────────────────────────────────────── */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.feature {
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.feature--wide {
+  grid-column: 1 / -1;
+}
+
+.feature__tag {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.feature h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.feature p {
+  margin: 0 0 8px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.feature__aside {
+  color: var(--faint) !important;
+  font-size: 13.5px !important;
+}
+
+/* ── 安装步骤 ──────────────────────────────────────────────────────── */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.step {
+  display: flex;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.step__num {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #06121b;
+  font-weight: 700;
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+}
+
+.step h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.step p {
+  margin: 0;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.dl-note {
+  margin: 24px 0 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--faint);
+  font-size: 13.5px;
+}
+
+/* ── 更新日志 ──────────────────────────────────────────────────────── */
+.changelog {
+  padding: 28px 32px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.changelog h2 {
+  margin: 32px 0 12px;
+  font-size: 22px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.changelog h2:first-child {
+  margin-top: 0;
+}
+
+.changelog h3 {
+  margin: 26px 0 8px;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.changelog p {
+  margin: 0 0 10px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.changelog ul,
+.changelog ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.changelog li {
+  margin: 4px 0;
+}
+
+.changelog blockquote {
+  margin: 12px 0;
+  padding: 10px 16px;
+  border-left: 3px solid var(--primary);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface-2);
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.changelog blockquote p {
+  margin: 0;
+}
+
+.changelog hr {
+  margin: 32px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.changelog strong {
+  color: var(--text);
+}
+
+/* ── 社群 ──────────────────────────────────────────────────────────── */
+.community {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.community__card {
+  padding: 26px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.community__card h3 {
+  margin: 0 0 10px;
+  font-size: 17px;
+}
+
+.community__code {
+  margin: 0 0 6px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.community__card ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+.community__hint {
+  margin: 0;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+/* ── FAQ ───────────────────────────────────────────────────────────── */
+.faq {
+  margin-bottom: 10px;
+  padding: 18px 22px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.faq summary {
+  cursor: pointer;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.faq summary::marker {
+  color: var(--primary);
+}
+
+.faq p {
+  margin: 12px 0 0;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+/* ── 页脚 ──────────────────────────────────────────────────────────── */
+.footer {
+  padding: 40px 28px 56px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.footer__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  justify-content: center;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.footer__thanks {
+  margin: 14px 0 0;
+  color: var(--faint);
+  font-size: 12.5px;
+}
