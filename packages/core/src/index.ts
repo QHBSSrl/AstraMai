@@ -49,6 +49,13 @@ export * from './phigros/bests.js';
 export * from './osu/types.js';
 export * from './osu/bests.js';
 
+// ── 舞立方 ──────────────────────────────────────────────────────────────
+// 第四个平台：盛华娱乐的私有 API，登录是微信扫码。
+// ⚠️ 和其它游戏不一样：它没有「一次拿全部成绩」的接口，
+//    B15 要把 5 个曲风分别拉一遍（见 dancecube/bests.ts 的注释）。
+export * from './dancecube/types.js';
+export * from './dancecube/bests.js';
+
 // ── 二维码（零依赖，Vela 端可直接复用）────────────────────────────────
 export * from './qr/index.js';
 
