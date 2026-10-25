@@ -25,7 +25,12 @@
     "bundle:core": "node scripts/bundle-core.mjs",
     "icon:vela": "node scripts/make-vela-icon.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "clean": "node scripts/clean.mjs"
+    "clean": "node scripts/clean.mjs",
+    "site:build": "node apps/site/build.mjs",
+    "site:deploy": "node apps/site/build.mjs && wrangler pages deploy apps/site/dist --project-name astramai-site --branch main",
+    "version:show": "node scripts/vela-version.mjs show",
+    "version:debug": "node scripts/vela-version.mjs debug",
+    "version:release": "node scripts/vela-version.mjs release"
   },
   "devDependencies": {
     "typescript": "~5.6.3"
