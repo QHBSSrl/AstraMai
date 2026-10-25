@@ -54,8 +54,8 @@ export function getClient(base) {
        */
       throw new Error(
         '这台设备不支持直接联网（手环没有网络模块）。'
-        + '手环需要用 AstroBox 网桥插件：在电脑上装 AstroBox 桌面版和 AstraMai 网桥插件，'
-        + '然后用蓝牙连上手环。手表（Watch 系列）不受影响。',
+        + '请在手机上的 AstroBox 里装 AstraMai 网桥插件（跟装这个 App 是同一个 App），'
+        + '装好启用后，手环就能通过手机的蓝牙上网了。手表（Watch 系列）不受影响。',
       );
     }
 
@@ -191,8 +191,8 @@ function getRawFetch() {
        */
       throw new Error(
         '这台设备不支持直接联网（手环没有网络模块）。'
-        + '手环需要用 AstroBox 网桥插件：在电脑上装 AstroBox 桌面版和 AstraMai 网桥插件，'
-        + '然后用蓝牙连上手环。手表（Watch 系列）不受影响。',
+        + '请在手机上的 AstroBox 里装 AstraMai 网桥插件（跟装这个 App 是同一个 App），'
+        + '装好启用后，手环就能通过手机的蓝牙上网了。手表（Watch 系列）不受影响。',
       );
     }
   rawFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 });
