@@ -15,6 +15,7 @@
  * 那种情况的表现是"点了没反应"，比"没配置"更难查。
  */
 
+import { createBridgeFetch, isBridgeFetchAvailable } from './bridge-fetch.js';
 import { createVelaFetch } from './vela-fetch.js';
 
 /** 默认的 Worker 地址。部署后如果换了域名，在设置里改即可。 */
@@ -123,12 +124,21 @@ export function syncErrorMessage(code, status) {
  * 上层只需要拿对象。
  */
 function request(base, path, init) {
-  const systemFetch = getFetchModule();
-  if (!systemFetch) {
-    return Promise.reject(new Error('当前设备不提供 @system.fetch'));
-  }
+    /*
+     * 和 api.js 同一套顺序：fetch 优先，没有就退回网桥。
+     *
+     * 手环没有 fetch，但**同步对手环反而最有意义** ——
+     * 手环上打字最痛苦，正是最需要「在手机上填、手表取」的场景。
+     */
+    const systemFetch = getFetchModule();
 
-  const doFetch = createVelaFetch(systemFetch, { timeoutMs: TIMEOUT_MS });
+    if (!systemFetch && !isBridgeFetchAvailable()) {
+      return Promise.reject(new Error('当前设备不提供 @system.fetch'));
+    }
+
+    const doFetch = systemFetch
+      ? createVelaFetch(systemFetch, { timeoutMs: TIMEOUT_MS })
+      : createBridgeFetch();
 
   return doFetch(base + path, init)
     .then((response) =>

@@ -13,6 +13,7 @@
 
 import { LxnsClient } from './astramai-core.js';
 import { getApiToken, getServerBase } from './config.js';
+import { createBridgeFetch, isBridgeFetchAvailable } from './bridge-fetch.js';
 import { createVelaFetch } from './vela-fetch.js';
 
 export { DEFAULT_SERVER_BASE, getApiToken, getServerBase } from './config.js';
@@ -40,26 +41,32 @@ export function getClient(base) {
   const token = getApiToken();
   if (cachedClient && cachedBase === target && cachedToken === token) return cachedClient;
 
-    const systemFetch = getFetchModule();
-    if (!systemFetch) {
-      /*
-       * ⚠️ **手环走的就是这条路。**
-       *
-       * 小米手环没有 `@system.fetch` —— 它只有蓝牙（`@system.interconnect`），
-       * 必须靠 AstroBox 网桥插件转发。所以在手环上，任何查分都会在这里失败。
-       *
-       * 原来的文案是「当前设备不提供 @system.fetch，无法发起网络请求」——
-       * 技术上没错，但用户看到只会觉得「这 App 坏了」。
-       * 现在告诉他两件事：**为什么**、**能怎么办**。
-       */
-      throw new Error(
-        '这台设备不支持直接联网（手环没有网络模块）。'
+  /*
+   * ⚠️ **手环走的是下面 `!systemFetch` 那个分支。**
+   *
+   * 小米手环没有 `@system.fetch` —— 它只有蓝牙（`@system.interconnect`），
+   * 必须靠 AstroBox 网桥插件转发。所以顺序是：
+   *
+   *   1. 有 fetch   → 直接用（手表、模拟器）
+   *   2. 没有 fetch → 用网桥（手环 + 手机上装了插件）
+   *   3. 都没有     → 报一句人话，告诉他怎么修
+   *
+   * 第 2 步要先探活（`isBridgeFetchAvailable`），否则插件没装时，
+   * 每次请求都要干等 25 秒超时才失败。
+   */
+  const systemFetch = getFetchModule();
+
+  if (!systemFetch && !isBridgeFetchAvailable()) {
+    throw new Error(
+      '这台设备不支持直接联网（手环没有网络模块）。'
         + '请在手机上的 AstroBox 里装 AstraMai 网桥插件（跟装这个 App 是同一个 App），'
         + '装好启用后，手环就能通过手机的蓝牙上网了。手表（Watch 系列）不受影响。',
-      );
-    }
+    );
+  }
 
-  const velaFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 });
+  const velaFetch = systemFetch
+    ? createVelaFetch(systemFetch, { timeoutMs: 12000 })
+    : createBridgeFetch();
   cachedClient = new LxnsClient({
     baseUrl: target,
     fetchImpl: velaFetch,
@@ -175,28 +182,24 @@ export function resetClient() {
  */
 let rawFetch = null;
 
-function getRawFetch() {
-  if (rawFetch) return rawFetch;
+  function getRawFetch() {
+    if (rawFetch) return rawFetch;
+
+    // 和 getClient 同一套顺序：fetch 优先，没有就退回网桥
     const systemFetch = getFetchModule();
-    if (!systemFetch) {
-      /*
-       * ⚠️ **手环走的就是这条路。**
-       *
-       * 小米手环没有 `@system.fetch` —— 它只有蓝牙（`@system.interconnect`），
-       * 必须靠 AstroBox 网桥插件转发。所以在手环上，任何查分都会在这里失败。
-       *
-       * 原来的文案是「当前设备不提供 @system.fetch，无法发起网络请求」——
-       * 技术上没错，但用户看到只会觉得「这 App 坏了」。
-       * 现在告诉他两件事：**为什么**、**能怎么办**。
-       */
+
+    if (!systemFetch && !isBridgeFetchAvailable()) {
       throw new Error(
         '这台设备不支持直接联网（手环没有网络模块）。'
-        + '请在手机上的 AstroBox 里装 AstraMai 网桥插件（跟装这个 App 是同一个 App），'
-        + '装好启用后，手环就能通过手机的蓝牙上网了。手表（Watch 系列）不受影响。',
+          + '请在手机上的 AstroBox 里装 AstraMai 网桥插件（跟装这个 App 是同一个 App），'
+          + '装好启用后，手环就能通过手机的蓝牙上网了。手表（Watch 系列）不受影响。',
       );
     }
-  rawFetch = createVelaFetch(systemFetch, { timeoutMs: 12000 });
-  return rawFetch;
+
+    rawFetch = systemFetch
+      ? createVelaFetch(systemFetch, { timeoutMs: 12000 })
+      : createBridgeFetch();
+    return rawFetch;
 }
 
 async function jsonRequest(path, init) {
