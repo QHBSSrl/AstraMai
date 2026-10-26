@@ -1,0 +1,19 @@
+{
+    "name": "AstraMai 网桥",
+    "icon": "icon.png",
+    "version": "0.1.0",
+    "description": "让没有 fetch 能力的手环通过 interconnect 上网。",
+    "author": "AstraNexus",
+    "website": "https://github.com/AstraNexusTech/AstraMai",
+    "entry": "astramai-bridge.wasm",
+    "wasi_version": 2,
+    "api_level": 3,
+    "permissions": [
+        "thirdpartyapp",
+        "interconnect",
+        "register_interconnect_recv",
+        "register_card",
+        "device"
+    ],
+    "additional_files": []
+}
