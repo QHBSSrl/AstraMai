@@ -43,6 +43,42 @@ AstraMai · AstroBox 网桥插件
 
 ⚠️ **改网络部分前先读这段。** 别退回去用 urllib 或裸 socket。
 
+  ────────── 为什么必须借浏览器（把宿主能力查干净了）──────────
+
+  有人会问：「插件不就是替手环上网吗，为什么还要开个网页？」
+
+  因为**宿主没有给出站 HTTP 能力**。我把
+  `wit/deps/astrobox-psys-host-v4.wit` 里 19 个 interface 全看了一遍：
+
+      os / transport / clipboard / dialog / ui / device / register /
+      event / provider-callback / queue / timer / interconnect /
+      thirdpartyapp / watchface / i18n / http-server / browser /
+      notification / account
+
+  逐个排除：
+
+      transport     —— 设备通信协议（XIAOMI-VELA-V5-PROTOBUF），
+                       不是 HTTP。而且文档明说 send / request
+                       目前是占位状态，别当稳定通道用。
+      http-server   —— **入站**。让插件对外提供 HTTP 服务
+                       （接 OAuth 回调那种），不能往外发请求。
+      其余          —— UI / 存储 / 设备 / 事件，都不碰网络。
+
+  也没有 wasi:http 的 outgoing-handler 绑定（wasm 里只有个
+  wasi:http/service 的字面量，是 CPython 运行时自带的，
+  宿主没提供实现）。
+
+  所以 browser 是**唯一**能发出站请求的接口。这不是偷懒，
+  是平台能力缺口。
+
+  我们能做的是**把打扰降到最低**：
+    · 不在 on_load 就开（一装好就弹窗 + 弹授权，用户会觉得有问题）
+    · 手环发第一个请求时才开，之后一直复用同一个 WebView
+    · 用 ephemeral=True，不碰用户正常的浏览数据
+
+  ⚠️ 如果哪天官方加了出站 HTTP（或者把 transport 做完了），
+  **应该立刻换掉这个方案** —— 它本质上是在借用户的网络栈。
+
 ────────────── 安全边界 ──────────────────────────────────────────────
 
 **插件里不碰任何上游密钥。** 它只把请求转发到我们自己的服务器，
@@ -479,9 +515,23 @@ def build_ui():
 
 class Lifecycle(exports.Lifecycle):
     async def on_load(self):
-        """插件加载时：联网自检 + 订阅设备消息。"""
-        await refresh_state()
+        """插件加载时：**只订阅设备消息，不主动联网。**
 
+        ── 为什么不自检 ──────────────────────────────────────────────────
+        自检要发一次 HTTP，而发 HTTP 必须借 `browser.open` 开一个可见的
+        WebView（宿主没给出站 HTTP 能力，见文件头）。
+
+        而 `browser.open` **每次都会弹一次授权**（官方文档：这个能力能看到
+        用户在页面里输入的一切，所以每次 open 都要用户确认）。
+
+        插件一装好就弹窗 + 弹授权，用户只会觉得「这插件有问题」。
+
+        所以改成**用到才开**：手环发第一个请求时才建 WebView，
+        之后一直复用同一个。平时插件是静默的。
+
+        要诊断时用界面上的「重新检测」按钮 —— 那是显式操作，
+        用户知道自己在干什么。
+        """
         devices = await load_devices()
         if not devices:
             print('[astramai] 现在没有已连接的设备——连上设备后点「重新检测」')
