@@ -83,12 +83,31 @@ export function getClient(base) {
  * 服务端已经把玩家信息、曲库、Rating 对拍全部组装好了，端上拿到的就是
  * 可以直接渲染的视图模型——手表算力和流量都紧张，不适合端上拼装。
  */
+/**
+ * 现在是不是**只能走网桥**（设备没有原生 `fetch`）。
+ *
+ * 是的话就不该用完整 B50 —— 那样 88 KB 的数据要么被网桥的 16 KB 上限拒掉，
+ * 要么得走 v4 分片 + ACK 那套重活。服务端有个瘦身端点（约 12 KB），
+ * 只回手表真正显示的字段，用它就够。
+ */
+function needCompact() {
+  return getFetchModule() === null;
+}
+
 export function fetchB50(friendCode) {
+  if (needCompact()) {
+    return getClient().request(
+      `/api/v1/maimai/b50/compact?code=${encodeURIComponent(friendCode)}`,
+    );
+  }
   return getClient().request(`/api/maimai/b50/${friendCode}`);
 }
 
 /** 按 QQ 号拉取 B50。 */
 export function fetchB50ByQq(qq) {
+  if (needCompact()) {
+    return getClient().request(`/api/v1/maimai/b50/compact?qq=${encodeURIComponent(qq)}`);
+  }
   return getClient().request(`/api/maimai/b50/qq/${qq}`);
 }
 

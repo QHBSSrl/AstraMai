@@ -32,6 +32,7 @@ import * as syncAes from './sync-aes.js';
 import * as syncClient from './sync-client.js';
 import * as legal from './legal.js';
 import * as bridge from './bridge.js';
+import * as fetchbridge from './fetchbridge.js';
 
 /**
  * 挂在一个命名空间下，而不是把几十个符号平铺到 global。

@@ -1,133 +1,133 @@
 /**
- * 把网桥包装成 `fetch`。
+ * 网桥 → 标准 `fetch`。
  *
- * ── 为什么需要这一层 ────────────────────────────────────────────────
+ * ── 它解决什么 ──────────────────────────────────────────────────────
  *
- * `bridge.js` 提供的是**应用层**的 `request(action, options)` ——
- * 它只知道 `ping` 和 `b50` 两种动作，不理解 HTTP。
+ * 手环没有 `@system.fetch`，只有蓝牙（`@system.interconnect`）。
+ * 手机上的 AstroBox 装了官方的「网桥 FetchBridge」插件之后，
+ * 手环就能通过手机上网。
  *
- * 而 `LxnsClient` / `sync-client` 这些上层模块用的是标准的 `fetchImpl`。
- * 要让它俩跑在手环上，中间得有一层翻译：
+ * 中间要一层翻译，因为上层（`LxnsClient` / `sync-client`）用的是标准
+ * `fetchImpl`，而网桥说的是它自己的 JSON 协议：
  *
- *     fetch('/api/v1/maimai/b50/xxx')
+ *     fetch('/api/v1/maimai/b50/compact?code=xxx')
  *          ↓  本文件
- *     bridge.request('http', { method, path, body, headers })
- *          ↓  插件
- *     服务器
+ *     FetchBridge 协议 { tag:'fetch', id, url, options }
+ *          ↓  手机上的插件
+ *     https://... 真实服务器
  *
- * ── 插件的约定（两边必须一致）──────────────────────────────────────
+ * ── 两种模式，用户可选 ──────────────────────────────────────────────
  *
- * 请求：
- *   { id, action: 'http', method: 'GET', path: '/api/v1/...', body?: string,
- *     headers?: { ... }, timeoutMs?: number }
+ *   'single'  单消息。快、简单，但响应不能超过 **16 KB**
+ *             （插件里的 `MAX_UNCHUNKED_WIRE_LEN`）。
+ *             配合服务端的 `/compact` 端点（B50 约 12 KB）正好。
  *
- * 响应：
- *   { id, ok: true, status: 200, body: '<原始响应文本>' }
- *   { id, ok: false, status: 0, error: '原因' }
+ *   'stream'  v4 开放长度流。分片 + 逐帧 CRC32 + 累计 ACK 流控，
+ *             没有长度限制，但要处理重传和乱序。
+ *             想看完整数据（封面清晰度、别名、物量）时用。
  *
- * `path` 是**相对服务器根**的，插件自己拼 `SERVER_BASE`。
- * 这样密钥和服务器地址都不会出现在手表上。
+ * 这个取舍是**用户可感知**的，所以做成了设置项而不是写死。
  *
- * ── 为什么不在手表上拼完整 URL ────────────────────────────────────
+ * ── 为什么不用自己写的插件 ──────────────────────────────────────────
  *
- * 手表上确实有服务器地址（用户可以在设置里改），但：
- *   · 插件已经知道地址了，让手表再传一遍没意义
- *   · 手环的蓝牙带宽很窄，能少传一个字段是一个
- *   · 换服务器时只要改插件一处
+ * 我们自己写过一版（Python + `browser.open` + `eval` 跑 XHR），能跑，
+ * 但**每次都会弹一个浏览器窗口**，还要用户点授权。
  *
- * 所以这里只传 `path`。**这是一个有意的取舍**，不是漏了。
+ * 官方插件直接用 `wasi:http`（Rust 的 `waki` crate）发请求 ——
+ * 没有浏览器、没有弹窗。而且它已经解决了分片死锁（v3 的累计 ACK +
+ * 滑动窗口），那是我们自己写一定会踩的坑。
  */
 
-import * as bridge from './bridge.js';
+import { MODE, createFetchBridge } from './fetchbridge.js';
+import { getServerBase } from './config.js';
+import { readSetting } from './store.js';
 
-/** 插件默认的超时，和 `bridge.js` 的 25 秒对齐。 */
-const DEFAULT_TIMEOUT_MS = 25000;
+/** 默认模式。单消息更快，先用它。 */
+export const DEFAULT_BRIDGE_MODE = MODE.SINGLE;
+
+/** 设置里存的键。 */
+export const BRIDGE_MODE_KEY = 'bridgeMode';
 
 /**
  * 有没有可用的网桥。
  *
- * `false` 时调用方应该直接报「手环需要装网桥插件」，
- * 而不是走一遍 25 秒超时再失败。
+ * 判据是「能不能拿到 `@system.interconnect`」—— 手环有，手表不一定有。
+ * 拿得到不代表插件装了，但**拿不到就一定没戏**，足够挡掉大部分误报。
+ *
+ * 注意这里是**同步**判断，不握手。真正的可用性要发请求才知道。
  */
 export function isBridgeFetchAvailable() {
-  return bridge.isAvailable();
+  try {
+    // eslint-disable-next-line global-require
+    const interconnect = require('@system.interconnect');
+    if (!interconnect || typeof interconnect.instance !== 'function') return false;
+    return Boolean(interconnect.instance());
+  } catch (error) {
+    return false;
+  }
 }
 
 /**
  * 造一个 `fetchImpl`。
  *
  * 返回的对象尽量贴近标准 `Response` 的最小可用子集：
- * `{ ok, status, text(), json() }` ——
- * 上层（`LxnsClient` 的 request 封装）只用得到这些。
+ * `{ ok, status, text(), json() }` —— 上层只用得到这些。
+ *
+ * @param {object} [options]
+ * @param {'single'|'stream'} [options.mode] 传输方式；不传就读设置
  */
-export function createBridgeFetch() {
+export function createBridgeFetch(options = {}) {
+  const mode =
+    options.mode === MODE.STREAM || options.mode === MODE.SINGLE
+      ? options.mode
+      : readBridgeMode();
+
+  const client = createFetchBridge({
+    mode,
+    getInterconnect: () => {
+      // eslint-disable-next-line global-require
+      const interconnect = require('@system.interconnect');
+      return interconnect.instance();
+    },
+  });
+
   return function bridgeFetch(path, init = {}) {
-    return new Promise((resolve, reject) => {
-      const method = String(init.method || 'GET').toUpperCase();
+    const url = toAbsoluteUrl(path);
 
-      /*
-       * body 统一转成字符串。上层的 request 封装传进来的可能是
-       * 对象、字符串或者 undefined —— 插件那边只认字符串。
-       */
-      let body;
-      if (init.body !== undefined && init.body !== null) {
-        body = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
-      }
-
-      const options = {
-        method,
-        path: normalizePath(path),
-        ...(body !== undefined ? { body } : {}),
-        ...(init.headers && typeof init.headers === 'object' ? { headers: init.headers } : {}),
-        timeoutMs: DEFAULT_TIMEOUT_MS,
-      };
-
-      bridge.request('http', options).then(
-        (data) => {
-          if (!data || data.ok !== true) {
-            const reason =
-              (data && (data.error || data.message)) || '网桥没有返回结果';
-            reject(new Error(`网桥请求失败：${reason}`));
-            return;
-          }
-
-          const status = Number(data.status) || 0;
-          const text = typeof data.body === 'string' ? data.body : '';
-
-          resolve({
-            ok: status >= 200 && status < 300,
-            status,
-            text: () => Promise.resolve(text),
-            json: () => Promise.resolve(JSON.parse(text)),
-          });
-        },
-        (error) => {
-          reject(error instanceof Error ? error : new Error(String(error)));
-        },
-      );
-    });
+    return client.request(url, init).then((response) => ({
+      ok: response.ok,
+      status: response.status,
+      text: () => Promise.resolve(response.text),
+      json: () => Promise.resolve(JSON.parse(response.text)),
+    }));
   };
 }
 
 /**
- * 把各种形态的地址归一成「相对服务器根」的路径。
+ * 拼成完整 URL。
  *
- * 上层传进来的可能是：
- *   · `/api/v1/...`                     → 原样
- *   · `https://host/api/v1/...`         → 只留 path
- *   · `http://host:8787/api/v1/...`     → 只留 path
- *   · `api/v1/...`（缺前导斜杠）         → 补上
+ * `FetchBridge` 的协议要求 `url` 是**绝对地址**（它不像我们自己写的插件
+ * 那样可以自己拼基址），所以这里要把相对路径补成完整的。
+ *
+ * 基址和 `api.js` 用的是同一个 `config.js`，换服务器时不需要改两处。
  */
-function normalizePath(input) {
+function toAbsoluteUrl(input) {
   const raw = String(input || '');
 
-  // 完整 URL：抠出 path + query
-  const absolute = /^https?:\/\/[^/]+(\/.*)?$/i.exec(raw);
-  if (absolute) {
-    const rest = absolute[1] || '/';
-    return rest.startsWith('/') ? rest : `/${rest}`;
-  }
+  // 已经是绝对地址
+  if (/^https?:\/\//i.test(raw)) return raw;
 
-  if (!raw) return '/';
-  return raw.startsWith('/') ? raw : `/${raw}`;
+  const base = String(getServerBase() || '').replace(/\/+$/, '');
+  const path = raw.startsWith('/') ? raw : `/${raw}`;
+  return base + path;
+}
+
+/** 读设置里的模式（设置了就用设置，否则用默认）。 */
+export function readBridgeMode() {
+  try {
+    const stored = String(readSetting(BRIDGE_MODE_KEY, '') || '');
+    return stored === MODE.STREAM ? MODE.STREAM : DEFAULT_BRIDGE_MODE;
+  } catch (error) {
+    return DEFAULT_BRIDGE_MODE;
+  }
 }
