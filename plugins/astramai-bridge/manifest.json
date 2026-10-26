@@ -1,7 +1,7 @@
 {
   "name": "AstraMai 网桥",
   "icon": "icon.png",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "把手表上的 AstraMai 和查分服务器接起来（手环没有网络时用）",
   "author": "AstraNexus",
   "website": "https://github.com/AstraNexusTech/AstraMai",

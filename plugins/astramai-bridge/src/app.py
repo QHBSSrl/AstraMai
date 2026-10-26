@@ -135,8 +135,13 @@ async def close_browser():
     STATE['browser_id'] = 0
 
 
-def _xhr_script(path):
-    """拼一段在页面里跑的 JS：同步 XHR 拿 responseText。
+def _js_string(text):
+    """把一段 Python 字符串变成安全的 JS 字符串字面量（含引号）。"""
+    return json.dumps(str(text), ensure_ascii=False)
+
+
+def _xhr_script(method='GET', path='/', body=None, headers=None):
+    """拼一段在页面里跑的 JS：同步 XHR，返回 `{status, body}`。
 
     用**同步** XHR 而不是 `fetch` + Promise：`eval` 的返回值会被
     JSON 序列化，而 Promise 序列化出来是 `{}`，拿不到结果。
@@ -149,14 +154,21 @@ def _xhr_script(path):
 
     所以：整段包在 try 里，任何异常都变成 `{__error: ...}` 返回出去。
 
-    页面 origin 就是我们的服务器，所以发相对路径，不用管 CORS。
+    页面 origin 就是我们的服务器，所以发相对路径，不用管 CORS
+    （同源请求连预检都不会有）。
     """
-    safe_path = path.replace('\\', '\\\\').replace("'", "\\'")
+    payload = 'null' if body is None else _js_string(body)
+
+    header_lines = ''
+    for key, value in (headers or {}).items():
+        header_lines += f'x.setRequestHeader({_js_string(key)},{_js_string(value)});'
+
     return (
         '(function(){try{'
         'var x=new XMLHttpRequest();'
-        f"x.open('GET','{safe_path}',false);"
-        'x.send();'
+        f"x.open({_js_string(method.upper())},{_js_string(path)},false);"
+        f'{header_lines}'
+        f'x.send({payload});'
         'return JSON.stringify({status:x.status,body:x.responseText});'
         '}catch(e){'
         'return JSON.stringify({__error:String(e)});'
@@ -195,7 +207,28 @@ def _unwrap_eval(raw):
 async def http_get(path):
     """通过浏览器发一次 GET。返回 `(status, body_text)`。"""
     browser_id = await ensure_browser()
-    raw = await browser.eval(browser_id, _xhr_script(path))
+    raw = await browser.eval(browser_id, _xhr_script('GET', path))
+    return _unwrap_eval(raw)
+
+
+async def http_request(method, path, body=None, headers=None):
+    """通过浏览器发一次任意方法的请求。返回 `(status, body_text)`。
+
+    这是网桥的**通用代理**入口 —— 手表上的 fetch 层（`bridge-fetch.js`）
+    把所有 HTTP 请求都翻译成 `{ action: 'http', method, path, body, headers }`
+    发过来，这里原样转发到 `SERVER_BASE`。
+
+    ⚠️ `path` 一定是**相对路径**。手表不应该知道服务器地址，
+    换服务器只要改这里的 `SERVER_BASE`。
+    """
+    if not str(path).startswith('/'):
+        path = '/' + str(path)
+
+    browser_id = await ensure_browser()
+    raw = await browser.eval(
+        browser_id,
+        _xhr_script(method, path, body, headers),
+    )
     return _unwrap_eval(raw)
 
 
@@ -314,6 +347,55 @@ async def handle_request(payload):
 
     if action == 'ping':
         return {'id': request_id, 'ok': True, 'data': {'pong': True}}
+
+    # ── 通用 HTTP 代理 ────────────────────────────────────────────────
+    #
+    # 手表上的 fetch 层把所有请求都走这里。协议见
+    # `apps/vela/src/common/bridge-fetch.js` 的文件头注释。
+    #
+    # ⚠️ 响应体是**原始文本**，不是解析后的 JSON —— 手表那边
+    # 要自己 text() 再 JSON.parse()，和标准 fetch 的行为对齐。
+    if action == 'http':
+        method = str(payload.get('method') or 'GET').upper()
+        path = str(payload.get('path') or '/')
+        body = payload.get('body')
+        headers = payload.get('headers')
+
+        # 只转发白名单里的请求头。手表不该能把任意头塞给服务器，
+        # 尤其不能让 `Host` / `Cookie` 这种被覆盖。
+        safe_headers = {}
+        if isinstance(headers, dict):
+            for key, value in headers.items():
+                name = str(key).lower()
+                if name in ('content-type', 'accept', 'authorization',
+                            'x-api-key', 'x-phigros-session', 'x-dancecube-token'):
+                    safe_headers[str(key)] = str(value)
+
+        try:
+            status, text = await http_request(method, path, body, safe_headers)
+        except Exception as error:
+            return {
+                'id': request_id,
+                'ok': False,
+                'status': 0,
+                'error': f'{type(error).__name__}: {error}',
+            }
+
+        if status == 0:
+            return {
+                'id': request_id,
+                'ok': False,
+                'status': 0,
+                'error': '请求没拿到状态码（浏览器可能还没加载好）',
+            }
+
+        # 上游状态码原样带回 —— 手表那边自己判断 ok / 401 / 404
+        return {
+            'id': request_id,
+            'ok': True,
+            'status': status,
+            'body': text,
+        }
 
     if action != 'b50':
         return {'id': request_id, 'ok': False, 'message': f'未知操作：{action}'}
