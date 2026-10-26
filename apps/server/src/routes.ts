@@ -147,6 +147,60 @@ function readPlayerParams(ctx: RequestContext): { friendCode?: number; qq?: numb
   });
 }
 
+/**
+ * 把完整的 B50 视图裁成「手表真正会显示的字段」。
+ *
+ * 依据是 `apps/vela/src/pages/B50/b50.ux` 里 `applyMaimai` 实际读了哪些：
+ *
+ *   player: rating / tier.label / name
+ *   stats : standardTotal / dxTotal / averageLevelValue / computedDelta
+ *   entry : title / difficultyShort / levelIndex / levelValue / rating /
+ *           achievements / jacketUrl / songVersionTitle
+ *
+ * 其余二十多个字段（aliases、notes、computedRating、maxRating、headroom、
+ * verification、bpm、genre、artist、lastPlayedTime……）手表一个都不看。
+ *
+ * ⚠️ **改这个函数前先去看 `applyMaimai`。** 少留一个字段，手表上就是一片空白，
+ * 而那种 bug 在网页端完全看不出来。
+ */
+function compactB50View(view: Record<string, unknown>): unknown {
+  const player = (view.player ?? {}) as Record<string, unknown>;
+  const stats = (view.stats ?? {}) as Record<string, unknown>;
+
+  const pickEntry = (entry: unknown): unknown => {
+    const item = (entry ?? {}) as Record<string, unknown>;
+    return {
+      title: item.title,
+      difficultyShort: item.difficultyShort,
+      levelIndex: item.levelIndex,
+      levelValue: item.levelValue,
+      rating: item.rating,
+      achievements: item.achievements,
+      jacketUrl: item.jacketUrl,
+      songVersionTitle: item.songVersionTitle,
+    };
+  };
+
+  const pickList = (value: unknown): unknown[] =>
+    Array.isArray(value) ? value.map(pickEntry) : [];
+
+  return {
+    player: {
+      name: player.name,
+      rating: player.rating,
+      tier: player.tier ? { label: (player.tier as Record<string, unknown>).label } : null,
+    },
+    stats: {
+      standardTotal: stats.standardTotal,
+      dxTotal: stats.dxTotal,
+      averageLevelValue: stats.averageLevelValue,
+      computedDelta: stats.computedDelta,
+    },
+    standard: pickList(view.standard),
+    dx: pickList(view.dx),
+  };
+}
+
 export function createRouter(
   service: GatewayService,
   config: ServerConfig,
@@ -926,6 +980,50 @@ export function createRouter(
         librarySource: result.librarySource,
         elapsedMs: Date.now() - startedAt,
         data: result.view,
+      });
+    } catch (error) {
+      fail(ctx.res, error, ctx.url.pathname);
+    }
+  });
+
+  /**
+   * 瘦身版 B50 —— **给手环的网桥用的**。
+   *
+   * ── 为什么需要它 ──────────────────────────────────────────────────
+   *
+   * 官方 FetchBridge 插件的「单消息模式」有硬上限 16 KB
+   * （`MAX_UNCHUNKED_WIRE_LEN`），而我们的完整 B50 实测 **88.6 KB**。
+   *
+   * 88.6 KB 里绝大部分是手表**根本不显示**的东西：`aliases`（别名数组）、
+   * `notes`（物量分项）、`computedRating` / `maxRating` / `headroom`
+   * （推分用的中间值）、`verification`、`bpm`、`genre`、`artist`……
+   * 单条成绩 32 个字段，手表实际只用 8 个。
+   *
+   * 所以这里只回那 8 个，估算 50 首约 10 KB —— 塞得进 16 KB。
+   *
+   * ── 为什么保留原字段名 ────────────────────────────────────────────
+   *
+   * 本来想用短键名（`t` / `l` / `a`）再省一点，但那样手表渲染层也要改。
+   * 保留同样的名字，`applyMaimai` 一行都不用动 —— 只是少了一些它不读的字段。
+   *
+   * ⚠️ 这个端点**只能给手表用**。网页端要完整数据（别名、物量、推分），
+   * 请继续用 `/api/v1/maimai/b50`。
+   */
+  router.get('/api/v1/maimai/b50/compact', async (ctx) => {
+    try {
+      const { friendCode, qq } = readPlayerParams(ctx);
+      const result = await service.getB50({
+        ...(qq !== undefined ? { qq } : { friendCode }),
+        sourceId: sourceOf(ctx, service),
+        clientKey: clientKeyOf(ctx, config),
+      });
+
+      const view = result.view as unknown as Record<string, unknown>;
+      ok(ctx.res, {
+        mode: result.mode,
+        source: result.sourceId,
+        compact: true,
+        data: compactB50View(view),
       });
     } catch (error) {
       fail(ctx.res, error, ctx.url.pathname);
