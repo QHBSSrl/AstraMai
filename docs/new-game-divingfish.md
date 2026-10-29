@@ -275,3 +275,135 @@ POST /api/chunithmprober/query/player   {"qq": ...} 或 {"username": ...}
 ```
 
 文档里标的是「无需验证 / Bearer」——和舞萌一样，公开可用。
+---
+
+## 八、实测：真实用户的 `/query/player` 返回
+
+### 用 `rating_ranking` 挑真实用户测
+
+```
+GET /api/maimaidxprober/rating_ranking
+→ 200, 5443 KB, 146,999 个用户
+```
+
+**水鱼有 14.7 万注册用户。** 这是它最大的价值 —— 和落雪是**两拨人**。
+
+试了 8 个（按 Rating 从高到低）：
+
+```
+✗ 张晓黎O          HTTP 400
+✅ Calatorie11     rating=16565
+✅ XYANIDE         rating=16565
+✅ IsxI            rating=16565
+✗ HT寒天           HTTP 400
+✅ ddfw            rating=16565
+✅ TheoryCollapsE  rating=16565
+✅ zgrylyqd        rating=16565
+```
+
+**6 / 8 成功（75%）**。失败的返回 `400 user not exists`
+或者 `403 已设置隐私或未同意用户协议`。
+
+### 真实响应结构
+
+```json
+{
+  "username": "Calatorie11",
+  "nickname": "ezzzzzzz",
+  "rating": 16565,
+  "additional_rating": 19,      // 段位
+  "plate": "祝神",
+  "charts": {
+    "sd": [ ... 25 条 ... ],
+    "dx": [ ... 15 条 ... ]
+  },
+  "user_general_data": ...
+}
+```
+
+单条 chart（和落雪的字段名几乎一致）：
+
+```
+title  level  level_index  level_label  type
+dxScore  achievements  rate  fc  fs  ra  ds  song_id
+```
+
+示例：
+
+```
+PANDORA PARADOXXX  lv4 Re:MASTER  100.5735%  ra=337  type=SD
+Xaleid◆scopiX      lv4 Re:MASTER  100.5207%  ra=337  type=DX
+```
+
+### ⚠️ `sd` / `dx` 和落雪的 `standard` / `dx` **不是一回事**
+
+| | 含义 |
+|---|---|
+| **落雪** `standard[]` / `dx[]` | 按**新旧**分：旧曲 B35 / 新曲 B15 |
+| **水鱼** `sd[]` / `dx[]` | 实测是 **25 + 15**，看起来也是按新旧分，但名字叫 sd/dx，容易误解 |
+
+**看内容会更迷惑**：`sd` 里第一条 `type=SD`、第二条 `type=DX` —— 说明
+`sd` 这个键**不是按谱面类型分的**，而是「旧曲」那一组。
+
+**所以映射时必须按序号取，不能按 `type` 过滤。** 这点在写代码时要特别小心，
+名字太容易骗人了。
+
+### 中二那边
+
+```
+POST /api/chunithmprober/query/player  {"username": "Calatorie11"}
+→ 200 {"nickname":"ezzzzzzz","rating":0.0,
+       "records":{"b30":[],"n20":[],"r10":[]},"username":"Calatorie11"}
+```
+
+**结构是 `records.b30[]` + `records.n20[]` + `records.r10[]`** ——
+和落雪的 `bests` / `selection` / `recent` 对应。
+
+这个用户没玩中二，所以数组是空的，但**端点通、结构对**。
+
+---
+
+## 九、结论：值不值得做
+
+### 你本人的情况
+
+> 我本人只用落雪来着，水鱼没用过
+
+那水鱼**对你个人没有直接价值** —— 你的成绩只在落雪上，水鱼查不到。
+
+### 但对项目有意义
+
+| 理由 | 说明 |
+|---|---|
+| **覆盖另一拨人** | 水鱼有 14.7 万用户，很多人只在水鱼注册 |
+| **不花我们的额度** | 落雪每次查询花开发者密钥配额，水鱼公开端点不花 |
+| **75% 可用率** | 实测 8 个用户里 6 个能查 |
+| **中二也支持** | 同一套 API，一次做完两个游戏 |
+
+### 但那 25% 查不到的怎么办
+
+```
+400 user not exists          → 这人没在水鱼注册
+403 已设置隐私               → 注册了但不让公开查
+```
+
+**这两种都只能靠 OAuth**（用户授权）。所以在没有 OAuth 之前，
+水鱼只能当**加分项**，不能当主力。
+
+### 我的建议
+
+**做，但排在后面，而且做成"兜底"而不是"主选"：**
+
+```
+查 B50 的流程：
+  1. 先试落雪（你和我都熟悉，数据最全）
+  2. 落雪返回「查不到这个玩家」→ 再试水鱼
+  3. 两个都失败 → 报错，并说明双源都试过了
+```
+
+这样：
+- 落雪用户**体验完全不变**
+- 水鱼用户**也能用上**
+- 不需要决定「哪个数据新」——**只需要决定「哪个有」**
+
+**这比「比较数据新旧」简单得多，也更符合实际情况。**
