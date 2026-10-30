@@ -177,6 +177,57 @@ function bytesToText(bytes) {
   }
 }
 
+// ── 平台接入 ──────────────────────────────────────────────────────────
+
+/**
+ * 默认的 interconnect 取法。
+ *
+ * 用延迟 require：静态 import 会在模块初始化时就解析平台模块，
+ * 一旦设备不提供它，**整个页面脚本初始化就抛错、页面直接空白**。
+ */
+function defaultInterconnect() {
+  // eslint-disable-next-line global-require
+  const interconnect = require('@system.interconnect');
+  if (!interconnect || typeof interconnect.instance !== 'function') {
+    throw new Error('这台设备没有 @system.interconnect');
+  }
+  return interconnect.instance();
+}
+
+// ── 传输模式设置 ──────────────────────────────────────────────────────
+
+/** storage 里存模式的键。 */
+export const BRIDGE_MODE_KEY = 'bridgeMode';
+
+/**
+ * 读用户选的传输模式。
+ *
+ * ⚠️ 这个函数原来只在 `bridge-fetch.js` 里有，而设置页是直接从
+ * `fetchbridge` 拿的 —— 于是 `undefined is not a function`，
+ * 「测试连接」点了完全没反应。两个模块都要能拿到，所以这里也导出。
+ */
+export function readBridgeMode() {
+  try {
+    // eslint-disable-next-line global-require
+    const { readSetting } = require('./store.js');
+    const stored = String(readSetting(BRIDGE_MODE_KEY, '') || '');
+    return stored === MODE.STREAM ? MODE.STREAM : MODE.SINGLE;
+  } catch (error) {
+    return MODE.SINGLE;
+  }
+}
+
+/** 写用户选的传输模式。 */
+export function writeBridgeMode(mode) {
+  try {
+    // eslint-disable-next-line global-require
+    const { writeSetting } = require('./store.js');
+    writeSetting(BRIDGE_MODE_KEY, mode === MODE.STREAM ? MODE.STREAM : MODE.SINGLE);
+  } catch (error) {
+    console.warn('[AstraMai] 保存传输模式失败：', error);
+  }
+}
+
 // ── 客户端 ────────────────────────────────────────────────────────────
 
 /**
@@ -188,7 +239,19 @@ function bytesToText(bytes) {
  */
 export function createFetchBridge(options = {}) {
   const mode = options.mode === MODE.STREAM ? MODE.STREAM : MODE.SINGLE;
-  const getInterconnect = options.interconnect;
+
+  /*
+   * ⚠️ **getInterconnect 要有默认值。**
+   *
+   * 之前它是必填的，但设置页的「测试连接」忘了传 ——
+   * 于是 ensureConnect() 抛「没提供 interconnect」，
+   * 而 handshake() 把 send 的异常当成「握手完成」直接 resolve，
+   * UI 显示「已连通」—— **一个假的好消息**。
+   *
+   * 兼容两种写法：options.getInterconnect / options.interconnect。
+   */
+  const getInterconnect = options.getInterconnect || options.interconnect || defaultInterconnect;
+
 
   let connect = null;
   let handshook = false;
@@ -285,7 +348,7 @@ export function createFetchBridge(options = {}) {
 
     console.log('[AstraMai] 网桥握手开始，mode=' + mode);
 
-    handshaking = new Promise((resolve) => {
+    handshaking = new Promise((resolve, reject) => {
       let settled = false;
       const done = () => {
         if (settled) return;
@@ -298,15 +361,25 @@ export function createFetchBridge(options = {}) {
 
       handshakeResolve = done;
 
-      try {
-        send({ tag: '__hs__', count: 0, caps: capsFor(mode) });
-      } catch (error) {
-        settled = true;
-        handshaking = null;
-        handshakeResolve = null;
-        resolve();
-        return;
-      }
+        try {
+          send({ tag: '__hs__', count: 0, caps: capsFor(mode) });
+        } catch (error) {
+          /*
+           * ⚠️ **这里不能 resolve。**
+           *
+           * 原来 send 失败时也 resolve()，于是「测试连接」永远显示「已连通」——
+           * 哪怕 interconnect 压根拿不到。那是个假的好消息，
+           * 会把「插件没装」误判成「一切正常」。
+           *
+           * 现在改成 reject，让上层把真实原因显示出来。
+           */
+          console.warn('[AstraMai] 网桥握手失败：' + (error && error.message ? error.message : error));
+          settled = true;
+          handshaking = null;
+          handshakeResolve = null;
+          reject(error instanceof Error ? error : new Error(String(error)));
+          return;
+        }
 
       setTimeout(done, HANDSHAKE_TIMEOUT);
     });

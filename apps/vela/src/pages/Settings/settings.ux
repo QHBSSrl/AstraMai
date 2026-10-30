@@ -451,7 +451,7 @@
           ? fetchbridge.MODE.SINGLE
           : fetchbridge.MODE.STREAM;
 
-      writeSetting('bridgeMode', next);
+      fetchbridge.writeBridgeMode(next);
       /*
        * 显示「这个设备实际会走哪条路」。
        *
