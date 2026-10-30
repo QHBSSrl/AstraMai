@@ -31,7 +31,6 @@ import * as keys from './keys.js';
 import * as syncAes from './sync-aes.js';
 import * as syncClient from './sync-client.js';
 import * as legal from './legal.js';
-import * as bridge from './bridge.js';
 import * as fetchbridge from './fetchbridge.js';
 
 /**
@@ -55,7 +54,7 @@ global.AstraMai = {
   syncAes,
   syncClient,
   legal,
-  bridge,
+  fetchbridge,
 };
 
 /**

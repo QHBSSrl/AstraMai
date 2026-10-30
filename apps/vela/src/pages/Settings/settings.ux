@@ -75,8 +75,13 @@
         <text class="row__label">测试连接</text>
         <text class="row__mark">{{ bridgeState }}</text>
       </div>
+      <div class="row" @click="toggleBridgeMode">
+        <text class="row__label">传输方式</text>
+        <text class="row__mark">{{ bridgeModeLabel }}</text>
+      </div>
     </div>
     <text class="hint" if="{{ bridgeNotice }}">{{ bridgeNotice }}</text>
+    <text class="hint" if="{{ bridgeHint }}">{{ bridgeHint }}</text>
 
     <!--
       重看引导。
@@ -255,6 +260,10 @@
       bridgeState: '',
       /** 网桥测试的详细结果 / 失败原因。 */
       bridgeNotice: '',
+      /** 传输方式的显示文本（「完整」/「分片」）。 */
+      bridgeModeLabel: '',
+      /** 网桥的固定提示。手环上才显示，说明这东西是干什么的。 */
+      bridgeHint: '',
     },
 
     onReady() {
@@ -263,7 +272,15 @@
 
     onInit() {
       mark('Settings:onInit');
-      warmUp(['currentGame', 'qrInput', 'queryKind', 'queryValue', 'friendCode', 'phigrosSession'])
+      warmUp([
+        'currentGame',
+        'qrInput',
+        'queryKind',
+        'queryValue',
+        'friendCode',
+        'phigrosSession',
+        'bridgeMode',
+      ])
         .then(() => this.refresh())
         .catch((error) => console.error('[AstraMai] Settings 初始化失败：', error));
     },
@@ -278,6 +295,26 @@
         label: game.label,
         current: game.id === current,
       }));
+
+      /*
+       * 网桥：手环没有 @system.fetch，只能靠手机上的 AstroBox 插件。
+       *
+       * 这里做两件事：
+       *   · 刷新「传输方式」那行的文字（完整 / 分片）
+       *   · 手环上给一句固定提示，告诉用户这东西是干什么的
+       */
+      this.refreshBridgeModeLabel();
+
+      try {
+        // eslint-disable-next-line global-require
+        require('@system.fetch');
+        this.bridgeHint = '';
+      } catch (error) {
+        // 没有 fetch = 手环 = 需要网桥
+        this.bridgeHint =
+          '这个设备没有网络模块，查成绩要靠手机上的 AstroBox 装「AstraMai 网桥」插件。'
+          + '装好启用后点上面的「测试连接」确认。';
+      }
 
       // 只是「有没有登录」这一个比特，**不读出来展示**——
       // 凭证不该出现在界面上，截图分享时也安全
@@ -337,34 +374,74 @@
      * 没有这个入口的话，用户看到的现象都是"查不出成绩"，只能靠猜。
      */
     testBridge() {
-      if (!bridge.isAvailable()) {
-        this.bridgeState = '不可用';
-        this.bridgeNotice =
-          '这个设备上没有 AstroBox 的连接。要么插件没装/没启用，要么设备没连上。';
-        return;
-      }
+      /*
+       * 网桥是**手环唯一的联网方式** —— 手环没有 @system.fetch，
+       * 只能靠手机上的 AstroBox 插件转发。
+       *
+       * 所以这个按钮是排查的核心入口：任何一环断了，用户看到的现象
+       * 都是「查不出成绩」，没有它就只能靠猜。
+       *
+       * ⚠️ 用的是**官方 FetchBridge 的协议**（fetchbridge.js），
+       * 不是我们自己那个 Python 插件（那个会弹浏览器窗口，已作废）。
+       */
+      const mode = fetchbridge.MODE
+        ? fetchbridge.readBridgeMode()
+        : fetchbridge.MODE.SINGLE;
 
       this.bridgeState = '测试中…';
       this.bridgeNotice = '';
 
-      bridge
-        .ping()
-        .then((response) => {
-          if (response && response.ok) {
-            this.bridgeState = '已连通';
-            this.bridgeNotice = '网桥正常。没有网络的设备会走这条链路查成绩。';
-          } else {
-            this.bridgeState = '异常';
-            const reason = (response && response.message) || '插件没有返回 pong';
-            this.bridgeNotice = `插件回了个异常结果：${reason}`;
-          }
-        })
-        .catch((error) => {
+      const client = fetchbridge.createFetchBridge({ mode });
+
+      client.ping().then(
+        () => {
+          this.bridgeState = '已连通';
+          this.bridgeNotice =
+            '网桥正常。这个设备查成绩会走「手环 → 手机插件 → 服务器」这条链路。';
+        },
+        (error) => {
           this.bridgeState = '失败';
-          // 把原因原样显示出来 —— 这类问题（插件权限、没连设备、超时）
-          // 光说"失败"没法排查
+          /*
+           * 把原因原样显示出来 —— 这类问题光说「失败」没法排查：
+           *   · 插件没装 / 没启用 → 握手超时
+           *   · 手机不在蓝牙范围   → 握手超时
+           *   · 插件装了但连不上网 → 插件那边报的错
+           */
           this.bridgeNotice = String(error && error.message ? error.message : error);
-        });
+        },
+      );
+    },
+
+    /**
+     * 切换传输方式。
+     *
+     * 「完整」= 单消息，快，但单次响应不能超过 16 KB
+     *          （我们用服务端的 /compact 端点把 B50 压到 12 KB）
+     * 「分片」= v4 开放长度流，没有长度限制，但要处理重传和乱序
+     *
+     * 这是**用户可感知的取舍**，所以做成可切换的，不写死。
+     */
+    toggleBridgeMode() {
+      const current = fetchbridge.readBridgeMode();
+      const next =
+        current === fetchbridge.MODE.STREAM
+          ? fetchbridge.MODE.SINGLE
+          : fetchbridge.MODE.STREAM;
+
+      writeSetting('bridgeMode', next);
+      this.refreshBridgeModeLabel();
+
+      this.bridgeState = '待重测';
+      this.bridgeNotice =
+        next === fetchbridge.MODE.STREAM
+          ? '已切到「分片」。响应不再受 16 KB 限制，但慢一些。点「测试连接」确认能通。'
+          : '已切到「完整」。更快，但单次响应不能超过 16 KB。点「测试连接」确认能通。';
+    },
+
+    /** 刷新「传输方式」那一行显示的文字。 */
+    refreshBridgeModeLabel() {
+      const mode = fetchbridge.readBridgeMode();
+      this.bridgeModeLabel = mode === fetchbridge.MODE.STREAM ? '分片' : '完整';
     },
 
     /**
