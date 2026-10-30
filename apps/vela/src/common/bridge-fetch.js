@@ -56,15 +56,45 @@ export const BRIDGE_MODE_KEY = 'bridgeMode';
  *
  * 注意这里是**同步**判断，不握手。真正的可用性要发请求才知道。
  */
+/**
+ * 有没有可用的网桥。
+ *
+ * ── 为什么必须缓存 ⚠️ ────────────────────────────────────────────────
+ *
+ * 这个函数会被 `getClient()` / `activeTransport()` / `requestWithFallback()`
+ * 反复调用。而它内部要 `require('@system.interconnect')` 再 `instance()`。
+ *
+ * **`instance()` 每次调用都可能创建一个新的原生连接对象。**
+ * 之前没缓存的时候，一次查询能触发七八次，长时间用下来就是内存持续增长 ——
+ * 用户反馈的「手表容易死机黑屏」很可能就是它。
+ *
+ * 所以结果只算一次。`@system.interconnect` 在应用生命周期内不会变，
+ * 缓存是安全的。真要重置就调 `resetBridgeAvailability()`。
+ */
+let bridgeAvailability = null;
+
 export function isBridgeFetchAvailable() {
+  if (bridgeAvailability !== null) return bridgeAvailability;
+
   try {
     // eslint-disable-next-line global-require
     const interconnect = require('@system.interconnect');
-    if (!interconnect || typeof interconnect.instance !== 'function') return false;
-    return Boolean(interconnect.instance());
+    if (!interconnect || typeof interconnect.instance !== 'function') {
+      bridgeAvailability = false;
+      return false;
+    }
+    const instance = interconnect.instance();
+    bridgeAvailability = Boolean(instance);
+    return bridgeAvailability;
   } catch (error) {
+    bridgeAvailability = false;
     return false;
   }
+}
+
+/** 清掉缓存（切换设备 / 重新检测时用）。 */
+export function resetBridgeAvailability() {
+  bridgeAvailability = null;
 }
 
 /**
@@ -76,13 +106,33 @@ export function isBridgeFetchAvailable() {
  * @param {object} [options]
  * @param {'single'|'stream'} [options.mode] 传输方式；不传就读设置
  */
+/**
+ * 单例缓存。
+ *
+ * ⚠️ **必须缓存。** 之前每次 `createBridgeFetch()` 都新建一个
+ * `createFetchBridge()`，而它内部会拿一个 `@system.interconnect` 实例、
+ * 挂 `onmessage` 回调。
+ *
+ * `api.js` 的 `getClient()` 在网络失败时会 `cachedClient = null` 重建，
+ * 于是每失败一次就新拉一个原生连接 —— 旧的那个还挂着回调不释放。
+ * 这就是「手表容易死机黑屏」的头号嫌疑。
+ *
+ * 同一个 mode 永远复用同一个 client。
+ */
+let cachedClient = null;
+let cachedMode = null;
+
 export function createBridgeFetch(options = {}) {
   const mode =
     options.mode === MODE.STREAM || options.mode === MODE.SINGLE
       ? options.mode
       : readBridgeMode();
 
-  const client = createFetchBridge({
+  if (cachedClient && cachedMode === mode) {
+    return cachedClient;
+  }
+
+  const bridgeClient = createFetchBridge({
     mode,
     getInterconnect: () => {
       // eslint-disable-next-line global-require
@@ -91,16 +141,26 @@ export function createBridgeFetch(options = {}) {
     },
   });
 
-  return function bridgeFetch(path, init = {}) {
+  const fetchImpl = function bridgeFetch(path, init = {}) {
     const url = toAbsoluteUrl(path);
 
-    return client.request(url, init).then((response) => ({
+    return bridgeClient.request(url, init).then((response) => ({
       ok: response.ok,
       status: response.status,
       text: () => Promise.resolve(response.text),
       json: () => Promise.resolve(JSON.parse(response.text)),
     }));
   };
+
+  cachedClient = fetchImpl;
+  cachedMode = mode;
+  return fetchImpl;
+}
+
+/** 清掉单例（换模式 / 重新检测时用）。 */
+export function resetBridgeFetch() {
+  cachedClient = null;
+  cachedMode = null;
 }
 
 /**

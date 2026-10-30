@@ -45,10 +45,10 @@
 const HANDSHAKE_ROUNDS = 2;
 
 /** 握手超时。超过就当插件没响应。 */
-const HANDSHAKE_TIMEOUT = 6000;
+const HANDSHAKE_TIMEOUT = 4000;
 
 /** 单个请求的总超时。 */
-const REQUEST_TIMEOUT = 30000;
+const REQUEST_TIMEOUT = 15000;
 
 /** 我们声明的单分片上限（编码前字节数）。协议允许 256~65536。 */
 const MAX_CHUNK_SIZE = 4096;
@@ -283,6 +283,8 @@ export function createFetchBridge(options = {}) {
     if (handshook) return Promise.resolve();
     if (handshaking) return handshaking;
 
+    console.log('[AstraMai] 网桥握手开始，mode=' + mode);
+
     handshaking = new Promise((resolve) => {
       let settled = false;
       const done = () => {
@@ -290,6 +292,7 @@ export function createFetchBridge(options = {}) {
         settled = true;
         handshook = true;
         handshaking = null;
+        console.log('[AstraMai] 网桥握手完成');
         resolve();
       };
 
@@ -330,7 +333,8 @@ export function createFetchBridge(options = {}) {
           const timer = setTimeout(() => {
             if (!pending[id]) return;
             delete pending[id];
-            reject(new Error('网桥超时（30 秒没回）'));
+            console.warn('[AstraMai] 网桥超时：' + url);
+            reject(new Error('网桥超时（15 秒没回）'));
           }, REQUEST_TIMEOUT);
 
           pending[id] = {
