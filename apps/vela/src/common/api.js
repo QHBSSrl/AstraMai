@@ -19,17 +19,75 @@ import { createVelaFetch } from './vela-fetch.js';
 export { DEFAULT_SERVER_BASE, getApiToken, getServerBase } from './config.js';
 
 let fetchModule;
-function getFetchModule() {
-  if (fetchModule !== undefined) return fetchModule;
-  try {
-    // eslint-disable-next-line global-require
-    fetchModule = require('@system.fetch') || null;
-  } catch (error) {
-    console.warn('[AstraMai] @system.fetch 不可用：', error);
-    fetchModule = null;
+  /**
+   * 取 `@system.fetch` 模块。
+   *
+   * ⚠️ **这里判的不只是「模块在不在」，还有「它到底能不能用」。**
+   *
+   * 之前的写法是 `require('@system.fetch') || null` —— 假设了
+   * 「手环上没有这个模块，require 会抛错」。但这个假设**没验证过**。
+   *
+   * 实际情况可能是三种：
+   *   ① require 抛错            → 模块真没有（我们原来只处理了这种）
+   *   ② require 成功但返回空     → `|| null` 能兜住
+   *   ③ require 成功、对象也在，但 `fetch` 不是函数 →
+   *      原来会把一个坏对象当成可用，所有请求都失败，
+   *      而且**永远不会降到网桥** —— 表现就是「手环上连不上网」
+   *
+   * 第 ③ 种最坑：它不抛错，只是每次请求都失败。用户看到「网络不太好」，
+   * 而实际上网桥根本没被用上。
+   *
+   * 所以这里额外检查 `typeof loaded.fetch === 'function'`。
+   */
+  function getFetchModule() {
+    if (fetchModule !== undefined) return fetchModule;
+
+    try {
+      // eslint-disable-next-line global-require
+      const loaded = require('@system.fetch');
+      if (loaded && typeof loaded.fetch === 'function') {
+        fetchModule = loaded;
+      } else {
+        console.warn('[AstraMai] @system.fetch 存在但 fetch 不是函数，按无网络处理');
+        fetchModule = null;
+      }
+    } catch (error) {
+      console.warn('[AstraMai] @system.fetch 不可用：', error);
+      fetchModule = null;
+    }
+
+    return fetchModule;
   }
-  return fetchModule;
-}
+
+  /**
+   * 运行时探测结果 —— **实际发过一次请求并且失败了**。
+   *
+   * 和 `getFetchModule()` 的区别：
+   *   · `getFetchModule()` 看的是「模块长什么样」
+   *   · 这个看的是「实际用起来行不行」
+   *
+   * 有些设备 `@system.fetch` 对象齐全、`fetch` 也是函数，但一调用就 fail
+   * （手环上没网络栈，只是把 API 挂着）。那种情况只有真发一次才知道。
+   *
+   * 一旦失败过就**永久**改走网桥 —— 不要每次请求都先失败一次。
+   */
+  let nativeFetchBroken = false;
+
+  /** 标记原生 fetch 已经坏掉，之后一律走网桥。 */
+  export function markNativeFetchBroken() {
+    if (nativeFetchBroken) return;
+    console.warn('[AstraMai] 原生 fetch 实测失败，改走网桥');
+    nativeFetchBroken = true;
+    // 客户端要重建，否则还用着坏掉的那个 fetchImpl
+    cachedClient = null;
+  }
+
+  /** 现在实际会走哪条路（给设置页 / 诊断用）。 */
+  export function activeTransport() {
+    if (getFetchModule() && !nativeFetchBroken) return 'direct';
+    if (isBridgeFetchAvailable()) return 'bridge';
+    return 'none';
+  }
 
 let cachedClient = null;
 let cachedBase = null;
@@ -56,7 +114,9 @@ export function getClient(base) {
    */
   const systemFetch = getFetchModule();
 
-  if (!systemFetch && !isBridgeFetchAvailable()) {
+  const usableFetch = systemFetch && !nativeFetchBroken ? systemFetch : null;
+
+  if (!usableFetch && !isBridgeFetchAvailable()) {
     throw new Error(
       '这台设备不支持直接联网（手环没有网络模块）。'
         + '请在手机上的 AstroBox 里装 AstraMai 网桥插件（跟装这个 App 是同一个 App），'
@@ -91,24 +151,54 @@ export function getClient(base) {
  * 只回手表真正显示的字段，用它就够。
  */
 function needCompact() {
-  return getFetchModule() === null;
+  return getFetchModule() === null || nativeFetchBroken;
+}
+
+/**
+ * 发一次请求，**原生 fetch 失败时自动降级到网桥并重试一次**。
+ *
+ * ── 为什么需要这个 ────────────────────────────────────────────────
+ *
+ * `getFetchModule()` 只能判断「模块长什么样」，判断不了「实际能不能用」。
+ *
+ * 有些设备（手环就是这样）`@system.fetch` 对象齐全、`fetch` 也是函数，
+ * 但**一调用就失败** —— 那个运行时里压根没有网络栈，API 只是挂着。
+ *
+ * 没有这层的话，用户看到的是「网络不太好」，而实际上网桥根本没被用上。
+ *
+ * 所以：第一次失败就记下来（`markNativeFetchBroken`），之后一律走网桥，
+ * 并且**立刻用网桥重试这一次** —— 用户不该为了这个重新点一次查询。
+ */
+function requestWithFallback(run) {
+  return run().catch((error) => {
+    // 已经是网桥了，或者压根没有网桥 —— 没得降级
+    if (!getFetchModule() || nativeFetchBroken) throw error;
+    if (!isBridgeFetchAvailable()) throw error;
+
+    markNativeFetchBroken();
+    return run();
+  });
 }
 
 export function fetchB50(friendCode) {
-  if (needCompact()) {
-    return getClient().request(
-      `/api/v1/maimai/b50/compact?code=${encodeURIComponent(friendCode)}`,
-    );
-  }
-  return getClient().request(`/api/maimai/b50/${friendCode}`);
+  return requestWithFallback(() => {
+    if (needCompact()) {
+      return getClient().request(
+        `/api/v1/maimai/b50/compact?code=${encodeURIComponent(friendCode)}`,
+      );
+    }
+    return getClient().request(`/api/maimai/b50/${friendCode}`);
+  });
 }
 
 /** 按 QQ 号拉取 B50。 */
 export function fetchB50ByQq(qq) {
-  if (needCompact()) {
-    return getClient().request(`/api/v1/maimai/b50/compact?qq=${encodeURIComponent(qq)}`);
-  }
-  return getClient().request(`/api/maimai/b50/qq/${qq}`);
+  return requestWithFallback(() => {
+    if (needCompact()) {
+      return getClient().request(`/api/v1/maimai/b50/compact?qq=${encodeURIComponent(qq)}`);
+    }
+    return getClient().request(`/api/maimai/b50/qq/${qq}`);
+  });
 }
 
 /**
@@ -119,12 +209,16 @@ export function fetchB50ByQq(qq) {
  * 复用舞萌的字段名会让调用方以为拿到的是同一种东西。
  */
 export function fetchChunithmBests(friendCode) {
-  return getClient().request(`/api/v1/chunithm/bests?code=${friendCode}`);
+  return requestWithFallback(() =>
+    getClient().request(`/api/v1/chunithm/bests?code=${friendCode}`),
+  );
 }
 
 /** 中二节奏成绩，按 QQ 号。 */
 export function fetchChunithmBestsByQq(qq) {
-  return getClient().request(`/api/v1/chunithm/bests?qq=${qq}`);
+  return requestWithFallback(() =>
+    getClient().request(`/api/v1/chunithm/bests?qq=${qq}`),
+  );
 }
 
 /**
@@ -204,10 +298,16 @@ let rawFetch = null;
   function getRawFetch() {
     if (rawFetch) return rawFetch;
 
-    // 和 getClient 同一套顺序：fetch 优先，没有就退回网桥
+    /*
+     * 和 getClient 同一套顺序：
+     *   1. 有 @system.fetch 且实测没坏 → 直接用
+     *   2. 否则 → 走网桥（手环）
+     *   3. 都没有 → 报一句人话
+     */
     const systemFetch = getFetchModule();
+    const usableFetch = systemFetch && !nativeFetchBroken ? systemFetch : null;
 
-    if (!systemFetch && !isBridgeFetchAvailable()) {
+    if (!usableFetch && !isBridgeFetchAvailable()) {
       throw new Error(
         '这台设备不支持直接联网（手环没有网络模块）。'
           + '请在手机上的 AstroBox 里装 AstraMai 网桥插件（跟装这个 App 是同一个 App），'
@@ -215,8 +315,8 @@ let rawFetch = null;
       );
     }
 
-    rawFetch = systemFetch
-      ? createVelaFetch(systemFetch, { timeoutMs: 12000 })
+    rawFetch = usableFetch
+      ? createVelaFetch(usableFetch, { timeoutMs: 12000 })
       : createBridgeFetch();
     return rawFetch;
 }

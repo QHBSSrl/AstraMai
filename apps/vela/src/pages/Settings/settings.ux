@@ -303,6 +303,29 @@
        *   · 刷新「传输方式」那行的文字（完整 / 分片）
        *   · 手环上给一句固定提示，告诉用户这东西是干什么的
        */
+      /*
+       * 显示「这个设备实际会走哪条路」。
+       *
+       * 为什么值得显示：手环用户最困惑的就是「我到底该装插件还是不该装」。
+       * 直接把判断结果摆出来，比让他们猜快得多。
+       */
+      try {
+        const transport = api.activeTransport();
+        if (transport === 'direct') {
+          this.bridgeHint = '这个设备能直接联网，不需要网桥。';
+        } else if (transport === 'bridge') {
+          this.bridgeHint =
+            '这个设备没有网络模块，查成绩会走网桥。需要在手机上的 AstroBox 里'
+            + '装「AstraMai 网桥」插件并启用，然后点上面的「测试连接」确认。';
+        } else {
+          this.bridgeHint =
+            '这个设备没有网络模块，而且没检测到 AstroBox 的连接。'
+            + '请在手机上的 AstroBox 里装「AstraMai 网桥」插件。';
+        }
+      } catch (error) {
+        this.bridgeHint = '';
+      }
+
       this.refreshBridgeModeLabel();
 
       try {
@@ -429,6 +452,29 @@
           : fetchbridge.MODE.STREAM;
 
       writeSetting('bridgeMode', next);
+      /*
+       * 显示「这个设备实际会走哪条路」。
+       *
+       * 为什么值得显示：手环用户最困惑的就是「我到底该装插件还是不该装」。
+       * 直接把判断结果摆出来，比让他们猜快得多。
+       */
+      try {
+        const transport = api.activeTransport();
+        if (transport === 'direct') {
+          this.bridgeHint = '这个设备能直接联网，不需要网桥。';
+        } else if (transport === 'bridge') {
+          this.bridgeHint =
+            '这个设备没有网络模块，查成绩会走网桥。需要在手机上的 AstroBox 里'
+            + '装「AstraMai 网桥」插件并启用，然后点上面的「测试连接」确认。';
+        } else {
+          this.bridgeHint =
+            '这个设备没有网络模块，而且没检测到 AstroBox 的连接。'
+            + '请在手机上的 AstroBox 里装「AstraMai 网桥」插件。';
+        }
+      } catch (error) {
+        this.bridgeHint = '';
+      }
+
       this.refreshBridgeModeLabel();
 
       this.bridgeState = '待重测';
