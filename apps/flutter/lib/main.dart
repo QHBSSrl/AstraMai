@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'core/platform.dart';
 import 'ui/theme.dart';
 
 /// 应用入口。
@@ -44,74 +45,124 @@ class _AstraMaiAppState extends State<AstraMaiApp> {
   }
 
   Future<void> _loadDynamicColor() async {
+    /*
+     * ⚠️ **先判断平台，别白问一次。**
+     *
+     * 动态取色只有 Android 12+ 有。iOS 和鸿蒙**没有这个概念** ——
+     * 在那边调这个方法只会得到 MissingPluginException，
+     * 白白多一次异步往返。
+     *
+     * 所以先问 AstraPlatform：不支持就根本不建这个 channel 调用，
+     * 直接用种子色。
+     */
+    if (!AstraPlatform.maySupportDynamicColor) return;
+
     try {
       final result = await _channel.invokeMethod<Map<Object?, Object?>>(
         'dynamicColor',
       );
-      if (result == null || !mounted) return;
+      // ignore: avoid_print
+      print('[AstraMai] dynamicColor 原值: $result');
+
+      if (result == null) {
+        // ignore: avoid_print
+        print('[AstraMai] 原生返回 null —— 这台设备没有动态色');
+        return;
+      }
+      if (!mounted) return;
 
       final scheme = _schemeFromPlatform(result);
+      // ignore: avoid_print
+      print('[AstraMai] 转换后的 primary: ${scheme?.primary}');
+
       if (scheme != null) setState(() => _dynamicScheme = scheme);
-    } on PlatformException {
-      // iOS / 鸿蒙没有这个 channel —— 正常情况，用种子色
-    } on MissingPluginException {
-      // 同上
+    } on PlatformException catch (e) {
+      // ignore: avoid_print
+      print('[AstraMai] PlatformException: ${e.code} ${e.message}');
+    } on MissingPluginException catch (e) {
+      // ignore: avoid_print
+      print('[AstraMai] MissingPluginException: ${e.message}');
     }
   }
 
   /// 把原生给的色值转成 [ColorScheme]。
   ///
-  /// 原生只给了 12 个关键色，其余的（surface / outline / …）由
-  /// [ColorScheme.fromSeed] 用 primary 当种子补齐 —— 这样整个色板是**协调**的，
-  /// 而不是 12 个颜色硬凑在一起。
+  /// ── 为什么不再用 fromSeed ────────────────────────────────────────
+  ///
+  /// 第一版是「拿系统主色当种子，再覆盖 12 个色」。
+  /// 那样虽然色板协调，但**不是系统的真实配色** —— surface / outline
+  /// 这些还是我们算的，和系统设置里的深浅、对比度都对不上。
+  ///
+  /// 现在原生直接给了 MD3 的语义色（system_primary_dark /
+  /// system_surface_container_dark 这些），一一对应就能填满。
+  ///
+  /// 缺哪个就用 fromSeed 的对应值兜底 —— 定制 ROM 可能少几个。
   ColorScheme? _schemeFromPlatform(Map<Object?, Object?> raw) {
-    int? read(String key) {
+    // 原生用 0 表示"没取到"
+    Color? read(String key) {
       final value = raw[key];
       if (value is! int || value == 0) return null;
-      return value;
+      return Color(0xFF000000 | value);
     }
 
-    final primary = read('primary');
-    if (primary == null) return null;
+    if (read('primary') == null) return null;
 
-    final seed = Color(0xFF000000 | primary);
+    final isDark = (raw['isDark'] as int? ?? 1) == 1;
+    final brightness = isDark ? Brightness.dark : Brightness.light;
 
-    // 用系统主色当种子推导整套深色色板，再覆盖掉系统**明确给了**的几个
-    final base = ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: Brightness.dark,
+    // 兜底色板：拿系统的 primary 当种子，
+    // 这样就算缺几个色，补出来的也是同一个色调
+    final fallback = ColorScheme.fromSeed(
+      seedColor: read('primary')!,
+      brightness: brightness,
     );
 
-    Color withAlpha(int? argb, Color fallback) =>
-        argb == null ? fallback : Color(0xFF000000 | argb);
+    Color pick(String key, Color fallbackColor) => read(key) ?? fallbackColor;
 
-    return base.copyWith(
-      primary: withAlpha(read('primary'), base.primary),
-      onPrimary: withAlpha(read('onPrimary'), base.onPrimary),
-      secondary: withAlpha(read('secondary'), base.secondary),
-      onSecondary: withAlpha(read('onSecondary'), base.onSecondary),
-      tertiary: withAlpha(read('tertiary'), base.tertiary),
-      onTertiary: withAlpha(read('onTertiary'), base.onTertiary),
-      primaryContainer: withAlpha(read('primaryContainer'), base.primaryContainer),
+    return ColorScheme(
+      brightness: brightness,
+      primary: pick('primary', fallback.primary),
+      onPrimary: pick('onPrimary', fallback.onPrimary),
+      primaryContainer: pick('primaryContainer', fallback.primaryContainer),
       onPrimaryContainer:
-          withAlpha(read('onPrimaryContainer'), base.onPrimaryContainer),
+          pick('onPrimaryContainer', fallback.onPrimaryContainer),
+      secondary: pick('secondary', fallback.secondary),
+      onSecondary: pick('onSecondary', fallback.onSecondary),
       secondaryContainer:
-          withAlpha(read('secondaryContainer'), base.secondaryContainer),
+          pick('secondaryContainer', fallback.secondaryContainer),
       onSecondaryContainer:
-          withAlpha(read('onSecondaryContainer'), base.onSecondaryContainer),
-      tertiaryContainer:
-          withAlpha(read('tertiaryContainer'), base.tertiaryContainer),
+          pick('onSecondaryContainer', fallback.onSecondaryContainer),
+      tertiary: pick('tertiary', fallback.tertiary),
+      onTertiary: pick('onTertiary', fallback.onTertiary),
+      tertiaryContainer: pick('tertiaryContainer', fallback.tertiaryContainer),
       onTertiaryContainer:
-          withAlpha(read('onTertiaryContainer'), base.onTertiaryContainer),
+          pick('onTertiaryContainer', fallback.onTertiaryContainer),
+      error: pick('error', fallback.error),
+      onError: pick('onError', fallback.onError),
+      surface: pick('surface', fallback.surface),
+      onSurface: pick('onSurface', fallback.onSurface),
+      surfaceContainerLowest:
+          pick('surfaceContainerLowest', fallback.surfaceContainerLowest),
+      surfaceContainerLow:
+          pick('surfaceContainerLow', fallback.surfaceContainerLow),
+      surfaceContainer: pick('surfaceContainer', fallback.surfaceContainer),
+      surfaceContainerHigh:
+          pick('surfaceContainerHigh', fallback.surfaceContainerHigh),
+      surfaceContainerHighest:
+          pick('surfaceContainerHighest', fallback.surfaceContainerHighest),
+      outline: pick('outline', fallback.outline),
+      outlineVariant: pick('outlineVariant', fallback.outlineVariant),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'AstraMai',
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(dynamicScheme: _dynamicScheme),
+      theme: buildTheme(
+        dynamicScheme: _dynamicScheme,
+        brightness: MediaQuery.platformBrightnessOf(context),
+      ),
       home: const _Placeholder(),
     );
   }
@@ -131,13 +182,27 @@ class _Placeholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    // 动态色有没有生效 —— 这是这个页面最想验证的东西
+    final dynamic = Theme.of(context).colorScheme.primary !=
+        buildTheme().colorScheme.primary;
+
     return Scaffold(
       appBar: AppBar(title: const Text('AstraMai')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _Section(
-            title: '主题色（跟着壁纸变）',
+            title: '平台',
+            child: Text(
+              'AstraPlatform.label = ${AstraPlatform.label}\n'
+              '支持动态取色 = ${AstraPlatform.maySupportDynamicColor}\n'
+              '当前是否动态 = $dynamic',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(height: 24),
+          _Section(
+            title: '主题色（Android 12+ 跟壁纸变）',
             child: Wrap(
               spacing: 8,
               runSpacing: 8,

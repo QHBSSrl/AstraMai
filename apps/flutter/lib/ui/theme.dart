@@ -37,11 +37,22 @@ const Color seedColor = Color(0xFF4FD6FF);
 /// [dynamicScheme] 传 `DynamicSchemeVariant.tonalSpot` 之类是给
 /// `dynamic_color` 包用的；这里只接收一个已经算好的 [ColorScheme]，
 /// 让调用方决定从哪来（壁纸 / 种子）。
-ThemeData buildTheme({ColorScheme? dynamicScheme}) {
+ThemeData buildTheme({ColorScheme? dynamicScheme, Brightness? brightness}) {
+  /*
+   * ── 兜底色板要跟随系统，不能写死深色 ──────────────────────────────
+   *
+   * 原来的兜底是 Brightness.dark —— 但 Android 12+ 拿到动态色之后，
+   * 原生返回的 isDark 是**系统当前是不是深色模式**。
+   *
+   * 如果系统是浅色，动态色是浅色的，而兜底还写死深色 ——
+   * 两套主题切换时就会闪一下，而且 iOS / 鸿蒙上的视觉和 Android 不一致。
+   *
+   * 所以兜底也跟随系统。MD3 本来就该这样。
+   */
   final scheme = dynamicScheme ??
       ColorScheme.fromSeed(
         seedColor: seedColor,
-        brightness: Brightness.dark,
+        brightness: brightness ?? Brightness.dark,
       );
 
   return ThemeData(
@@ -152,6 +163,8 @@ class DifficultyColors {
     Color(0xFFE5E7EB), // Re:Master 白
   ];
 
+  /// ⚠️ Re:Master 是白色，浅色主题下需要给色块加边框才看得见。
+  /// 界面代码里记得 Border.all(color: Theme.of(context).colorScheme.outlineVariant)。
   static Color of(int levelIndex) =>
       levelIndex >= 0 && levelIndex < colors.length
           ? colors[levelIndex]
