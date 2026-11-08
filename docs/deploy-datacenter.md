@@ -1,130 +1,198 @@
-# 机房部署方案（frp vs Cloudflare Tunnel）
+# 机房部署方案（混合：frp + Cloudflare Tunnel）
 
-> 2026-11-08。机房有公网但**开不了端口**，所以只能内网穿透。
+> 2026-11-08。机房有公网但**开不了端口**。
 >
-> **结论：用 Cloudflare Tunnel，不用 frp。**
+> **最终选择：哪条路快走哪条。**
+>
+> - **Casdoor → frp**（阿里云中转）—— 登录页对延迟敏感
+> - **API → Cloudflare Tunnel** —— 纯 JSON，Tunnel 够用
 
 ---
 
-## 一、为什么不用 frp
+## 一、为什么分开走
 
-frp 能用，但它需要一个**一直开着的公网服务器**当 frps。
-我们手上只有那台阿里云（2 核 / 1676 MB）。
+### Casdoor 为什么不能用 Tunnel
 
-这带来三个问题：
+登录页是**一整套 HTML + CSS + JS + 字体 + 图片**，首屏要拉十几个资源。
 
-| 问题 | 说明 |
-|---|---|
-| **带宽是瓶颈** | 阿里云那台的出网带宽很有限。所有 API 响应、所有封面图都要过它一遍 |
-| **单点故障** | 那台挂了，机房里再多的机器也没用 |
-| **还要自己搞证书** | certbot 要配，续期要管，忘了就全站 502 |
+Cloudflare 免费版回源到中国大陆**没有优化线路**，每个资源都多几十到几百毫秒。
+十几个资源叠加，登录页会转圈好几秒。
 
-**frp 的本质是「把公网服务器当跳板」。** 我们明明有 Cloudflare，不需要这个跳板。
+**玩家第一次用 App 就卡在登录页，这个第一印象很致命。**
 
----
+### API 为什么可以用 Tunnel
 
-## 二、Cloudflare Tunnel 是什么
+API 返回的是**几 KB 的 JSON**，一次请求一次响应，没有子资源。
 
-`cloudflared` 在机房里跑，**主动向 Cloudflare 建立出站连接**（和 frpc 一样），
-Cloudflare 边缘把请求转发进来。
+多几十毫秒用户感知不到 —— 而且 Tunnel 免费、自动 HTTPS、有 DDoS 防护。
 
-```
-用户 → Cloudflare 边缘（全球 300+ 节点）→ 隧道 → 机房
-```
+### frp 为什么对 Casdoor 更好
 
-**对比 frp：**
+阿里云在国内，机房也在国内，**frp 是这两台机器之间直连**，延迟就是一次 RTT。
 
-| | frp + 阿里云 | Cloudflare Tunnel |
-|---|---|---|
-| 需要公网服务器 | ✅ 必须 | ❌ 不需要 |
-| 需要开端口 | ❌ 出站就行 | ❌ 出站就行 |
-| HTTPS 证书 | 自己签、自己续 | **自动** |
-| 带宽 | 阿里云的 | **Cloudflare 的** |
-| 抗攻击 | 无 | **有 DDoS 防护** |
-| 成本 | 阿里云月费 | **免费** |
-| 延迟 | 机房 → 阿里云 → 用户 | 机房 → 最近边缘 → 用户 |
-
-**而且我们已经在用 Cloudflare 了** —— Worker 和 Pages 都在上面，域名也托管着。
-再加一个 Tunnel 是零成本的。
+而且 Casdoor 的流量不大 —— **只有登录时才访问**，不像 API 每次查分都走。
+所以占阿里云带宽这件事不严重。
 
 ---
 
-## 三、建议的最终架构
+## 二、架构
 
 ```
 │
-├─ Flutter App（三端）
+├─ auth.astramai.astranexus.cn   （Casdoor）
 │     │
-│     ├─ auth.astramai.astranexus.cn   ← Casdoor（OIDC）
-│     └─ api.astramai.astranexus.cn    ← AstraMai server
+│     │  DNS → 阿里云 101.132.148.117
+│     ▼
+│   阿里云
+│     nginx（443，Let's Encrypt 证书）
+│       ↓ 反代 127.0.0.1:8000
+│     frps（bind 127.0.0.1:8000）
+│       ↓ frp 隧道（TCP，出站）
+│   机房
+│     frpc → casdoor:8000
 │
-└─ 全部指向 Cloudflare Tunnel
-        │
-        ▼
-┌──────────────────────────────────────────┐
-│ 机房（R730XD 或一台 IR5280M6）             │
-│                                          │
-│   cloudflared                            │
-│     ├─ → casdoor:8000                    │
-│     └─ → astramai-server:8787            │
-│                                          │
-│   casdoor        ← 账号 + OIDC            │
-│   postgres       ← Casdoor 的库           │
-│   astramai-server                        │
-│   redis          ← 缓存（可选）            │
-│                                          │
-│   全部 Docker Compose                      │
-└──────────────────────────────────────────┘
+└─ api.astramai.astranexus.cn   （AstraMai API）
+      │
+      │  DNS → Cloudflare（橙色云）
+      ▼
+    Cloudflare Tunnel
+      ↓ cloudflared 出站
+    机房
+      astramai-server:8787
 ```
 
-**阿里云那台可以退休了** —— 或者只留一个备用入口。
+**两条路互不影响。** 任意一条挂了，另一条照常。
 
 ---
 
-## 四、部署步骤（粗略）
+## 三、frp 那半边的具体做法
 
-### 1. Cloudflare 侧
+### 阿里云侧（frps）
+
+```ini
+# /etc/frp/frps.ini
+[common]
+bind_addr = 127.0.0.1
+bind_port = 7000
+
+# 只开这一个 token，别用默认的空
+token = <生成一个长的随机串>
+
+# 管理面板（可选，本地开就行）
+dashboard_addr = 127.0.0.1
+dashboard_port = 7500
+```
+
+**⚠️ 三个安全要点：**
+
+1. **`bind_addr = 127.0.0.1`** —— 不要 `0.0.0.0`。
+   frps 不需要从公网直接访问，只让 frpc 连。
+
+2. **必须设 `token`** —— 不设的话任何人都能把隧道挂到你服务器上。
+
+3. **防火墙只放 7000** —— 别把 7500 管理面板也放出去。
 
 ```bash
-# 在机房机器上装 cloudflared
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
+# systemd
+[Unit]
+Description=frps
+After=network.target
 
-# 登录（会打开浏览器授权）
-cloudflared tunnel login
+[Service]
+ExecStart=/usr/local/bin/frps -c /etc/frp/frps.ini
+Restart=always
 
-# 建隧道
-cloudflared tunnel create astramai
+[Install]
+WantedBy=multi-user.target
 ```
 
-然后在 Cloudflare 控制台或配置里加路由：
+### 机房侧（frpc）
+
+```ini
+# /etc/frp/frpc.ini
+[common]
+server_addr = 101.132.148.117
+server_port = 7000
+token = <和 frps 一致>
+
+[casdoor]
+type = tcp
+local_ip = 127.0.0.1
+local_port = 8000
+remote_port = 8000
+```
+
+**⚠️ `remote_port` 只在阿里云的 `127.0.0.1` 上监听** —— 因为 frps 的
+`bind_addr` 是 127.0.0.1，所以这个端口不会暴露给公网，只有 nginx 能连。
+
+### 阿里云侧（nginx）
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name auth.astramai.astranexus.cn;
+
+    ssl_certificate     /etc/letsencrypt/live/auth.astramai.astranexus.cn/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/auth.astramai.astranexus.cn/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Casdoor 的登录流程里有重定向，这些头必须传对，
+        # 不然 Casdoor 会生成 http:// 的回调地址，然后被浏览器拦
+    }
+}
+```
+
+**⚠️ `X-Forwarded-Proto $scheme` 是关键。**
+Casdoor 用它拼回调 URL。漏了的话用户登录完会卡在
+「重定向 URI 不匹配」，而且日志里看不出来。
+
+证书用 certbot：
+
+```bash
+certbot --nginx -d auth.astramai.astranexus.cn
+```
+
+**⚠️ 阿里云那台只有 1676 MB。** nginx + frps 大概 60 MB，够。
+但**不要再往它上面加东西**。
+
+---
+
+## 四、Tunnel 那半边的具体做法
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create astramai-api
+cloudflared tunnel route dns astramai-api api.astramai.astranexus.cn
+```
 
 ```yaml
 # ~/.cloudflared/config.yml
 tunnel: <tunnel-id>
 credentials-file: /root/.cloudflared/<tunnel-id>.json
-
 ingress:
-  - hostname: auth.astramai.astranexus.cn
-    service: http://localhost:8000
   - hostname: api.astramai.astranexus.cn
     service: http://localhost:8787
   - service: http_status:404
 ```
 
 ```bash
-# DNS 也自动建（CNAME 到 tunnel）
-cloudflared tunnel route dns astramai auth.astramai.astranexus.cn
-cloudflared tunnel route dns astramai api.astramai.astranexus.cn
-
-# 装成系统服务
 cloudflared service install
 ```
 
-### 2. 机房侧
+**⚠️ Cloudflare 免费版单请求 100 秒上限。**
+服务端自己要 15 秒超时 —— 现在的实现已经有，别改大。
+
+---
+
+## 五、机房侧完整的 docker-compose
 
 ```yaml
-# docker-compose.yml
 services:
   postgres:
     image: postgres:16-alpine
@@ -144,67 +212,59 @@ services:
     restart: unless-stopped
 
   astramai-server:
-    image: <我们的镜像>
+    build: .
     ports: ['8787:8787']
     env_file: .env
     restart: unless-stopped
+
+  frpc:
+    image: snowdreamtech/frpc:latest
+    volumes:
+      - ./frpc.ini:/etc/frp/frpc.ini:ro
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    volumes:
+      - ./cloudflared:/root/.cloudflared:ro
+    restart: unless-stopped
 ```
 
-**这次可以在机器上直接 `docker compose build`** —— 不用再来回传。
-
-### 3. Casdoor 初始化
-
-第一次访问 `https://auth.astramai.astranexus.cn` 会引导建管理员，然后：
-
-- 建组织：`astramai`
-- 建应用：`astramai-app`（OIDC）
-- 重定向 URI：`astramai://callback`
-- 拿到 `client_id` / `client_secret`
+**新增：frpc 和 cloudflared 都放进来** —— 两个都是出站，互不干扰。
 
 ---
 
-## 五、必须提前想到的三个坑
+## 六、还剩的问题
 
-### ① Cloudflare 的 100 秒超时
+### ① 证书续期
 
-**Cloudflare 免费版对单个请求有 100 秒上限。**
+阿里云上的 Let's Encrypt 证书 90 天过期。certbot 的 systemd timer 会自动续，
+但要**确认它真的跑起来了**：
 
-我们的接口一般 1-3 秒，没问题。但**如果某个查询超过 100 秒会直接断**，
-而不是返回我们的超时错误。
+```bash
+systemctl status certbot.timer
+certbot renew --dry-run
+```
 
-**要确保服务端自己先超时**（现在是 15 秒），别让它跑到 100 秒。
+**忘了这件事的话，90 天后登录页会直接证书错误。**
 
-### ② 上传大小限制
+### ② 阿里云带宽
 
-**免费版单请求 100 MB。** 我们目前没有上传，不受影响。
-但以后要做成绩图分享，要注意。
+frp 走 TCP，登录页的资源都过它。**如果带宽只有 1-2 Mbps**，
+登录页首屏可能要好几秒。
 
-### ③ WebSocket / SSE
+**上线前要实测**：用手机 4G 打开 `https://auth.astramai.astranexus.cn`，
+看多久能出登录框。
 
-如果要加实时推送，**Cloudflare 支持 WebSocket**，但不支持 `/events` 这类长轮询流。
-现在的架构不需要，记着就行。
+**如果太慢**，退路是：
+- 让 Casdoor 用更小的主题（它默认那个背景图挺大）
+- 或者升级阿里云带宽
 
----
+### ③ 还是那个没答的问题
 
-## 六、迁移顺序（保守）
+**「TwinkleAstra 账号体系」是已有 Casdoor 实例，还是从零建？**
 
-| 阶段 | 做什么 | 风险 |
-|---|---|---|
-| **1** | 机房起 Postgres + Casdoor，Tunnel 只暴露 auth | 低 —— 挂了不影响查分 |
-| **2** | App 接入登录，验证 OIDC 流程 | 中 —— 要改 App |
-| **3** | 服务端加 JWT 校验 | 中 |
-| **4** | 把 AstraMai server 也搬过去，Tunnel 加 api | 高 —— 查分是核心功能 |
-| **5** | 阿里云降级或退掉 | 低 |
-
-**⚠️ 第 4 步是唯一有真实风险的** —— 查分挂了用户立刻会骂。
-建议先**双跑**：两个地址都能查，观察一周再切。
-
----
-
-## 七、还要你确认的
-
-1. **`astranexus.cn` 的 DNS 是不是完全在 Cloudflare？**（Worker 用了它，应该是在）
-2. **机房那台机器装 Linux 了吗？** 什么发行版？
-3. **「TwinkleAstra 账号体系」** —— 已有 Casdoor 实例，还是从零建？
-
-第 3 条还是最关键的 —— 决定我们是「配一个 OIDC 应用」还是「建整套」。
+这个不定，上面所有配置都不能落地 —— 因为：
+- 已有实例 → 我们只建一个「应用」，不建组织和库
+- 从零建 → 要建组织、要配 SMTP（找回密码要用）、要考虑用户迁移
