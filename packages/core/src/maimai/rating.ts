@@ -87,13 +87,30 @@ export const RATE_THRESHOLDS: readonly { rate: RateType; minimum: number }[] = [
  *
  * 落雪 API 使用百分数（`100.5`）；部分数据源使用万分位（`1005000`）。
  * 这里统一折算为百分数，并夹在 [0, 101] 内。
+ *
+ * ⚠️ **不能一刀切「超过 101 就除以 10000」。**
+ *
+ * 200 除以 10000 是 0.02 —— 会被当成 0.02%，然后按「低于 10% 不计分」
+ * 算成 0 分。那首本来满分的歌会变成 0。
+ *
+ * 判据：除以 10000 之后至少要有 1%，才认为它确实是万分位；
+ * 否则就是脏数据，按封顶值处理。
  */
 export function normalizeAchievement(achievement: number): number {
   if (!Number.isFinite(achievement)) return 0;
-  const percent = achievement > ACHIEVEMENT_MAX && achievement <= ACHIEVEMENT_MAX * 10_000
-    ? achievement / 10_000
-    : achievement;
-  return Math.min(Math.max(percent, 0), ACHIEVEMENT_MAX);
+
+  // 百分数：0 ~ 101，直接用
+  if (achievement <= ACHIEVEMENT_MAX) {
+    return Math.min(Math.max(achievement, 0), ACHIEVEMENT_MAX);
+  }
+
+  const asTenThousandths = achievement / 10_000;
+  if (asTenThousandths >= 1) {
+    return Math.min(Math.max(asTenThousandths, 0), ACHIEVEMENT_MAX);
+  }
+
+  // 既不是有意义的百分数，也不是有意义的万分位 —— 按封顶值
+  return ACHIEVEMENT_MAX;
 }
 
 /** 按达成率取ランク係数；低于 10% 时为 0。 */

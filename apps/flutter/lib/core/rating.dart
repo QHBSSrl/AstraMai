@@ -73,12 +73,26 @@ const List<RatingCoefficientStep> dxRatingCoefficients = [
 double normalizeAchievement(double achievement) {
   if (!achievement.isFinite) return 0;
 
-  final percent =
-      achievement > achievementMax && achievement <= achievementMax * 10000
-          ? achievement / 10000
-          : achievement;
+  // 百分数：0 ~ 101，直接用
+  if (achievement <= achievementMax) {
+    return achievement.clamp(0.0, achievementMax);
+  }
 
-  return percent.clamp(0.0, achievementMax);
+  /*
+   * 超过 101 的可能是万分位（1005000 = 100.5），也可能是脏数据（200）。
+   *
+   * ⚠️ 不能一刀切除以 10000 —— 200 / 10000 = 0.02，会被当成 0.02%，
+   * 然后按「低于 10% 不计分」算成 0 分。那首本来满分的歌会变成 0。
+   *
+   * 判据：除以 10000 之后至少要有 1%，才认为它确实是万分位。
+   * 否则（除以 10000 后还不到 1）就是脏数据，按封顶值处理。
+   */
+  final asTenThousandths = achievement / 10000;
+  if (asTenThousandths >= 1) {
+    return asTenThousandths.clamp(0.0, achievementMax);
+  }
+
+  return achievementMax;
 }
 
 /// 按达成率取系数。低于 10% 时是 0。
