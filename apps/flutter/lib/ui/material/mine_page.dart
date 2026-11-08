@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/profile_store.dart';
+import 'sync_page.dart';
 
 /// 「我的」Tab。
 ///
@@ -81,6 +82,7 @@ class _MineTabState extends State<MineTab> {
             _buildAccountCard(context),
             const SizedBox(height: 20),
             _buildBindings(context),
+            _buildSyncEntry(context),
             const SizedBox(height: 8),
             _buildAbout(context),
           ],
@@ -198,6 +200,48 @@ class _MineTabState extends State<MineTab> {
     );
   }
 
+  /// 手表同步入口。
+  ///
+  /// 放「我的」而不是首页 —— 这是个**偶尔用**的功能，不是每次打开都要点。
+  Widget _buildSyncEntry(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(
+              '手表',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: ListTile(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SyncToWatchPage()),
+              ),
+              leading: Icon(Icons.watch, size: 22, color: scheme.primary),
+              title: const Text('同步到手表'),
+              subtitle: const Text('生成配对码，手表输码就能看'),
+              trailing: Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: scheme.outline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   Widget _buildAbout(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
