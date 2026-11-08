@@ -61,27 +61,15 @@
     </block>
 
     <!--
-      网桥：没有网络的设备（手环）靠 AstroBox 插件中转上网。
-      手表自己能上网，用不上这个 —— 所以只在连不上时才有意义。
+      网桥功能暂时下线。
 
-      这里放一行「测试连接」，是因为网桥涉及三个东西：
-        Vela App ↔ AstroBox 插件 ↔ 我们的服务器
-      任何一环断了，用户看到的现象都是"查不出成绩"，
-      没有这个诊断入口就只能靠猜。
+      手环通过 AstroBox 插件上网这条链路，真机上一直没跑通 ——
+      「测试连接」点不动、握手超时、甚至整个表卡死重启。
+      与其让用户看到一个永远失败的功能，不如先藏起来。
+
+      代码（fetchbridge.js / bridge-fetch.js）还在，api.js 的降级逻辑也还在，
+      只是界面上不给入口了。等哪天真机验证通过再放出来。
     -->
-    <text class="section">网桥</text>
-    <div class="rows">
-      <div class="row" @click="testBridge">
-        <text class="row__label">测试连接</text>
-        <text class="row__mark">{{ bridgeState }}</text>
-      </div>
-      <div class="row" @click="toggleBridgeMode">
-        <text class="row__label">传输方式</text>
-        <text class="row__mark">{{ bridgeModeLabel }}</text>
-      </div>
-    </div>
-    <text class="hint" if="{{ bridgeNotice }}">{{ bridgeNotice }}</text>
-    <text class="hint" if="{{ bridgeHint }}">{{ bridgeHint }}</text>
 
     <!--
       重看引导。
