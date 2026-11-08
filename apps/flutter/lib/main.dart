@@ -287,19 +287,24 @@ class _Swatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 96,
-      height: 48,
+      width: 104,
+      height: 52,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(10),
       ),
       alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
         label,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: onColor,
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.w600,
+          height: 1.2,
         ),
       ),
     );
