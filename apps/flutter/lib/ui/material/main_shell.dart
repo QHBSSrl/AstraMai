@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'home_page.dart';
+import 'mine_page.dart';
 
 /// 应用外壳：dock 栏 + 三个页面。
 ///
@@ -36,11 +37,7 @@ class _MainShellState extends State<MainShell> {
             title: '查询',
             hint: '查别人的分\n（还没做）',
           ),
-          _PlaceholderTab(
-            icon: Icons.person,
-            title: '我的',
-            hint: '账号 / 设置 / 关于\n（还没做）',
-          ),
+          MineTab(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

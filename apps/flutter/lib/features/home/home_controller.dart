@@ -205,8 +205,9 @@ class HomeController extends ChangeNotifier {
   // ── 各游戏的适配 ────────────────────────────────────────────────────
 
   Future<GameSummary> _loadMaimai(String binding) async {
+    // 好友码是 15 位，QQ 号 5-11 位 —— 用长度区分
     final friendCode = int.tryParse(binding);
-    final view = friendCode != null && binding.length >= 10
+    final view = friendCode != null && binding.length >= 15
         ? await _maimai.b50ByFriendCode(friendCode)
         : await _maimai.b50ByQq(binding);
 
@@ -231,7 +232,7 @@ class HomeController extends ChangeNotifier {
 
   Future<GameSummary> _loadChunithm(String binding) async {
     // 中二和舞萌共用 readPlayerParams（code / qq）
-    final query = binding.length >= 10
+    final query = binding.length >= 15
         ? 'code=${Uri.encodeComponent(binding)}'
         : 'qq=${Uri.encodeComponent(binding)}';
 
