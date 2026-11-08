@@ -54,7 +54,10 @@ class GameSummary {
   /// 小指标（标签 + 值），最多显示三个。
   final List<(String, String)> extras;
 
-  /// 前几条成绩，用于卡片底部的预览。
+  /// 成绩列表（首页下半部分用）。
+  ///
+  /// 舞萌 50 条 / 中二 30 条 / osu 50 条。不是只取前三条 ——
+  /// head 卡片只占顶部，下面整个列表都要用这份数据。
   final List<SummaryScore> topScores;
 
   final bool loading;
@@ -222,7 +225,7 @@ class HomeController extends ChangeNotifier {
         ('新曲', '${view.stats.dxTotal}'),
         ('平均定数', view.stats.averageLevelValue.toStringAsFixed(2)),
       ],
-      topScores: scores.take(3).map(_toSummaryScore).toList(),
+      topScores: scores.take(50).map(_toSummaryScore).toList(),
     );
   }
 
@@ -253,7 +256,7 @@ class HomeController extends ChangeNotifier {
         ('最高', ((stats['maxRating'] as num?) ?? 0).toStringAsFixed(2)),
         ('B30 均', ((stats['averageRating'] as num?) ?? 0).toStringAsFixed(2)),
       ],
-      topScores: bests.take(3).map((raw) {
+      topScores: bests.take(30).map((raw) {
         final item = raw as Map<String, dynamic>;
         return SummaryScore(
           title: item['title'] as String? ?? '',
@@ -288,7 +291,7 @@ class HomeController extends ChangeNotifier {
         ('准确率', ((player['accuracy'] as num?) ?? 0).toStringAsFixed(2)),
         ('等级', '${player['level'] ?? 0}'),
       ],
-      topScores: plays.take(3).map((raw) {
+      topScores: plays.take(50).map((raw) {
         final item = raw as Map<String, dynamic>;
         return SummaryScore(
           title: item['title'] as String? ?? '',

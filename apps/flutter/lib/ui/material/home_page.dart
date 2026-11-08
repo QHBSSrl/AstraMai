@@ -6,30 +6,31 @@ import '../theme.dart';
 
 /// 首页（Material 3 实现）。
 ///
-/// ── 结构 ────────────────────────────────────────────────────────────
+/// ── 布局 ────────────────────────────────────────────────────────────
 ///
-/// 上半是一个可左右滑动的卡片区（每个游戏一张），下半固定显示当前游戏
-/// 的绑定信息或快捷入口。
+/// head 卡片**只占顶部一块**，下面是当前游戏的成绩列表：
 ///
 ///   ┌─────────────────────────┐
-///   │  ← 滑动切换  →           │
-///   │  ┌───────────────────┐   │
-///   │  │ 舞萌 DX            │   │
-///   │  │ QBHSSrl            │   │
-///   │  │      15,023        │   │  ← 巨大数字
-///   │  │      虹             │   │
-///   │  │  旧曲 8396 新曲 3642 │   │
-///   │  │  ─────────────     │   │
-///   │  │  前三首成绩预览      │   │
-///   │  └───────────────────┘   │
-///   │      ● ○ ○ ○           │   │
+///   │ AstraMai            ⟳   │
+///   │ ┌─────────────────────┐ │
+///   │ │ 舞萌 DX        [虹]  │ │
+///   │ │ QBHSSrl             │ │
+///   │ │  15,023  DX Rating  │ │  ← head 卡片，固定高度
+///   │ │ 旧曲8396 新曲3642    │ │
+///   │ └─────────────────────┘ │
+///   │     ● ○ ○ ○             │
+///   ├─────────────────────────┤
+///   │ B50             按Rating │
+///   │ ┌─────────────────────┐ │
+///   │ │▎曲名   Mas 14.2  298│ │  ← 列表，跟着卡片切换
+///   │ └─────────────────────┘ │
+///   │ ┌─────────────────────┐ │
+///   │ │▎曲名   Exp 13.5  271│ │
+///   │ └─────────────────────┘ │
 ///   └─────────────────────────┘
 ///
-/// ── 为什么卡片要滑动而不是 Tab ──────────────────────────────────────
-///
-/// Tab 会让四个游戏"平等"，但玩家的实力分布从来不是平的 ——
-/// 大多数人只认真玩一两个。滑动让"主游戏"能在第一页，
-/// 其他游戏滑一下就到，不占视觉权重。
+/// ⚠️ 第一版我做成了「整页一张卡片」，那是错的 ——
+/// head 是页头，不是页面本身。
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -40,6 +41,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _controller = HomeController();
   final _pageController = PageController();
+
+  /// head 卡片区的高度。
+  ///
+  /// 固定而不是让内容撑 —— 不然切到一个没绑定的游戏时卡片会突然变高，
+  /// 下面的列表跟着跳，很晃眼睛。
+  static const double _headHeight = 176;
 
   @override
   void initState() {
@@ -60,31 +67,64 @@ class _HomePageState extends State<HomePage> {
       animation: _controller,
       builder: (context, _) {
         final scheme = Theme.of(context).colorScheme;
+        final current = _controller.games[_controller.index];
+        final summary = _controller.summaryOf(current);
 
         return Scaffold(
           backgroundColor: scheme.surface,
           body: SafeArea(
             bottom: false,
-            child: Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: _controller.games.length,
-                    onPageChanged: _controller.select,
-                    itemBuilder: (context, index) {
-                      final game = _controller.games[index];
-                      return _GameCard(
-                        summary: _controller.summaryOf(game),
-                        onBind: () => _showBindSheet(game),
-                        onRefresh: () => _controller.refresh(game),
-                      );
-                    },
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _buildHeader(context)),
+
+                // ── head 卡片区（横向滑动）──────────────────────────────
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: _headHeight,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _controller.games.length,
+                      onPageChanged: _controller.select,
+                      itemBuilder: (context, index) {
+                        final game = _controller.games[index];
+                        return _HeadCard(
+                          summary: _controller.summaryOf(game),
+                          onBind: () => _showBindSheet(game),
+                          onRetry: () => _controller.refresh(game),
+                        );
+                      },
+                    ),
                   ),
                 ),
-                _buildIndicator(context),
-                const SizedBox(height: 16),
+
+                SliverToBoxAdapter(child: _buildIndicator(context)),
+                SliverToBoxAdapter(child: _buildListHeader(context, summary)),
+
+                // ── 列表（跟着 head 切换）──────────────────────────────
+                if (summary.loading)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (summary.topScores.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyList(summary: summary),
+                  )
+                else
+                  SliverList.builder(
+                    itemCount: summary.topScores.length,
+                    itemBuilder: (context, index) => Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        index == 0 ? 4 : 4,
+                        16,
+                        index == summary.topScores.length - 1 ? 24 : 0,
+                      ),
+                      child: _ScoreTile(score: summary.topScores[index]),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -94,9 +134,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHeader(BuildContext context) {
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
       child: Row(
         children: [
           Text(
@@ -117,34 +156,69 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// 页码指示器。
-  ///
-  /// 用拉长的胶囊而不是圆点 —— 圆点在四个的时候还行，以后加到六个
-  /// 就分不清了。
   Widget _buildIndicator(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var i = 0; i < _controller.games.length; i++)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: i == _controller.index ? 20 : 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: i == _controller.index
-                  ? scheme.primary
-                  : scheme.outlineVariant,
-              borderRadius: BorderRadius.circular(3),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < _controller.games.length; i++)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: i == _controller.index ? 20 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: i == _controller.index
+                    ? scheme.primary
+                    : scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(3),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
-  /// 绑定弹窗。
+  Widget _buildListHeader(BuildContext context, GameSummary summary) {
+    final scheme = Theme.of(context).colorScheme;
+
+    // 列表标题跟着游戏变
+    final title = switch (summary.game) {
+      GameId.maimai => 'B50',
+      GameId.chunithm => 'B30',
+      GameId.osu => 'Best Plays',
+      GameId.phigros => 'RKS',
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 8, 4),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const Spacer(),
+          if (summary.topScores.isNotEmpty)
+            Text(
+              '共 ${summary.topScores.length} 条',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showBindSheet(GameId game) async {
     final current = _controller.bindings[game] ?? '';
     final input = TextEditingController(text: current);
@@ -221,55 +295,58 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// 一张游戏卡片。
-class _GameCard extends StatelessWidget {
-  const _GameCard({
+/// head 卡片 —— 只占顶部一条，不是整页。
+class _HeadCard extends StatelessWidget {
+  const _HeadCard({
     required this.summary,
     required this.onBind,
-    required this.onRefresh,
+    required this.onRetry,
   });
 
   final GameSummary summary;
   final VoidCallback onBind;
-  final VoidCallback onRefresh;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Container(
         decoration: BoxDecoration(
           color: scheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
         ),
         clipBehavior: Clip.antiAlias,
         child: summary.loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+              )
             : summary.error != null
-                ? _ErrorContent(
-                    game: summary.game,
+                ? _ErrorHead(
                     message: summary.error!,
-                    onRetry: onRefresh,
+                    onRetry: onRetry,
                     onBind: onBind,
                   )
                 : !summary.bound
-                    ? _UnboundContent(game: summary.game, onBind: onBind)
+                    ? _UnboundHead(game: summary.game, onBind: onBind)
                     : summary.needsLogin
-                        ? _LoginContent(game: summary.game, onBind: onBind)
-                        : _BoundContent(summary: summary, onRefresh: onRefresh),
+                        ? _LoginHead(game: summary.game, onBind: onBind)
+                        : _BoundHead(summary: summary),
       ),
     );
   }
 }
 
-/// 已绑定 —— 正常展示。
-class _BoundContent extends StatelessWidget {
-  const _BoundContent({required this.summary, required this.onRefresh});
+class _BoundHead extends StatelessWidget {
+  const _BoundHead({required this.summary});
 
   final GameSummary summary;
-  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -280,24 +357,25 @@ class _BoundContent extends StatelessWidget {
         ? scheme.primary
         : _hex(summary.tierColor!) ?? scheme.primary;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             children: [
-              Icon(_iconOf(summary.game), size: 18, color: scheme.primary),
-              const SizedBox(width: 8),
+              Icon(_iconOf(summary.game), size: 16, color: scheme.primary),
+              const SizedBox(width: 6),
               Text(
                 summary.game.label,
-                style: text.labelLarge?.copyWith(color: scheme.primary),
+                style: text.labelMedium?.copyWith(color: scheme.primary),
               ),
               const Spacer(),
               if (summary.tierLabel != null)
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: tierColor.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(999),
@@ -312,125 +390,65 @@ class _BoundContent extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          const Spacer(),
           Text(
             summary.playerName,
-            style: text.titleMedium?.copyWith(
+            style: text.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
-          // 主角：大数字
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
                 summary.primaryValue,
-                style: text.displayLarge?.copyWith(
+                style: text.displaySmall?.copyWith(
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -2,
+                  letterSpacing: -1.5,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(width: 8),
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   summary.game.primaryLabel,
-                  style: text.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  style:
+                      text.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ),
             ],
           ),
-          if (summary.extras.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 20,
-              runSpacing: 8,
+          const Spacer(),
+          if (summary.extras.isNotEmpty)
+            Row(
               children: [
-                for (final (label, value) in summary.extras)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                for (var i = 0; i < summary.extras.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 20),
+                  Row(
                     children: [
                       Text(
-                        value,
-                        style: text.titleSmall?.copyWith(
+                        summary.extras[i].$2,
+                        style: text.labelMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
+                      const SizedBox(width: 4),
                       Text(
-                        label,
+                        summary.extras[i].$1,
                         style: text.labelSmall
                             ?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ],
                   ),
+                ],
               ],
             ),
-          ],
-          if (summary.topScores.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Text(
-              '最近的好成绩',
-              style: text.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 10),
-            for (final score in summary.topScores)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 3,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: DifficultyColors.of(score.levelIndex),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            score.title,
-                            style: text.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            score.detail,
-                            style: text.labelSmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      score.value,
-                      style: text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
         ],
       ),
     );
@@ -444,9 +462,8 @@ class _BoundContent extends StatelessWidget {
   }
 }
 
-/// 没绑定。
-class _UnboundContent extends StatelessWidget {
-  const _UnboundContent({required this.game, required this.onBind});
+class _UnboundHead extends StatelessWidget {
+  const _UnboundHead({required this.game, required this.onBind});
 
   final GameId game;
   final VoidCallback onBind;
@@ -456,37 +473,48 @@ class _UnboundContent extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(_iconOf(game), size: 48, color: scheme.outline),
-            const SizedBox(height: 16),
-            Text(game.label, style: text.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              '还没绑定${game.bindingLabel}',
-              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              textAlign: TextAlign.center,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_iconOf(game), size: 16, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(
+                game.label,
+                style: text.labelMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            '还没绑定${game.bindingLabel}',
+            style: text.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onBind,
-              icon: const Icon(Icons.link, size: 18),
-              label: Text('绑定${game.bindingLabel}'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: onBind,
+            icon: const Icon(Icons.link, size: 16),
+            label: Text('绑定${game.bindingLabel}'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              visualDensity: VisualDensity.compact,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Phigros 要登录。
-class _LoginContent extends StatelessWidget {
-  const _LoginContent({required this.game, required this.onBind});
+class _LoginHead extends StatelessWidget {
+  const _LoginHead({required this.game, required this.onBind});
 
   final GameId game;
   final VoidCallback onBind;
@@ -496,44 +524,51 @@ class _LoginContent extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(_iconOf(game), size: 48, color: scheme.outline),
-            const SizedBox(height: 16),
-            Text(game.label, style: text.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              'Phigros 需要扫码登录 TapTap 才能查成绩\n（不像另外三个能直接查）',
-              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              textAlign: TextAlign.center,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_iconOf(game), size: 16, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(
+                game.label,
+                style: text.labelMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            '需要扫码登录 TapTap',
+            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: onBind,
+            icon: const Icon(Icons.qr_code, size: 16),
+            label: const Text('登录'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              visualDensity: VisualDensity.compact,
             ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onBind,
-              icon: const Icon(Icons.qr_code, size: 18),
-              label: const Text('登录'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// 出错。
-class _ErrorContent extends StatelessWidget {
-  const _ErrorContent({
-    required this.game,
+class _ErrorHead extends StatelessWidget {
+  const _ErrorHead({
     required this.message,
     required this.onRetry,
     required this.onBind,
   });
 
-  final GameId game;
   final String message;
   final VoidCallback onRetry;
   final VoidCallback onBind;
@@ -543,32 +578,159 @@ class _ErrorContent extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 40, color: scheme.error),
-            const SizedBox(height: 14),
-            Text(
-              message,
-              style: text.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton(onPressed: onBind, child: const Text('重新绑定')),
-                const SizedBox(width: 8),
-                FilledButton.tonal(
-                  onPressed: onRetry,
-                  child: const Text('重试'),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, size: 16, color: scheme.error),
+              const SizedBox(width: 6),
+              Text(
+                '查不到',
+                style: text.labelMedium?.copyWith(color: scheme.error),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: onBind,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-              ],
+                child: const Text('重新绑定'),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            message,
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonal(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('重试'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 列表里的一条成绩。
+class _ScoreTile extends StatelessWidget {
+  const _ScoreTile({required this.score});
+
+  final SummaryScore score;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: score.jacketUrl.isEmpty
+                    ? ColoredBox(
+                        color: scheme.surfaceContainerHighest,
+                        child: Icon(Icons.music_note,
+                            size: 20, color: scheme.onSurfaceVariant),
+                      )
+                    : Image.network(
+                        score.jacketUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => ColoredBox(
+                          color: scheme.surfaceContainerHighest,
+                          child: Icon(Icons.music_note,
+                              size: 20, color: scheme.onSurfaceVariant),
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              width: 3,
+              height: 36,
+              decoration: BoxDecoration(
+                color: DifficultyColors.of(score.levelIndex),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    score.title,
+                    style: text.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    score.detail,
+                    style: text.labelSmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              score.value,
+              style: text.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyList extends StatelessWidget {
+  const _EmptyList({required this.summary});
+
+  final GameSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Text(
+          summary.bound
+              ? '这个游戏还没有成绩数据'
+              : '绑定后这里会显示成绩',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: scheme.onSurfaceVariant),
+          textAlign: TextAlign.center,
         ),
       ),
     );
