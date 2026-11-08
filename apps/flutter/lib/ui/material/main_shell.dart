@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'home_page.dart';
 import 'mine_page.dart';
+import 'query_page.dart';
 
 /// 应用外壳：dock 栏 + 三个页面。
 ///
@@ -32,11 +33,7 @@ class _MainShellState extends State<MainShell> {
         index: _index,
         children: const [
           HomeTab(),
-          _PlaceholderTab(
-            icon: Icons.search,
-            title: '查询',
-            hint: '查别人的分\n（还没做）',
-          ),
+          QueryTab(),
           MineTab(),
         ],
       ),
@@ -62,49 +59,6 @@ class _MainShellState extends State<MainShell> {
             label: '我的',
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 占位页。
-///
-/// 用同一个组件画三个不同的占位，省得每次复制。
-class _PlaceholderTab extends StatelessWidget {
-  const _PlaceholderTab({
-    required this.icon,
-    required this.title,
-    required this.hint,
-  });
-
-  final IconData icon;
-  final String title;
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: scheme.outline),
-            const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              hint,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
       ),
     );
   }
