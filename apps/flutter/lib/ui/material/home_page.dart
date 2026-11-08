@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/profile_store.dart';
 import '../../features/home/home_controller.dart';
+import 'b50_page.dart';
 
 /// 首页 Tab。
 ///
@@ -139,11 +140,15 @@ class _HomeTabState extends State<HomeTab> {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    final actions = <(IconData, String, String)>[
-      (Icons.leaderboard, '查分', 'B50 / B30 明细'),
-      (Icons.trending_up, '推分', '算要打到多少'),
-      (Icons.compare_arrows, '对比', '这周涨了多少'),
-      (Icons.qr_code_2, '二维码', '机台扫码登录'),
+    // 第一个是「查分」，点进去带当前游戏的绑定
+    final currentGame = _controller.games[_controller.index];
+    final binding = _controller.bindings[currentGame] ?? '';
+
+    final actions = <(IconData, String, String, VoidCallback)>[
+      (Icons.leaderboard, '查分', 'B50 / B30 明细', () => _openQuery(currentGame, binding)),
+      (Icons.trending_up, '推分', '算要打到多少', () => _showComingSoon('推分')),
+      (Icons.compare_arrows, '对比', '这周涨了多少', () => _showComingSoon('对比')),
+      (Icons.qr_code_2, '二维码', '机台扫码登录', () => _showComingSoon('二维码')),
     ];
 
     return Padding(
@@ -170,11 +175,11 @@ class _HomeTabState extends State<HomeTab> {
             crossAxisSpacing: 10,
             childAspectRatio: 2.3,
             children: [
-              for (final (icon, title, subtitle) in actions)
+              for (final (icon, title, subtitle, onTap) in actions)
                 Card(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () => _showComingSoon(title),
+                    onTap: onTap,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
                       child: Row(
@@ -234,6 +239,25 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
+  /// 打开查分页。
+  ///
+  /// 带上当前游戏的绑定 —— 用户已经绑过了，不该再输一遍。
+  /// 没绑定就直接进去，搜索框在那等着。
+  void _openQuery(GameId game, String binding) {
+    if (game != GameId.maimai) {
+      // 中二 / osu / Phigros 的明细页还没做
+      _showComingSoon('${game.label}明细');
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => B50Page(
+          initialBinding: binding.isEmpty ? null : binding,
+        ),
+      ),
+    );
+  }
   void _showComingSoon(String what) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

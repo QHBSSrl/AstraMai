@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/models.dart';
 import '../../features/b50/b50_controller.dart';
 import '../theme.dart';
+import 'push_planner_page.dart';
 
 /// B50 页（Material 3 实现）。
 ///
@@ -21,7 +22,13 @@ import '../theme.dart';
 ///
 /// ⚠️ **不要在 features/ 里 import 任何 UI 包。**
 class B50Page extends StatefulWidget {
-  const B50Page({super.key});
+  const B50Page({super.key, this.initialBinding});
+
+  /// 从首页进来时带上的绑定。
+  ///
+  /// 有值就直接查，不要用户再输一遍 —— 他已经绑过了。
+  /// 为空才显示搜索框等输入。
+  final String? initialBinding;
 
   @override
   State<B50Page> createState() => _B50PageState();
@@ -30,6 +37,18 @@ class B50Page extends StatefulWidget {
 class _B50PageState extends State<B50Page> {
   final _controller = B50Controller();
   final _input = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initial = widget.initialBinding?.trim() ?? '';
+    if (initial.isEmpty) return;
+
+    _input.text = initial;
+    // 等一帧再查 —— 让首帧先把框架画出来，别白屏
+    WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+  }
 
   @override
   void dispose() {
@@ -45,8 +64,9 @@ class _B50PageState extends State<B50Page> {
     FocusScope.of(context).unfocus();
 
     // 纯数字且够长 → 好友码；否则当 QQ 号
+    // 好友码 15 位，QQ 号 5-11 位
     final asInt = int.tryParse(raw);
-    if (asInt != null && raw.length >= 10) {
+    if (asInt != null && raw.length >= 15) {
       _controller.loadByFriendCode(asInt);
     } else {
       _controller.loadByQq(raw);
@@ -311,7 +331,11 @@ class _ScoreCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          // TODO: 进详情 / 推分
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => PushPlannerPage(score: score),
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
