@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'core/platform.dart';
-import 'ui/material/home_page.dart';
+import 'ui/material/main_shell.dart';
 import 'ui/theme.dart';
 
 /// 应用入口。
@@ -164,7 +164,7 @@ class _AstraMaiAppState extends State<AstraMaiApp> {
         dynamicScheme: _dynamicScheme,
         brightness: MediaQuery.platformBrightnessOf(context),
       ),
-      home: const HomePage(),
+      home: const MainShell(),
     );
   }
 }
