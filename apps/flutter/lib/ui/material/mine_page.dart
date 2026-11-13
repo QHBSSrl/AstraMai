@@ -1,30 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../data/profile_store.dart';
+import '../../features/auth/auth_controller.dart';
 import 'sync_page.dart';
 
 /// 「我的」Tab。
 ///
-/// ── 这一版做什么 ────────────────────────────────────────────────────
-///
-/// 账号体系还没接（Casdoor 要等服务器升级），所以这里先把**结构**搭出来：
+/// ── 结构 ────────────────────────────────────────────────────────────
 ///
 ///   ┌─────────────────────────┐
-///   │  ┌───┐                   │
-///   │  │ ? │  未登录            │
-///   │  └───┘  登录后多设备同步   │
-///   │         [ 登录 ]          │
-///   ├─────────────────────────┤
-///   │  我的绑定                 │
-///   │  舞萌 DX      QBHSSrl  ›  │
-///   │  中二节奏     未绑定    ›  │
-///   │  osu!        未绑定    ›  │
-///   │  Phigros     未登录    ›  │
-///   ├─────────────────────────┤
-///   │  关于                     │
-///   │  版本         0.1.0    ›  │
-///   │  数据来源     落雪      ›  │
-///   │  加入群聊     308532898 ›  │
+///   │ 我的                     │
+///   │ ┌─────────────────────┐ │
+///   │ │ (头) 用户名   [PLUS] │ │
+///   │ │     邮箱       [退出]│ │
+///   │ └─────────────────────┘ │
+///   │ 我的绑定                 │
+///   │  舞萌 DX   165423... ›   │
+///   │  中二节奏  未绑定    ›   │
+///   │  手表                    │
+///   │  同步到手表           ›   │
+///   │ 关于                     │
+///   │  版本 / 数据来源 / 加群   │
 ///   └─────────────────────────┘
 ///
 /// ── 为什么绑定列表放在「我的」而不是首页 ────────────────────────────
@@ -41,13 +37,32 @@ class MineTab extends StatefulWidget {
 }
 
 class _MineTabState extends State<MineTab> {
+  late final AuthController _auth;
+
   Map<GameId, String> _bindings = {};
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+
+    _auth = AuthController();
+    _auth.addListener(_onAuthChanged);
+    // 恢复上次登录态：读缓存 + 快过期时静默续期
+    _auth.restore();
+
     _reload();
+  }
+
+  @override
+  void dispose() {
+    _auth.removeListener(_onAuthChanged);
+    _auth.dispose();
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _reload() async {
@@ -83,7 +98,6 @@ class _MineTabState extends State<MineTab> {
             const SizedBox(height: 20),
             _buildBindings(context),
             _buildSyncEntry(context),
-            const SizedBox(height: 8),
             _buildAbout(context),
           ],
         ),
@@ -91,13 +105,15 @@ class _MineTabState extends State<MineTab> {
     );
   }
 
-  /// 账号卡。
-  ///
-  /// ⚠️ 现在是「未登录」占位。接 Casdoor 之后这里显示头像、名字、
-  /// Plus 徽章，右边变成「退出登录」。
+  // ── 账号卡 ──────────────────────────────────────────────────────────
+
   Widget _buildAccountCard(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final signedIn = _auth.signedIn;
+    final name = signedIn ? _auth.displayName : '未登录';
+    final subtitle =
+        signedIn ? (_auth.email ?? '已登录') : '登录后多设备同步，推分和对比要登录';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -110,65 +126,151 @@ class _MineTabState extends State<MineTab> {
         children: [
           CircleAvatar(
             radius: 26,
-            backgroundColor: scheme.secondaryContainer,
-            child: Icon(
-              Icons.person_outline,
-              color: scheme.onSecondaryContainer,
-            ),
+            backgroundColor:
+                signedIn ? scheme.primaryContainer : scheme.secondaryContainer,
+            child: signedIn
+                ? Text(
+                    name.isEmpty ? '?' : name.characters.first.toUpperCase(),
+                    style: text.titleMedium?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : Icon(
+                    Icons.person_outline,
+                    color: scheme.onSecondaryContainer,
+                  ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '未登录',
-                  style: text.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: text.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (signedIn && _auth.isPlus) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'PLUS',
+                          style: text.labelSmall?.copyWith(
+                            color: scheme.onTertiaryContainer,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '登录后多设备同步，还能用推分和对比',
+                  subtitle,
                   style: text.labelSmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          FilledButton.tonal(
-            onPressed: () => _comingSoon('账号登录'),
-            style: FilledButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          if (signedIn)
+            TextButton(
+              onPressed: _auth.busy ? null : _confirmSignOut,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('退出'),
+            )
+          else
+            FilledButton.tonal(
+              onPressed: _auth.busy ? null : _signIn,
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: _auth.busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('登录'),
             ),
-            child: const Text('登录'),
-          ),
         ],
       ),
     );
   }
 
+  Future<void> _signIn() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await _auth.signIn();
+    if (!mounted) return;
+
+    if (!ok && _auth.error != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_auth.error!),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _auth.clearError();
+    }
+  }
+
+  Future<void> _confirmSignOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('本地缓存的登录信息会清掉，绑定数据不受影响。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('退出'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) await _auth.signOut();
+  }
+
+  // ── 绑定 ────────────────────────────────────────────────────────────
+
   Widget _buildBindings(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          child: Text(
-            '我的绑定',
-            style: text.titleSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              letterSpacing: 1,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        _SectionLabel('我的绑定'),
         if (_loading)
           const Padding(
             padding: EdgeInsets.all(24),
@@ -200,119 +302,6 @@ class _MineTabState extends State<MineTab> {
     );
   }
 
-  /// 手表同步入口。
-  ///
-  /// 放「我的」而不是首页 —— 这是个**偶尔用**的功能，不是每次打开都要点。
-  Widget _buildSyncEntry(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Text(
-              '手表',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    letterSpacing: 1,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: ListTile(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SyncToWatchPage()),
-              ),
-              leading: Icon(Icons.watch, size: 22, color: scheme.primary),
-              title: const Text('同步到手表'),
-              subtitle: const Text('生成配对码，手表输码就能看'),
-              trailing: Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: scheme.outline,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  Widget _buildAbout(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-          child: Text(
-            '关于',
-            style: text.titleSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              letterSpacing: 1,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              _AboutRow(
-                label: '版本',
-                value: '0.1.0',
-                onTap: null,
-              ),
-              Divider(
-                height: 1,
-                indent: 16,
-                endIndent: 16,
-                color: scheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-              _AboutRow(
-                label: '数据来源',
-                value: '落雪查分器',
-                onTap: () => _comingSoon('数据来源说明'),
-              ),
-              Divider(
-                height: 1,
-                indent: 16,
-                endIndent: 16,
-                color: scheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-              _AboutRow(
-                label: '加入群聊',
-                value: '308532898',
-                onTap: () => _comingSoon('加群'),
-              ),
-              Divider(
-                height: 1,
-                indent: 16,
-                endIndent: 16,
-                color: scheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-              _AboutRow(
-                label: '开源许可',
-                value: '',
-                onTap: () => showLicensePage(
-                  context: context,
-                  applicationName: 'AstraMai',
-                  applicationVersion: '0.1.0',
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Future<void> _editBinding(GameId game) async {
     final current = _bindings[game] ?? '';
     final input = TextEditingController(text: current);
@@ -335,17 +324,15 @@ class _MineTabState extends State<MineTab> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                game.label,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text(game.label,
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 4),
               Text(
                 game.needsLogin
                     ? '这个游戏需要扫码登录，不能在设置里改'
                     : game == GameId.osu
                         ? '填 osu! 官网的用户名'
-                        : '填游戏内的${game.bindingLabel}，或者填 QQ 号',
+                        : '填游戏内的${game.bindingLabel}（15 位），或者填 QQ 号',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -390,11 +377,114 @@ class _MineTabState extends State<MineTab> {
     await _reload();
   }
 
+  // ── 手表同步 ────────────────────────────────────────────────────────
+
+  Widget _buildSyncEntry(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel('手表'),
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListTile(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SyncToWatchPage()),
+            ),
+            leading: Icon(Icons.watch, size: 22, color: scheme.primary),
+            title: const Text('同步到手表'),
+            subtitle: const Text('生成配对码，手表输码就能看'),
+            trailing:
+                Icon(Icons.chevron_right, size: 18, color: scheme.outline),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── 关于 ────────────────────────────────────────────────────────────
+
+  Widget _buildAbout(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel('关于'),
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              const _AboutRow(label: '版本', value: '0.1.0', onTap: null),
+              _divider(scheme),
+              _AboutRow(
+                label: '数据来源',
+                value: '落雪查分器',
+                onTap: () => _comingSoon('数据来源说明'),
+              ),
+              _divider(scheme),
+              _AboutRow(
+                label: '加入群聊',
+                value: '308532898',
+                onTap: () => _comingSoon('加群'),
+              ),
+              _divider(scheme),
+              _AboutRow(
+                label: '开源许可',
+                value: '',
+                onTap: () => showLicensePage(
+                  context: context,
+                  applicationName: 'AstraMai',
+                  applicationVersion: '0.1.0',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _divider(ColorScheme scheme) => Divider(
+        height: 1,
+        indent: 16,
+        endIndent: 16,
+        color: scheme.outlineVariant.withValues(alpha: 0.4),
+      );
+
   void _comingSoon(String what) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('「$what」还没做'),
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 小组件
+// ══════════════════════════════════════════════════════════════════════
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              letterSpacing: 1,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }

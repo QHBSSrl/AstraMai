@@ -45,5 +45,21 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!--
+	  OIDC 登录的回调 scheme。
+	  Casdoor 重定向到 astramai://callback，iOS 靠这个声明才知道归谁处理。
+	  ⚠️ 必须和 OidcConfig.redirectUri 一致。
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>astramai</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
