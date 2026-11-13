@@ -24,25 +24,34 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
 
-            <!--
-              OIDC 登录的回调。
+        <!--
+          OIDC 登录的回调。
 
-              Casdoor 登录完会重定向到 astramai://callback?code=...
-              这个 intent-filter 让系统知道「astramai:// 开头的 URL 归这个
-              App 处理」，flutter_web_auth_2 才能收到回调。
+          ⚠️ **必须挂在这个 Activity 上，不能挂在 MainActivity 上。**
 
-              ⚠️ 必须和 OidcConfig.redirectUri 里的 scheme 一致。
-              改了这里不改那边（或者反过来）会表现为「登录完回到 App
-              但什么都没发生」—— 没有报错，很难查。
-            -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="astramai" android:host="callback"/>
+          flutter_web_auth_2 有自己的 CallbackActivity，它在 onCreate 里读
+          intent.data，然后按 scheme 找到挂起的 authenticate() 调用并把 URL
+          交回去。如果 intent-filter 指向 MainActivity，整个流程会表现为
+          「浏览器跳回 App 但什么都没发生」—— 不报错、不登录、也不留日志，
+          因为它压根没被发现。
+
+          ⚠️ 这里只匹配 scheme，不写 host。
+          Casdoor 实际回调的是 astramai://callback/（带尾斜杠），
+          写死 host 一旦对不上就静默失败。
+        -->
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true">
+            <intent-filter android:label="flutter_web_auth_2">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="astramai" />
             </intent-filter>
         </activity>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -116,19 +116,39 @@ class OidcClient {
   }
 
   Future<AuthTokens> _postToken(Map<String, String> body) async {
-    final response = await httpClient
-        .post(
-          Uri.parse(OidcConfig.tokenEndpoint),
-          headers: {'content-type': 'application/x-www-form-urlencoded'},
-          body: body,
-        )
-        .timeout(_timeout);
+    // ignore: avoid_print
+    print('[AstraMai] POST ${OidcConfig.tokenEndpoint} '
+        'grant=${body['grant_type']} 带 secret=${OidcConfig.useClientSecret}');
+
+    final stopwatch = Stopwatch()..start();
+
+    http.Response response;
+    try {
+      response = await httpClient
+          .post(
+            Uri.parse(OidcConfig.tokenEndpoint),
+            headers: {'content-type': 'application/x-www-form-urlencoded'},
+            body: body,
+          )
+          .timeout(_timeout);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[AstraMai] token 请求抛异常（${stopwatch.elapsedMilliseconds}ms）: $e');
+      rethrow;
+    }
+
+    // ignore: avoid_print
+    print('[AstraMai] token 响应 HTTP ${response.statusCode} '
+        '（${stopwatch.elapsedMilliseconds}ms）: '
+        '${utf8.decode(response.bodyBytes)}');
 
     Map<String, Object?>? json;
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map<String, Object?>) json = decoded;
     } on FormatException {
+      // ignore: avoid_print
+      print('[AstraMai] token 响应不是 JSON');
       throw OidcException(
         'token 端点返回了非 JSON（HTTP ${response.statusCode}）',
         status: response.statusCode,

@@ -110,6 +110,9 @@ class AuthController extends ChangeNotifier {
         ),
       );
 
+      // ignore: avoid_print
+      print('[AstraMai] 收到回调: $resultUrl');
+
       final uri = Uri.parse(resultUrl);
 
       // 用户可能在授权页点了取消
@@ -127,6 +130,8 @@ class AuthController extends ChangeNotifier {
       }
 
       final code = uri.queryParameters['code'];
+      // ignore: avoid_print
+      print('[AstraMai] code 有=${code != null && code.isNotEmpty}');
       if (code == null || code.isEmpty) {
         throw const OidcException('授权页没返回 code');
       }
@@ -136,6 +141,9 @@ class AuthController extends ChangeNotifier {
         verifier: pkce.verifier,
       );
 
+      // ignore: avoid_print
+      print('[AstraMai] 换 token 成功, roles=${tokens.claims['roles']}');
+
       _tokens = tokens;
       await _store.write(tokens);
 
@@ -143,9 +151,13 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } on OidcException catch (e) {
+      // ignore: avoid_print
+      print('[AstraMai] 登录失败: ${e.message} (status=${e.status})');
       _error = e.message;
     } catch (e) {
       // flutter_web_auth_2 在用户取消时抛 PlatformException，message 是 'CANCELED'
+      // ignore: avoid_print
+      print('[AstraMai] 登录异常（非 OidcException）: $e');
       final text = e.toString();
       if (text.contains('CANCELED') || text.contains('canceled')) {
         _error = null; // 用户主动取消，不算错误
