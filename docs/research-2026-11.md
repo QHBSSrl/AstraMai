@@ -132,8 +132,28 @@ Vela 能拿到屏幕宽度吗？`@system.device` 的 `deviceInfo` 里应该有
 
 ## 四、顺带记下来的
 
-- **落雪 Developer-Token 2027-01-01 停用**（之前调研的），
-  新接入走 OAuth（client_id + client_secret + PKCE）。我们服务端现在
-  用的还是 token，**明年之前要迁**。
+### ⚠️ 更正一处
+
+我一开始写的「落雪 Developer-Token 2027-01-01 停用」**是错的** ——
+那条公告是**水鱼（Diving-Fish）**的，不是落雪。
+
+原文在 `docs/new-game-divingfish.md`：
+
+> `Developer-Token` **已停止签发**，其对应的 `/dev/*` 端点已进入废弃状态，
+> 将于 **2027 年 1 月 1 日 00:00（UTC+8）** 停止服务。
+> 第三方应用请改用水鱼账号 **OAuth** 授权。
+
+**两家用的是完全不同的认证，别混：**
+
+| | 水鱼（Diving-Fish） | 落雪（lxns） |
+|---|---|---|
+| 旧的 | `Developer-Token` 头 | — |
+| 现在 | OAuth（client_id + client_secret + PKCE） | **开发者 API 密钥 → `Authorization` 头** |
+| 另一套 | — | **个人 API 密钥 → `X-User-Token` 头** |
+
+落雪我们用的是**开发者密钥**（`Authorization`），代码在
+`packages/core/src/lxns/client.ts:52`。
+
+**落雪这边没有公开的停用公告**，所以不存在「明年之前要迁」这回事。
 - **Casdoor 的 `token_endpoint_auth_methods_supported` 包含 `none`** ——
   移动端纯 PKCE 是官方支持的，不需要把 secret 打进 APK。已实测通过。
