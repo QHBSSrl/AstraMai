@@ -1,41 +1,34 @@
 /**
  * 字号档位。
  *
- * ── 为什么需要这个 ──────────────────────────────────────────────────
+ * ── 问题不是「字写小了」，是 designWidth 不匹配 ────────────────────
  *
- * 有用户反馈手环上字太小、看着费劲。手环屏幕小、像素密度高，
- * 同一套 px 在手环上比在手表上明显更吃力。
+ * Vela 的 `designWidth` 是 466，所有 CSS px 按 `物理宽 / 466` 缩放。
  *
- * 但**不能只给手环放大** —— 手表用户会觉得字太大。所以做成可调的，
- * 默认给「大」（因为抱怨的方向是太小）。
+ * 手环 9 Pro 只有 **336 宽** → 缩放比 0.72 → 22px 的字实际只有
+ * 15.9 物理像素；手表 466 宽 → 缩放比 1.0 → 同样 22px 就是 22 像素。
  *
- * ── Vela 不支持 var()，所以在哪生效 ─────────────────────────────────
+ * **手环上的字天生比手表小 28%。** 所以光把数值调大没用 ——
+ * 得按设备宽度算倍率。
  *
- * 比较顺序是 `Scale.of('label')`，返回一个 px 字符串，页面直接绑到
- * `style="font-size: {{ fs.label }}"` 上 —— 内联样式是确定能用的，
- * 靠类名 + 后代选择器覆盖在 Vela 上不可靠。
+ * ── 三档 ────────────────────────────────────────────────────────────
  *
- * 用法：
+ *   auto   默认。按屏幕宽度算（手环 ≈ 1.39，手表 ≈ 1.0）
+ *   normal 固定 1.0，字最小
+ *   large  固定 1.18，比标准稍大
  *
- *   const fontScale = require('../../common/font-scale.js');
+ * ── 怎么生效 ────────────────────────────────────────────────────────
  *
- *   onInit() {
- *     this.fontScale = fontScale.current();
- *     this.fs = fontScale.sizeSet(this.fontScale);
- *   }
- *
- *   <text style="font-size: {{ fs.label }}">…</text>
+ * Vela 不支持 `var()`，类名 + 后代选择器覆盖也不可靠。
+ * 所以这里导出的是**算好的一组 px 字符串**，页面直接绑到
+ * `style="font-size: {{ fs.label }}"` 上 —— 内联样式是确定能用的。
  */
+
+const screenSize = require('./screen-size.js');
 
 const KEY = 'fontScale';
 
-/** 两个档位。数值是相对标准的倍数。 */
-const SCALES = {
-  normal: 1,
-  large: 1.18,
-};
-
-/** 各语义字号的标准值。改这里就能整体调。 */
+/** 各语义字号的标准值（designWidth 466 下的 px）。 */
 const BASE = {
   title: 30,
   section: 17,
@@ -45,21 +38,28 @@ const BASE = {
   tiny: 13,
 };
 
-/** 读当前档位。没设置过就是 large —— 抱怨的是「太小」。 */
+/** 固定档位。auto 不在这里，它要现算。 */
+const FIXED = {
+  normal: 1,
+  large: 1.18,
+};
+
+/** 读当前档位。默认 auto。 */
 function current(readSetting) {
   try {
     const saved = String(readSetting(KEY, '') || '');
-    if (saved === 'normal' || saved === 'large') return saved;
+    if (saved === 'auto' || saved === 'normal' || saved === 'large') return saved;
   } catch (error) {
     // 读不到就用默认
   }
-  return 'large';
+  return 'auto';
 }
 
 /** 写档位。 */
 function save(writeSetting, mode) {
+  const next = mode === 'normal' || mode === 'large' ? mode : 'auto';
   try {
-    writeSetting(KEY, mode === 'normal' ? 'normal' : 'large');
+    writeSetting(KEY, next);
   } catch (error) {
     console.warn('[AstraMai] 保存字号失败：', error);
   }
@@ -67,17 +67,27 @@ function save(writeSetting, mode) {
 
 /** 档位 → 人类可读。 */
 function label(mode) {
-  return mode === 'normal' ? '标准' : '大';
+  if (mode === 'normal') return '标准';
+  if (mode === 'large') return '大';
+  return '自动';
 }
 
-/** 切到下一个档位。 */
+/** 切到下一个档位：自动 → 标准 → 大 → 自动。 */
 function next(mode) {
-  return mode === 'normal' ? 'large' : 'normal';
+  if (mode === 'auto') return 'normal';
+  if (mode === 'normal') return 'large';
+  return 'auto';
+}
+
+/** 档位 → 实际倍率。 */
+function scaleOf(mode) {
+  if (mode === 'normal' || mode === 'large') return FIXED[mode];
+  return screenSize.autoScale();
 }
 
 /** 档位 → 一组已经算好的 px 字符串。 */
 function sizeSet(mode) {
-  const k = SCALES[mode] || SCALES.large;
+  const k = scaleOf(mode);
   const out = {};
   Object.keys(BASE).forEach((name) => {
     // 四舍五入到 0.5，避免出现 21.959999px 这种
@@ -88,10 +98,12 @@ function sizeSet(mode) {
 
 module.exports = {
   KEY,
-  SCALES,
+  BASE,
+  FIXED,
   current,
   save,
   label,
   next,
+  scaleOf,
   sizeSet,
 };

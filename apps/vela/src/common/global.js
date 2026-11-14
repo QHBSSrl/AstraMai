@@ -33,6 +33,7 @@ import * as syncClient from './sync-client.js';
 import * as legal from './legal.js';
 import * as fetchbridge from './fetchbridge.js';
 import * as fontScale from './font-scale.js';
+import * as screenSize from './screen-size.js';
 
 /**
  * 挂在一个命名空间下，而不是把几十个符号平铺到 global。

@@ -482,7 +482,8 @@
         const next = fontScale.next(fontScale.current(readSetting));
         fontScale.save(writeSetting, next);
         this.fontScaleLabel = fontScale.label(next);
-        this.fontNotice = `已切到「${this.fontScaleLabel}」，返回首页生效。`;
+        const pct = Math.round(fontScale.scaleOf(next) * 100);
+        this.fontNotice = `已切到「${this.fontScaleLabel}」（${pct}%），返回首页生效。`;
       } catch (error) {
         this.fontNotice = '切换失败：' + (error && error.message ? error.message : error);
       }
