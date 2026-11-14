@@ -79,6 +79,7 @@ class MainActivity : FlutterActivity() {
                                         mapOf(
                                             "state" to state.name,
                                             "text" to b.statusText(),
+                                            "nodeName" to b.nodeName,
                                             "error" to error,
                                         ),
                                     )
@@ -91,6 +92,7 @@ class MainActivity : FlutterActivity() {
                         mapOf(
                             "state" to bridge?.state?.name,
                             "text" to bridge?.statusText(),
+                            "nodeName" to bridge?.nodeName,
                         ),
                     )
                 }
@@ -102,6 +104,7 @@ class MainActivity : FlutterActivity() {
                     mapOf(
                         "state" to (bridge?.state?.name ?: "STOPPED"),
                         "text" to (bridge?.statusText() ?: "已停止"),
+                        "nodeName" to bridge?.nodeName,
                     ),
                 )
                 "protocolInfo" -> result.success(

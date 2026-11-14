@@ -416,7 +416,7 @@ class _MineTabState extends State<MineTab> {
                 leading: Icon(Icons.settings_ethernet,
                     size: 22, color: scheme.primary),
                 title: const Text('手机网桥'),
-                subtitle: const Text('手环没有网络模块时，用手机中转'),
+                subtitle: const Text('仅手环 Pro 系列需要，用手机中转'),
                 trailing:
                     Icon(Icons.chevron_right, size: 18, color: scheme.outline),
               ),

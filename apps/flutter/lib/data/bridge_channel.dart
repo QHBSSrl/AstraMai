@@ -29,6 +29,7 @@ class BridgeChannel {
         BridgeStatus(
           state: args['state'] as String? ?? 'STOPPED',
           text: args['text'] as String? ?? '',
+          nodeName: args['nodeName'] as String?,
           error: args['error'] as String?,
         ),
       );
@@ -57,6 +58,7 @@ class BridgeChannel {
   BridgeStatus _toStatus(Map? map) => BridgeStatus(
         state: map?['state'] as String? ?? 'STOPPED',
         text: map?['text'] as String? ?? '',
+        nodeName: map?['nodeName'] as String?,
       );
 }
 
@@ -65,6 +67,7 @@ class BridgeStatus {
   const BridgeStatus({
     required this.state,
     required this.text,
+    this.nodeName,
     this.error,
   });
 
@@ -73,6 +76,9 @@ class BridgeStatus {
 
   /// 可以直接显示的一行文字。
   final String text;
+
+  /// 连上的设备名（比如「小米手环9 Pro」）。没连上是 null。
+  final String? nodeName;
 
   final String? error;
 

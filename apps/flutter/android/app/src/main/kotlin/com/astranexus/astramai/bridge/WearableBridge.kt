@@ -55,6 +55,10 @@ class WearableBridge(private val context: Context) {
 
     private var nodeId: String? = null
 
+    /** 连接的手表名，给界面显示用。 */
+    var nodeName: String? = null
+        private set
+
     var state: State = State.STOPPED
         private set
 
@@ -77,6 +81,7 @@ class WearableBridge(private val context: Context) {
 
         val id = nodeId
         nodeId = null
+        nodeName = null
         if (id != null) {
             runCatching { Wearable.getMessageApi(context).removeListener(id) }
         }
@@ -120,6 +125,7 @@ class WearableBridge(private val context: Context) {
     }
 
     private fun attach(node: Node) {
+        nodeName = node.name
         Log.i(TAG, "找到设备 ${node.name} (${node.id})")
 
         // 第一次会弹授权，之后就是静默通过
@@ -313,7 +319,7 @@ class WearableBridge(private val context: Context) {
     fun statusText(): String = when (state) {
         State.STOPPED -> "已停止"
         State.WAITING_NODE -> "等待手表连接"
-        State.CONNECTED -> "已连接手表"
+        State.CONNECTED -> nodeName?.let { "已连接：$it" } ?: "已连接手表"
         State.ERROR -> "出错：${lastError ?: "未知"}"
     }
 }
