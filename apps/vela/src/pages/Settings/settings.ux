@@ -94,6 +94,23 @@
       </div>
     </div>
     <text class="hint" if="{{ fontNotice }}">{{ fontNotice }}</text>
+
+    <!--
+      设备信息 —— 用来确认字号倍率算得对不对。
+
+      真机拿不到 console 日志，只能把关键字段摆到界面上看一眼。
+      `screenWidth` 到底是物理像素还是逻辑像素，官方文档没写清楚，
+      这里必须靠实际设备确认。
+    -->
+    <div class="rows" @click="toggleDeviceInfo">
+      <div class="row">
+        <text class="row__label">设备信息</text>
+        <text class="row__mark">{{ deviceInfoOpen ? '收起' : '查看' }}</text>
+      </div>
+    </div>
+    <block if="{{ deviceInfoOpen }}">
+      <text class="hint">{{ deviceInfoText }}</text>
+    </block>
     <!--
       重看引导。
       两个用处：
@@ -253,7 +270,7 @@
    * 而下面用的是 pi.activeTransport()。结果 api 一直是 undefined，
    * 被 try/catch 吞掉，网桥提示从来没显示过。现在改成解构 api。
    */
-  const { api, community, diag, fontScale, games, navigation, store } = global.AstraMai;
+  const { api, community, diag, fontScale, games, navigation, screenSize, store } = global.AstraMai;
   const { mark } = diag;
   const { groupNumber } = community;
   const { GAMES, readCurrentGame, writeCurrentGame } = games;
@@ -289,6 +306,11 @@
 
       /** 切完字号后的提示。 */
       fontNotice: '',
+
+      /** 设备信息面板是不是展开着。 */
+      deviceInfoOpen: false,
+      /** 设备信息的多行文本。 */
+      deviceInfoText: '',
     },
 
     onReady() {
@@ -477,6 +499,30 @@
      *
      * 手环屏幕小，默认给「大」。改完立刻写回存储，下次进来还是这个档。
      */
+    /**
+     * 展开 / 收起设备信息。
+     *
+     * 把算字号用到的几个字段摆出来 —— 真机拿不到 console，
+     * 只能靠界面确认。
+     */
+    toggleDeviceInfo() {
+      this.deviceInfoOpen = !this.deviceInfoOpen;
+      if (!this.deviceInfoOpen) return;
+
+      const info = screenSize.cachedInfo();
+      if (!info) {
+        this.deviceInfoText = '还没读到设备信息，退出重进一次试试。';
+        return;
+      }
+
+      const scale = Math.round(screenSize.autoScale() * 100);
+      this.deviceInfoText =
+        `类型 ${info.deviceType || '?'}｜型号 ${info.model || '?'}\n`
+        + `屏宽 ${info.screenWidth || '?'}｜屏高 ${info.screenHeight || '?'}\n`
+        + `密度 ${info.screenDensity || '?'}｜形状 ${info.screenShape || '?'}\n`
+        + `APILv ${info.APILevel || '?'}｜平台 ${info.platformVersionCode || '?'}\n`
+        + `字号倍率 ${scale}%`;
+    },
     toggleFontScale() {
       try {
         const next = fontScale.next(fontScale.current(readSetting));

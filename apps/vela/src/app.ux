@@ -19,12 +19,23 @@
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
   import './common/global.js';
 
-  const { diag } = global.AstraMai;
+  const { diag, screenSize } = global.AstraMai;
 
   export default {
     onCreate() {
       console.debug('[AstraMai] app onCreate');
       diag.mark('app:onCreate');
+
+      /*
+       * 探一次设备信息，结果缓存在 screenSize 里。
+       *
+       * 字号倍率要靠它算 —— designWidth 466 在 336 宽的手环上会被
+       * 缩到 0.72，字比手表小 28%，这是「看着费劲」的真正原因。
+       *
+       * 异步接口，这里只发起；页面渲染时读缓存，读不到就按 1.0。
+       * 成功时会打一行 device 日志，真机上能确认 screenWidth 的单位。
+       */
+      screenSize.probe();
     },
 
     onError(error) {
