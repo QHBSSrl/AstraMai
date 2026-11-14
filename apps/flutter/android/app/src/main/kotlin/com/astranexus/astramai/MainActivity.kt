@@ -107,6 +107,13 @@ class MainActivity : FlutterActivity() {
                         "nodeName" to bridge?.nodeName,
                     ),
                 )
+                // 编译期的功能开关。由 Gradle flavor 决定，Dart 侧不用猜。
+                "features" -> result.success(
+                    mapOf(
+                        "bridge" to BuildConfig.BRIDGE_ENABLED,
+                        "applicationId" to packageName,
+                    ),
+                )
                 "protocolInfo" -> result.success(
                     mapOf(
                         "chunkBytes" to BridgeProtocol.CHUNK_BYTES,

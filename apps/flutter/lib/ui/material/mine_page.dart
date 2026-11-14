@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/profile_store.dart';
 import '../../features/auth/auth_controller.dart';
+import '../../data/bridge_channel.dart';
 import 'bridge_page.dart';
 import 'sync_page.dart';
 
@@ -403,23 +404,27 @@ class _MineTabState extends State<MineTab> {
                 trailing:
                     Icon(Icons.chevron_right, size: 18, color: scheme.outline),
               ),
-              Divider(
-                height: 1,
-                indent: 16,
-                endIndent: 16,
-                color: scheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-              ListTile(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const BridgePage()),
+              // 网桥入口只在手环版（applicationId 带 .band 的那个包）显示。
+              // 手表系列自带联网能力，看见这个只会困惑。
+              if (BridgeChannel.bridgeEnabled) ...[
+                Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
                 ),
-                leading: Icon(Icons.settings_ethernet,
-                    size: 22, color: scheme.primary),
-                title: const Text('手机网桥'),
-                subtitle: const Text('仅手环 Pro 系列需要，用手机中转'),
-                trailing:
-                    Icon(Icons.chevron_right, size: 18, color: scheme.outline),
-              ),
+                ListTile(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const BridgePage()),
+                  ),
+                  leading: Icon(Icons.settings_ethernet,
+                      size: 22, color: scheme.primary),
+                  title: const Text('手机网桥'),
+                  subtitle: const Text('手环 Pro 专用，用手机中转联网'),
+                  trailing:
+                      Icon(Icons.chevron_right, size: 18, color: scheme.outline),
+                ),
+              ],
             ],
           ),
         ),

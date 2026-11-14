@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'data/bridge_channel.dart';
 import 'core/platform.dart';
 import 'ui/material/main_shell.dart';
 import 'ui/theme.dart';
@@ -23,6 +24,9 @@ import 'ui/theme.dart';
 /// ⚠️ **失败必须能退回。** 拿不到动态色还硬用会变成一片纯色，
 /// 用户只会觉得 App 坏了。
 void main() {
+  // 读一次编译期功能开关（网桥只在小手环版里开）
+  WidgetsFlutterBinding.ensureInitialized();
+  BridgeChannel.loadFeatures();
   runApp(const AstraMaiApp());
 }
 

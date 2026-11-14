@@ -2,14 +2,14 @@ import 'package:flutter/services.dart';
 
 /// 手机↔手表 网桥的控制通道。
 ///
-/// ── 为什么只有三个方法 ──────────────────────────────────────────────
+/// ── 为什么只有几个方法 ──────────────────────────────────────────────
 ///
 /// 真正的收发全在 Kotlin 里跑（`WearableBridge`）。Dart 这边只负责
 /// 开关和展示状态 —— **每一条消息都过一次 MethodChannel 会白白多一层延迟**，
-/// 而手表那边对延迟敏感。
+/// 而手环那边对延迟敏感。
 ///
 /// 所以：
-///   · Dart  → 启动 / 停止 / 查状态
+///   · Dart  → 启动 / 停止 / 查状态 / 查功能开关
 ///   · Kotlin→ 收到帧直接在原生侧发 HTTP，不回到 Dart
 class BridgeChannel {
   BridgeChannel({MethodChannel? channel})
@@ -21,6 +21,36 @@ class BridgeChannel {
 
   /// 原生侧主动推状态变更时回调。
   void Function(BridgeStatus status)? onStatusChanged;
+
+  /// 这个包体适不适合显示网桥入口。
+  ///
+  /// 由 Gradle flavor 决定（`std` = 手表版，`band` = 手环版）。
+  ///
+  /// ── 为什么用编译期开关而不是运行时判断设备 ────────────────────────
+  ///
+  /// 手机端拿不到可靠的手表型号 —— `Node.name` 是用户自定义的设备名，
+  /// 可能是「我的手表」。猜错的话 Pro 用户会**完全看不见入口**，
+  /// 而那是他唯一能查分的办法。
+  ///
+  /// 分两个包体之后，装哪个就是哪类设备，不用猜。
+  static bool _bridgeEnabled = false;
+  static bool get bridgeEnabled => _bridgeEnabled;
+
+  /// 当前 applicationId（诊断用）。
+  static String applicationId = '';
+
+  /// 读一次编译期开关。App 启动时调一次即可。
+  static Future<void> loadFeatures({MethodChannel? channel}) async {
+    final ch = channel ?? const MethodChannel('astramai/bridge');
+    try {
+      final result = await ch.invokeMethod<Map>('features');
+      _bridgeEnabled = result?['bridge'] as bool? ?? false;
+      applicationId = result?['applicationId'] as String? ?? '';
+    } catch (_) {
+      // iOS / 鸿蒙没有这个通道 —— 网桥本来也只有 Android 有
+      _bridgeEnabled = false;
+    }
+  }
 
   Future<dynamic> _onNativeCall(MethodCall call) async {
     if (call.method == 'stateChanged') {

@@ -46,6 +46,56 @@ android {
         versionName = flutter.versionName
     }
 
+    /*
+     * 两个包体。
+     *
+     * ┌──────────┬─────────────────────────────────┬──────────────────────┐
+     * │ flavor   │ applicationId                   │ 用途                  │
+     * ├──────────┼─────────────────────────────────┼──────────────────────┤
+     * │ std      │ com.astranexus.astramai         │ 手表（Watch 系列）     │
+     * │ band     │ com.astranexus.astramai.band    │ 手环 Pro（带网桥）     │
+     * └──────────┴─────────────────────────────────┴──────────────────────┘
+     *
+     * ── 为什么要分两个包 ────────────────────────────────────────────
+     *
+     * 手环 Pro 没有 `@system.fetch`，必须靠手机中转；手表自带联网能力，
+     * 完全用不上网桥。
+     *
+     * 运行时判断设备型号不可靠（`Node.name` 是用户自定义的设备名），
+     * 猜错了会让 Pro 用户根本看不见入口。所以干脆分成两个包体，
+     * 各自上传、各自安装 —— **装哪个就是哪类设备**，不用猜。
+     *
+     * ⚠️ **applicationId 必须和对应快应用的 package 一致**，
+     * 否则 interconnect 连不上。所以打包时：
+     *
+     *   手表版：flutter build apk --flavor std
+     *           快应用 package = com.astranexus.astramai
+     *
+     *   手环版：flutter build apk --flavor band
+     *           快应用 package = com.astranexus.astramai.band
+     *
+     * 快应用的 package 用 `npm run package:band` 切换（见 apps/vela）。
+     */
+    flavorDimensions += "device"
+
+    productFlavors {
+        create("std") {
+            dimension = "device"
+            // 不加密后缀，applicationId 保持 com.astranexus.astramai
+            buildConfigField("boolean", "BRIDGE_ENABLED", "false")
+        }
+        create("band") {
+            dimension = "device"
+            applicationIdSuffix = ".band"
+            // 给 Dart 侧一个编译期开关，用来决定要不要显示网桥入口
+            buildConfigField("boolean", "BRIDGE_ENABLED", "true")
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
     signingConfigs {
         if (keystoreProperties.isEmpty) {
             logger.warn(
