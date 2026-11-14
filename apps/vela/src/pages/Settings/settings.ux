@@ -61,16 +61,39 @@
     </block>
 
     <!--
-      网桥功能暂时下线。
+      网络 —— 只在**这台设备真的需要网桥**时出现。
 
-      手环通过 AstroBox 插件上网这条链路，真机上一直没跑通 ——
-      「测试连接」点不动、握手超时、甚至整个表卡死重启。
-      与其让用户看到一个永远失败的功能，不如先藏起来。
+      判断依据不是机型，是能力：`api.activeTransport()` 返回 'direct'
+      说明设备自带 fetch，这一整块直接不显示。手表系列的用户永远看不到。
 
-      代码（fetchbridge.js / bridge-fetch.js）还在，api.js 的降级逻辑也还在，
-      只是界面上不给入口了。等哪天真机验证通过再放出来。
+      ⚠️ 文案里不要再提 AstroBox 插件 —— 现在的中转方是我们自己的
+      手机 App（手环版）。用户装错东西的话会白折腾半天。
     -->
+    <block if="{{ bridgeNeeded }}">
+      <text class="section">网络</text>
+      <div class="rows">
+        <div class="row" @click="testBridge">
+          <text class="row__label">测试连接</text>
+          <text class="row__mark">{{ bridgeState }}</text>
+        </div>
+        <div class="row" @click="toggleBridgeMode">
+          <text class="row__label">传输方式</text>
+          <text class="row__mark">{{ bridgeModeLabel }}</text>
+        </div>
+      </div>
+      <text class="hint" if="{{ bridgeNotice }}">{{ bridgeNotice }}</text>
+      <text class="hint" if="{{ bridgeHint }}">{{ bridgeHint }}</text>
+    </block>
 
+    <!-- 字号 —— 手环屏幕小，默认给「大」 -->
+    <text class="section">显示</text>
+    <div class="rows">
+      <div class="row" @click="toggleFontScale">
+        <text class="row__label">字号</text>
+        <text class="row__mark">{{ fontScaleLabel }}</text>
+      </div>
+    </div>
+    <text class="hint" if="{{ fontNotice }}">{{ fontNotice }}</text>
     <!--
       重看引导。
       两个用处：
@@ -225,7 +248,12 @@
 </style>
 
 <script>
-  const { bridge, community, diag, games, navigation, store } = global.AstraMai;
+  /**
+   * ⚠️ 这里原本解构的是 ridge —— 那是**已废弃**的 Python 插件客户端，
+   * 而下面用的是 pi.activeTransport()。结果 api 一直是 undefined，
+   * 被 try/catch 吞掉，网桥提示从来没显示过。现在改成解构 api。
+   */
+  const { api, community, diag, fontScale, games, navigation, store } = global.AstraMai;
   const { mark } = diag;
   const { groupNumber } = community;
   const { GAMES, readCurrentGame, writeCurrentGame } = games;
@@ -252,6 +280,15 @@
       bridgeModeLabel: '',
       /** 网桥的固定提示。手环上才显示，说明这东西是干什么的。 */
       bridgeHint: '',
+
+      /** 这台设备是不是真的需要网桥。自带 fetch 的就不需要，整块不显示。 */
+      bridgeNeeded: false,
+
+      /** 字号档位显示文本（「标准」/「大」）。 */
+      fontScaleLabel: '',
+
+      /** 切完字号后的提示。 */
+      fontNotice: '',
     },
 
     onReady() {
@@ -297,35 +334,38 @@
        * 为什么值得显示：手环用户最困惑的就是「我到底该装插件还是不该装」。
        * 直接把判断结果摆出来，比让他们猜快得多。
        */
+      /*
+       * 判断这台设备要不要网桥。
+       *
+       * **依据是能力，不是机型** —— 自带 fetch 的设备（手表系列）
+       * 整块「网络」都不显示，用户永远看不到，也就不会困惑。
+       */
       try {
         const transport = api.activeTransport();
-        if (transport === 'direct') {
-          this.bridgeHint = '这个设备能直接联网，不需要网桥。';
-        } else if (transport === 'bridge') {
+        this.bridgeNeeded = transport !== 'direct';
+
+        if (transport === 'bridge') {
           this.bridgeHint =
-            '这个设备没有网络模块，查成绩会走网桥。需要在手机上的 AstroBox 里'
-            + '装「AstraMai 网桥」插件并启用，然后点上面的「测试连接」确认。';
+            '手环没有网络模块，查成绩靠手机中转。'
+            + '在手机上装「AstraMai（手环版）」并打开「手机网桥」，'
+            + '然后点上面的「测试连接」确认。';
+        } else if (transport === 'none') {
+          this.bridgeHint =
+            '手环没有网络模块，而且没检测到手机。'
+            + '请在手机上装「AstraMai（手环版）」，打开「手机网桥」。';
         } else {
-          this.bridgeHint =
-            '这个设备没有网络模块，而且没检测到 AstroBox 的连接。'
-            + '请在手机上的 AstroBox 里装「AstraMai 网桥」插件。';
+          this.bridgeHint = '';
         }
       } catch (error) {
+        // api 不可用时保守地不显示，别让用户瞎折腾
+        this.bridgeNeeded = false;
         this.bridgeHint = '';
       }
+
+      // 字号
+      this.fontScaleLabel = fontScale.label(fontScale.current(readSetting));
 
       this.refreshBridgeModeLabel();
-
-      try {
-        // eslint-disable-next-line global-require
-        require('@system.fetch');
-        this.bridgeHint = '';
-      } catch (error) {
-        // 没有 fetch = 手环 = 需要网桥
-        this.bridgeHint =
-          '这个设备没有网络模块，查成绩要靠手机上的 AstroBox 装「AstraMai 网桥」插件。'
-          + '装好启用后点上面的「测试连接」确认。';
-      }
 
       // 只是「有没有登录」这一个比特，**不读出来展示**——
       // 凭证不该出现在界面上，截图分享时也安全
@@ -432,6 +472,21 @@
      *
      * 这是**用户可感知的取舍**，所以做成可切换的，不写死。
      */
+    /**
+     * 切换字号。
+     *
+     * 手环屏幕小，默认给「大」。改完立刻写回存储，下次进来还是这个档。
+     */
+    toggleFontScale() {
+      try {
+        const next = fontScale.next(fontScale.current(readSetting));
+        fontScale.save(writeSetting, next);
+        this.fontScaleLabel = fontScale.label(next);
+        this.fontNotice = `已切到「${this.fontScaleLabel}」，返回首页生效。`;
+      } catch (error) {
+        this.fontNotice = '切换失败：' + (error && error.message ? error.message : error);
+      }
+    },
     toggleBridgeMode() {
       const current = fetchbridge.readBridgeMode();
       const next =
