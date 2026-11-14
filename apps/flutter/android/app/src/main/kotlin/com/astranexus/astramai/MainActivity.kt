@@ -5,6 +5,8 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import com.astranexus.astramai.bridge.BridgeProtocol
+import com.astranexus.astramai.bridge.WearableBridge
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -43,6 +45,10 @@ import io.flutter.plugin.common.MethodChannel
  */
 class MainActivity : FlutterActivity() {
 
+    /** 手机↔手表 网桥。Flutter 那边点「启动」才创建。 */
+    private var bridge: WearableBridge? = null
+    private var bridgeChannel: MethodChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -53,6 +59,67 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // ── 网桥控制通道 ──────────────────────────────────────────────
+        //
+        // Flutter 侧只有三个动作：启动 / 停止 / 查状态。
+        // 真正的收发全在 Kotlin 里跑，不需要每次消息都过一遍 Dart。
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BRIDGE_CHANNEL)
+        bridgeChannel = channel
+
+        channel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> {
+                    if (bridge == null) {
+                        bridge = WearableBridge(applicationContext).also { b ->
+                            b.onStateChanged = { state, error ->
+                                runOnUiThread {
+                                    bridgeChannel?.invokeMethod(
+                                        "stateChanged",
+                                        mapOf(
+                                            "state" to state.name,
+                                            "text" to b.statusText(),
+                                            "error" to error,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    bridge?.start()
+                    result.success(
+                        mapOf(
+                            "state" to bridge?.state?.name,
+                            "text" to bridge?.statusText(),
+                        ),
+                    )
+                }
+                "stop" -> {
+                    bridge?.stop()
+                    result.success(mapOf("state" to "STOPPED", "text" to "已停止"))
+                }
+                "status" -> result.success(
+                    mapOf(
+                        "state" to (bridge?.state?.name ?: "STOPPED"),
+                        "text" to (bridge?.statusText() ?: "已停止"),
+                    ),
+                )
+                "protocolInfo" -> result.success(
+                    mapOf(
+                        "chunkBytes" to BridgeProtocol.CHUNK_BYTES,
+                        "handshakeRounds" to BridgeProtocol.HANDSHAKE_ROUNDS,
+                        "caps" to BridgeProtocol.caps().toString(),
+                    ),
+                )
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        bridge?.stop()
+        bridge = null
+        super.onDestroy()
     }
 
     /**
@@ -172,5 +239,8 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val CHANNEL = "astramai/dynamic_color"
+
+        /** 网桥的控制通道。 */
+        private const val BRIDGE_CHANNEL = "astramai/bridge"
     }
 }

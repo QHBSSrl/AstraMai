@@ -87,6 +87,25 @@ android {
     }
 }
 
+/*
+ * 小米穿戴 SDK。
+ *
+ * 它**没有 Maven 依赖**，只能手动放 AAR —— 官方只提供 zip 下载，
+ * 不在任何公开仓库里。
+ *
+ * 提供的能力：
+ *   Wearable.getNodeApi(ctx).getConnectedNodes()
+ *   Wearable.getAuthApi(ctx).checkPermission(nodeId, Permission.DEVICE_MANAGER)
+ *   Wearable.getMessageApi(ctx).sendMessage(nodeId, byte[])
+ *   Wearable.getMessageApi(ctx).addListener(nodeId, OnMessageReceivedListener)
+ *
+ * 消息是 **byte[]**，我们约定为 UTF-8 JSON —— 和手表端
+ * `connect.send({data: {...}})` 的序列化结果一致。
+ */
+dependencies {
+    implementation(files("libs/xms-wearable-lib-1.4.aar"))
+}
+
 flutter {
     source = "../.."
 }

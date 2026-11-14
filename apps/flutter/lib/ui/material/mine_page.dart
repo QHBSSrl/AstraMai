@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/profile_store.dart';
 import '../../features/auth/auth_controller.dart';
+import 'bridge_page.dart';
 import 'sync_page.dart';
 
 /// 「我的」Tab。
@@ -388,15 +389,38 @@ class _MineTabState extends State<MineTab> {
         _SectionLabel('手表'),
         Card(
           margin: const EdgeInsets.symmetric(horizontal: 16),
-          child: ListTile(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const SyncToWatchPage()),
-            ),
-            leading: Icon(Icons.watch, size: 22, color: scheme.primary),
-            title: const Text('同步到手表'),
-            subtitle: const Text('生成配对码，手表输码就能看'),
-            trailing:
-                Icon(Icons.chevron_right, size: 18, color: scheme.outline),
+          child: Column(
+            children: [
+              ListTile(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SyncToWatchPage(),
+                  ),
+                ),
+                leading: Icon(Icons.watch, size: 22, color: scheme.primary),
+                title: const Text('同步到手表'),
+                subtitle: const Text('生成配对码，手表输码就能看'),
+                trailing:
+                    Icon(Icons.chevron_right, size: 18, color: scheme.outline),
+              ),
+              Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: scheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+              ListTile(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const BridgePage()),
+                ),
+                leading: Icon(Icons.settings_ethernet,
+                    size: 22, color: scheme.primary),
+                title: const Text('手机网桥'),
+                subtitle: const Text('手环没有网络模块时，用手机中转'),
+                trailing:
+                    Icon(Icons.chevron_right, size: 18, color: scheme.outline),
+              ),
+            ],
           ),
         ),
       ],
