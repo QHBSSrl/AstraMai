@@ -11,9 +11,18 @@
       固定高度之后，页面只负责往固定的槽位里填东西，
       **不管数据长什么样，布局都不会动**。
   -->
-  <div class="summary">
+  <!--
+    ⚠️ **高度必须跟着字号一起放大。**
+
+    `.summary` 是固定 132px，里面按「字号 + 行距」排了 5 行。
+    如果只把字号放大而高度不动，5 行会溢出卡片、压到下面的列表上。
+
+    所以这里把高度和字号都绑到 `style` 上 —— 内联样式优先级高于类，
+    类里那份只当默认值和文档。
+  -->
+  <div class="summary" style="height: {{ boxHeight }}">
     <div class="summary__main">
-      <text class="player" if="{{ name }}">{{ name }}</text>
+      <text class="player" style="font-size: {{ fs.player }}" if="{{ name }}">{{ name }}</text>
 
       <!--
         大数字。两种形态：
@@ -22,20 +31,20 @@
         **两种形态的主行高度一样**（都是 40px），所以卡片高度不变。
       -->
       <div class="rating-group" if="{{ valueDecimal }}">
-        <text class="rating">{{ value }}</text>
-        <text class="rating-dec">{{ valueDecimal }}</text>
+        <text class="rating" style="font-size: {{ fs.rating }}">{{ value }}</text>
+        <text class="rating-dec" style="font-size: {{ fs.ratingDec }}">{{ valueDecimal }}</text>
       </div>
-      <text class="rating" if="{{ !valueDecimal }}">{{ value }}</text>
+      <text class="rating" style="font-size: {{ fs.rating }}" if="{{ !valueDecimal }}">{{ value }}</text>
 
-      <text class="tier" if="{{ caption }}">{{ caption }}</text>
+      <text class="tier" style="font-size: {{ fs.tier }}" if="{{ caption }}">{{ caption }}</text>
     </div>
 
     <div class="summary__side">
-      <text class="line" if="{{ line1 }}">{{ line1 }}</text>
-      <text class="line" if="{{ line2 }}">{{ line2 }}</text>
-      <text class="line" if="{{ line3 }}">{{ line3 }}</text>
-      <text class="line" if="{{ line4 }}">{{ line4 }}</text>
-      <text class="line" if="{{ line5 }}">{{ line5 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line1 }}">{{ line1 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line2 }}">{{ line2 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line3 }}">{{ line3 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line4 }}">{{ line4 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line5 }}">{{ line5 }}</text>
     </div>
   </div>
 </template>
@@ -54,98 +63,70 @@
    * （字号 18 的行盒比 18 高，还要加 4px 间距）。
    *
    * 所以放 5 行时：5 × 22 = 110 > 100 —— **会溢出 10px**。
-   * 固定高度 + `align-items: center` 下，溢出部分会被裁掉，
-   * 表现是首尾两行残缺。这类问题模拟器上不一定看得出来，只有真机明显，
-   * 所以宁可先按最坏情况算。
    *
-   * ── 现在的取值 ──────────────────────────────────────────────────
-   *
-   * 字号 16 + 间距 2 → 一行约 18~20px：
-   *   5 行 × 20 = 100   ← 刚好卡满，不超
-   *   4 行 × 20 = 80    ← 常见情况（只有舞萌会用第 5 行）
-   *
-   * 16px 在 466px 表盘上仍然清楚（其它界面用的是 13~15px）。
-   *
-   * 左侧也在这个高度内：玩家名 20 + 大数字 40 + 小标签 18 + 间距 ≈ 86，
-   * 比右侧矮，所以撑不到顶。
+   * 现在这个 132px 是按「标准字号」算的基准值；实际高度由
+   * script 里的 `boxHeight` 按同一个倍率算出来绑到 style 上。
    */
+
   .summary {
     flex-direction: row;
-    align-items: center;
+    justify-content: space-between;
     height: 132px;
     padding: 16px;
-    border-radius: @ui-radius-md;
+    border-radius: @ui-radius-card;
     background-color: @ui-surface-card;
   }
 
   .summary__main {
     flex-direction: column;
-    align-items: center;
     justify-content: center;
     width: 150px;
   }
 
-  /* 玩家名：可能是全角/长名字，单行省略，绝不换行 */
   .player {
     font-size: 20px;
-    color: #4fd6ff;
+    color: @ui-on-surface-variant;
     margin-bottom: 4px;
-    text-align: center;
-    lines: 1;
-    text-overflow: ellipsis;
+    max-lines: 1;
+  }
+
+  .rating-group {
+    flex-direction: row;
+    align-items: flex-end;
   }
 
   .rating {
     font-size: 40px;
-    font-weight: bold;
-    color: #f5c542;
-    lines: 1;
-  }
-
-  /* 大数字 + 小数靠底对齐 */
-  .rating-group {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: center;
+    color: @ui-on-surface;
   }
 
   /*
-   * 小数部分。
-   * `margin-bottom: 4px` 是补偿字号差的基线偏移——
-   * 40px 和 22px 的基线不同，直接 flex-end 会让小数看起来偏高。
-   */
+    小数部分。
+    `margin-bottom: 4px` 是补偿字号差的基线偏移——
+    不补的话小数点会贴到卡片底边。
+  */
   .rating-dec {
     font-size: 22px;
-    font-weight: bold;
-    color: #f5c542;
+    color: @ui-on-surface-variant;
     margin-bottom: 4px;
-    lines: 1;
   }
 
   .tier {
     font-size: 18px;
-    color: #f5c542;
-    lines: 1;
-    text-overflow: ellipsis;
+    color: @ui-on-surface-variant;
   }
 
   .summary__side {
     flex-direction: column;
-    flex: 1;
+    justify-content: center;
     margin-left: 12px;
   }
 
-  /*
-   * 右侧统计行。
-   * **必须 `lines: 1`**：标签长度随游戏变（中二的「B30 Rating 合计」很长），
-   * 一旦换行就会把卡片撑高。
-   */
   .line {
     font-size: 16px;
     color: @ui-on-surface-variant;
     margin-bottom: 2px;
-    lines: 1;
-    text-overflow: ellipsis;
+    max-lines: 1;
   }
 </style>
 
@@ -156,6 +137,20 @@
    * **只负责显示，不取数据、不算业务**——数据由页面算好再传进来。
    * 这样 Web 端、以后的 Android 端都能用同一套「槽位约定」。
    */
+  const { fontScale, store } = global.AstraMai;
+
+  /** 各槽位在「标准档」下的字号。和上面样式里的数值保持一致。 */
+  const BASE_FONT = {
+    player: 20,
+    rating: 40,
+    ratingDec: 22,
+    tier: 18,
+    line: 16,
+  };
+
+  /** 卡片在标准档下的高度，和 `.summary` 的 132px 对应。 */
+  const BASE_HEIGHT = 132;
+
   export default {
     props: {
       /** 玩家名。空则不占位。 */
@@ -172,6 +167,47 @@
       line3: { default: '' },
       line4: { default: '' },
       line5: { default: '' },
+    },
+
+    private: {
+      /** 算好的字号，直接绑到 style 上。 */
+      fs: {},
+      /** 算好的卡片高度。 */
+      boxHeight: `${BASE_HEIGHT}px`,
+    },
+
+    onInit() {
+      this.applyFontScale();
+    },
+
+    /**
+     * 按字号档位算出这组槽位的实际 px。
+     *
+     * ⚠️ **高度和字号用同一个倍率** —— 只放大字号会把 5 行文字撑出卡片，
+     * 压到下面的列表上。
+     */
+    applyFontScale() {
+      try {
+        const mode = fontScale.current((key, d) => store.readSetting(key, d));
+        const k = fontScale.scaleOf(mode);
+
+        const fs = {};
+        Object.keys(BASE_FONT).forEach((key) => {
+          // 四舍五入到 0.5，避免 21.959999px 这种
+          fs[key] = `${Math.round(BASE_FONT[key] * k * 2) / 2}px`;
+        });
+
+        this.fs = fs;
+        this.boxHeight = `${Math.round(BASE_HEIGHT * k)}px`;
+      } catch (error) {
+        // 算不出来就用样式里的默认值，别让卡片渲染失败
+        const fs = {};
+        Object.keys(BASE_FONT).forEach((key) => {
+          fs[key] = `${BASE_FONT[key]}px`;
+        });
+        this.fs = fs;
+        this.boxHeight = `${BASE_HEIGHT}px`;
+      }
     },
   };
 </script>
