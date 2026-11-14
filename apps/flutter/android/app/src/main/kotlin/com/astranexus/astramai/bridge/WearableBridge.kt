@@ -114,7 +114,7 @@ class WearableBridge(private val context: Context) {
             }
             .addOnFailureListener { e ->
                 Log.w(TAG, "getConnectedNodes 失败", e)
-                update(State.ERROR, e.message ?: "找不到设备")
+                update(State.ERROR, explain(e))
                 if (running.get()) {
                     io.execute {
                         Thread.sleep(3000)
@@ -140,8 +140,36 @@ class WearableBridge(private val context: Context) {
             }
             .addOnFailureListener { e ->
                 Log.w(TAG, "checkPermission 失败", e)
-                update(State.ERROR, e.message ?: "授权失败")
+                update(State.ERROR, explain(e))
             }
+    }
+
+    /**
+     * 把 SDK 的异常翻译成用户能看懂的话。
+     *
+     * ⚠️ `AppNotInstalledException: app not installed` 这句话很容易误导 ——
+     * 它说的不是「手机没装小米运动健康」，而是**手表上找不到和本 App
+     * 包名一致的那个快应用**。
+     *
+     * 最常见的原因就是两边包名不一致（比如手机装的是 `.band` 版，
+     * 手表上装的还是普通版）。
+     */
+    private fun explain(e: Throwable): String {
+        val text: String = e.message ?: e.javaClass.simpleName
+
+        if (text.contains("app not installed", ignoreCase = true)) {
+            val pkg = context.packageName
+            return "手表上找不到对应的 AstraMai（包名 " + pkg + "）。" +
+                "手机和手表的包名必须完全一致：手环版要装带 .band 的 APK，" +
+                "并且手表上也要装 .band 的版本。"
+        }
+        if (text.contains("permission", ignoreCase = true)) {
+            return "权限被拒绝：" + text
+        }
+        if (text.contains("disconnect", ignoreCase = true)) {
+            return "设备已断开：" + text
+        }
+        return text
     }
 
     private fun registerListener(id: String) {
@@ -164,7 +192,7 @@ class WearableBridge(private val context: Context) {
             }
             .addOnFailureListener { e ->
                 Log.w(TAG, "addListener 失败", e)
-                update(State.ERROR, e.message ?: "注册监听失败")
+                update(State.ERROR, explain(e))
             }
     }
 
@@ -305,7 +333,7 @@ class WearableBridge(private val context: Context) {
             .sendMessage(id, bytes)
             .addOnFailureListener { e ->
                 Log.w(TAG, "sendMessage 失败", e)
-                update(State.ERROR, e.message ?: "发送失败")
+                update(State.ERROR, explain(e))
             }
     }
 
