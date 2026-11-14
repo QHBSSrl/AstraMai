@@ -30,3 +30,8 @@ npm-debug.log*
 .probe/
 .env.server
 astramai-server.zip
+# Android 签名（interconnect 要求手机 APK 和手表 RPK 同证书，见 key.properties）
+apps/flutter/android/key.properties
+apps/flutter/android/app/*.p12
+apps/flutter/android/app/*.jks
+apps/flutter/android/app/*.keystore
