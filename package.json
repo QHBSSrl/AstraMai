@@ -29,6 +29,7 @@
     "site:build": "node apps/site/build.mjs",
     "site:deploy": "node apps/site/build.mjs && npx wrangler pages deploy apps/site/dist --project-name astramai-site --branch main",
     "version:show": "node scripts/vela-version.mjs show",
+    "check:signature": "node scripts/check-signature.mjs",
     "version:debug": "node scripts/vela-version.mjs debug",
     "version:release": "node scripts/vela-version.mjs release"
   },
