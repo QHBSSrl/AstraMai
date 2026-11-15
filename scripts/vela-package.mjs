@@ -9,8 +9,8 @@
  *
  * 我们分了两个包体：
  *
- *   Apollo 手表（Watch 系列）  com.astranexus.astramai
- *   手环 Pro（带网桥）          com.astranexus.astramai.band
+ *   手表（Watch 系列）  com.nowmes.orhythm
+ *   手环 Pro（带网桥）  com.nowmes.orhythm.band
  *
  * 所以打 RPK 之前要先把 manifest 的 package 换对。
  *
@@ -29,8 +29,8 @@ const manifestPath = resolve(here, '..', 'apps', 'vela', 'src', 'manifest.json')
 
 /** 两个包体对应的 package。 */
 const PACKAGES = {
-  std: 'com.astranexus.astramai',
-  band: 'com.astranexus.astramai.band',
+  std: 'com.nowmes.orhythm',
+  band: 'com.nowmes.orhythm.band',
 };
 
 const mode = (process.argv[2] || 'show').toLowerCase();

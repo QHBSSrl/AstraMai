@@ -9,8 +9,8 @@
 
 | | 手表版（std） | 手环版（band） |
 |---|---|---|
-| **手机 App 包名** | `com.astranexus.astramai` | `com.astranexus.astramai.band` |
-| **快应用 package** | `com.astranexus.astramai` | `com.astranexus.astramai.band` |
+| **手机 App 包名** | `com.nowmes.orhythm` | `com.nowmes.orhythm.band` |
+| **快应用 package** | `com.nowmes.orhythm` | `com.nowmes.orhythm.band` |
 | **网桥入口** | 不显示 | 显示 |
 | **签名证书** | 同一张 | 同一张 |
 
@@ -90,7 +90,7 @@ flavorDimensions += "device"
 productFlavors {
     create("std") {
         dimension = "device"
-        // applicationId 保持 com.astranexus.astramai
+        // applicationId 保持 com.nowmes.orhythm
         buildConfigField("boolean", "BRIDGE_ENABLED", "false")
     }
     create("band") {
@@ -124,8 +124,8 @@ if (BridgeChannel.bridgeEnabled) ...   // 决定要不要显示网桥入口
 ## 五、验证过的
 
 ```
-app-band-debug.apk  package: com.astranexus.astramai.band
-app-std-debug.apk   package: com.astranexus.astramai
+app-band-debug.apk  package: com.nowmes.orhythm.band
+app-std-debug.apk   package: com.nowmes.orhythm
 
 两个签名指纹都是：
   e33dd67abc8c6ea9c3ce61bb7c550b41d7f9fc2fc4590e2d511547e14e13609e

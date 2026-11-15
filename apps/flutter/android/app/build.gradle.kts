@@ -39,7 +39,19 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.astranexus.astramai"
+        /*
+         * applicationId = 用户在桌面 / 系统里看到的包身份。现在归 NowMes Software。
+         *
+         * ⚠️ **`namespace` 保持 `com.astranexus.astramai` 不动。**
+         *
+         * namespace 是 R 类包名、也是 `android:name=".MainActivity"` 相对解析
+         * 的基准，它和 Kotlin 源目录绑定 —— 改它就要搬整个
+         * `app/src/main/kotlin/com/astranexus/astramai/` 目录。
+         *
+         * applicationId 和 namespace 分离是 Android 的标准做法，两者不同
+         * 完全没问题。
+         */
+        applicationId = "com.nowmes.orhythm"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -52,8 +64,8 @@ android {
      * ┌──────────┬─────────────────────────────────┬──────────────────────┐
      * │ flavor   │ applicationId                   │ 用途                  │
      * ├──────────┼─────────────────────────────────┼──────────────────────┤
-     * │ std      │ com.astranexus.astramai         │ 手表（Watch 系列）     │
-     * │ band     │ com.astranexus.astramai.band    │ 手环 Pro（带网桥）     │
+     * │ std      │ com.nowmes.orhythm              │ 手表（Watch 系列）     │
+     * │ band     │ com.nowmes.orhythm.band         │ 手环 Pro（带网桥）     │
      * └──────────┴─────────────────────────────────┴──────────────────────┘
      *
      * ── 为什么要分两个包 ────────────────────────────────────────────
@@ -69,10 +81,10 @@ android {
      * 否则 interconnect 连不上。所以打包时：
      *
      *   手表版：flutter build apk --flavor std
-     *           快应用 package = com.astranexus.astramai
+     *           快应用 package = com.nowmes.orhythm
      *
      *   手环版：flutter build apk --flavor band
-     *           快应用 package = com.astranexus.astramai.band
+     *           快应用 package = com.nowmes.orhythm.band
      *
      * 快应用的 package 用 `npm run package:band` 切换（见 apps/vela）。
      */
@@ -81,7 +93,7 @@ android {
     productFlavors {
         create("std") {
             dimension = "device"
-            // 不加密后缀，applicationId 保持 com.astranexus.astramai
+            // 不加密后缀，applicationId 就是 com.nowmes.orhythm
             buildConfigField("boolean", "BRIDGE_ENABLED", "false")
         }
         create("band") {

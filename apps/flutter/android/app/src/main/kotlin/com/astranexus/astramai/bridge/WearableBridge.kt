@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * ── 前置条件（缺一个就静默失败）────────────────────────────────────
  *
- * 1. 快应用 `package` = 本 App 包名（`com.astranexus.astramai`）
+ * 1. 快应用 `package` = 本 App 包名（`com.nowmes.orhythm.band`）
  * 2. 快应用和本 App **用同一张证书签名**（见 key.properties 的注释）
  * 3. 手机上装了「小米运动健康」（`com.xiaomi.wearable`）
  * 4. 手表和手机已配对连接

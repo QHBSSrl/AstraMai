@@ -115,7 +115,7 @@ class _HomeTabState extends State<HomeTab> {
       child: Row(
         children: [
           Text(
-            'AstraMai',
+            'ORhythm',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.5,
@@ -229,7 +229,7 @@ class _HomeTabState extends State<HomeTab> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Text(
-        'AstraMai · 0.1.0',
+        'ORhythm · 0.1.0',
         style: Theme.of(context)
             .textTheme
             .labelSmall

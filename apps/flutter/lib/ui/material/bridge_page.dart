@@ -121,7 +121,7 @@ class _BridgePageState extends State<BridgePage> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '这个功能要靠手机中转，所以 AstraMai 必须保持运行。'
+                    '这个功能要靠手机中转，所以 ORhythm 必须保持运行。'
                     '切到后台或者被系统清掉之后，手环那边就查不了分了。',
                     style: TextStyle(
                       color: scheme.onErrorContainer,
@@ -289,7 +289,7 @@ class _Checklist extends StatelessWidget {
     const items = [
       '手机上装了「小米运动健康」',
       '手环和手机已经配对连接',
-      '手环上装了 AstraMai',
+      '手环上装了 ORhythm',
       '两边签名证书一致（已处理，正常情况不用管）',
     ];
 

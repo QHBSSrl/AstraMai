@@ -464,7 +464,7 @@ class _MineTabState extends State<MineTab> {
                 value: '',
                 onTap: () => showLicensePage(
                   context: context,
-                  applicationName: 'AstraMai',
+                  applicationName: 'ORhythm',
                   applicationVersion: '0.1.0',
                 ),
               ),

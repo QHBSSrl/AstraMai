@@ -35,7 +35,11 @@ const ADB =
   process.env.VELA_ADB ??
   `${process.env.USERPROFILE}\\.vela\\sdk\\tools\\adb\\win\\adb.exe`;
 const DEVICE = process.env.VELA_DEVICE ?? 'emulator-5554';
-const PKG = 'com.astranexus.astramai';
+/*
+ * 快应用包名。分两个包体，部署时按当前 manifest 里的值走更准，
+ * 但这里默认用带网桥的手环版 —— 开发调试基本都是往手环上装。
+ */
+const PKG = 'com.nowmes.orhythm.band';
 // ⚠️ 只回一层。这里原来写的是 '../../apps/vela'，
 // 多了一层 `..` 会解析到仓库**外面**（D:\Works\AstraNexus\Code\apps\vela），
 // 于是这个脚本从写下来就是坏的——一直没人发现，
