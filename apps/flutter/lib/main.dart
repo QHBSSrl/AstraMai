@@ -162,7 +162,7 @@ class _AstraMaiAppState extends State<AstraMaiApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'AstraMai',
+      title: 'ORhythm',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(
         dynamicScheme: _dynamicScheme,

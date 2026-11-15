@@ -41,28 +41,28 @@ const NAV_KEY = {
 /** 每页的 title / description。没列出来的用兜底。 */
 const META = {
   index: {
-    title: 'AstraMai —— 把你的音游成绩戴在手腕上',
+    title: 'ORhythm —— 把你的音游成绩戴在手腕上',
     description:
-      'AstraMai 是跑在小米手表和手环上的音游查分工具，支持舞萌 DX、中二节奏、Phigros、osu!。抬腕查 Best、推分计算、成绩对比、离线缓存。基础功能全免费。',
+      'ORhythm 是跑在小米手表和手环上的音游查分工具，支持舞萌 DX、中二节奏、Phigros、osu!。抬腕查 Best、推分计算、成绩对比、离线缓存。基础功能全免费。',
   },
   games: {
-    title: '支持的游戏 · AstraMai',
+    title: '支持的游戏 · ORhythm',
     description: '舞萌 DX 的 Best 50、中二节奏的 Best 30、Phigros 的 RKS、osu! 的 Best Plays —— 四个游戏，每个都说清楚能查什么。',
   },
   features: {
-    title: '功能 · AstraMai',
+    title: '功能 · ORhythm',
     description: '推分计算器、成绩对比、离线缓存、距下一档、同步到手表。查分谁都会做，这几样是别人没有的。',
   },
   download: {
-    title: '下载 · AstraMai',
-    description: '在 AstroBox 里搜索 AstraMai 即可安装。小米手表 Watch S3 及以后、小米手环 8 Pro 及以上都能用。',
+    title: '下载 · ORhythm',
+    description: '在 AstroBox 里搜索 ORhythm 即可安装。小米手表 Watch S3 及以后、小米手环 8 Pro 及以上都能用。',
   },
   changelog: {
-    title: '更新日志 · AstraMai',
-    description: 'AstraMai 每个版本都写了为什么做，不只是列功能。',
+    title: '更新日志 · ORhythm',
+    description: 'ORhythm 每个版本都写了为什么做，不只是列功能。',
   },
   faq: {
-    title: '常见问题 · AstraMai',
+    title: '常见问题 · ORhythm',
     description: '要钱吗、数据安全吗、为什么不支持 Arcaea、支持哪些设备、一定要联网吗。',
   },
 };
@@ -230,7 +230,7 @@ function main() {
 
   for (const name of names) {
     const key = name.replace(/\.html$/, '');
-    const meta = META[key] ?? { title: 'AstraMai', description: '腕上音游工具。' };
+    const meta = META[key] ?? { title: 'ORhythm', description: '腕上音游工具。' };
 
     let content = readFileSync(join(PAGES, name), 'utf8');
     content = content.replace(/\{\{CHANGELOG\}\}/g, changelogHtml);
@@ -267,7 +267,7 @@ function main() {
   writeFileSync(
     resolve(DIST, '404.html'),
     layout
-      .replace(/\{\{TITLE\}\}/g, '页面不存在 · AstraMai')
+      .replace(/\{\{TITLE\}\}/g, '页面不存在 · ORhythm')
       .replace(/\{\{DESCRIPTION\}\}/g, '这个页面不存在。')
       .replace(
         /\{\{CONTENT\}\}/g,
