@@ -270,7 +270,7 @@
    * 而下面用的是 pi.activeTransport()。结果 api 一直是 undefined，
    * 被 try/catch 吞掉，网桥提示从来没显示过。现在改成解构 api。
    */
-  const { api, community, diag, fontScale, games, navigation, screenSize, store } = global.AstraMai;
+  const { api, community, diag, fetchbridge, fontScale, games, navigation, screenSize, store } = global.AstraMai;
   const { mark } = diag;
   const { groupNumber } = community;
   const { GAMES, readCurrentGame, writeCurrentGame } = games;
@@ -464,32 +464,33 @@
        * ⚠️ 用的是**官方 FetchBridge 的协议**（fetchbridge.js），
        * 不是我们自己那个 Python 插件（那个会弹浏览器窗口，已作废）。
        */
-      const mode = fetchbridge.MODE
-        ? fetchbridge.readBridgeMode()
-        : fetchbridge.MODE.SINGLE;
+      /*
+       * ⚠️ 这里原来直接 `fetchbridge.MODE` —— 但 fetchbridge 没被解构进来，
+       * 一点就 ReferenceError，被 Vela 静默吞掉，表现就是「点了没反应」。
+       *
+       * 现在整段包 try/catch，任何错误都摆到界面上。
+       */
+      try {
+        const mode = fetchbridge.readBridgeMode();
+        const client = fetchbridge.createFetchBridge({ mode });
 
-      this.bridgeState = '测试中…';
-      this.bridgeNotice = '';
-
-      const client = fetchbridge.createFetchBridge({ mode });
-
-      client.ping().then(
-        () => {
-          this.bridgeState = '已连通';
-          this.bridgeNotice =
-            '网桥正常。这个设备查成绩会走「手环 → 手机插件 → 服务器」这条链路。';
-        },
-        (error) => {
-          this.bridgeState = '失败';
-          /*
-           * 把原因原样显示出来 —— 这类问题光说「失败」没法排查：
-           *   · 插件没装 / 没启用 → 握手超时
-           *   · 手机不在蓝牙范围   → 握手超时
-           *   · 插件装了但连不上网 → 插件那边报的错
-           */
-          this.bridgeNotice = String(error && error.message ? error.message : error);
-        },
-      );
+        client.ping().then(
+          () => {
+            this.bridgeState = '已连通';
+            this.bridgeNotice =
+              '网桥正常。';
+          },
+          (error) => {
+            this.bridgeState = '失败';
+            // 原因原样显示 —— 光说「失败」没法排查
+            this.bridgeNotice = String(error && error.message ? error.message : error);
+          },
+        );
+      } catch (error) {
+        this.bridgeState = '失败';
+        this.bridgeNotice = '发起测试失败：'
+          + (error && error.message ? error.message : error);
+      }
     },
 
     /**
