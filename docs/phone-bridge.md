@@ -10,7 +10,7 @@
 
 | # | 要求 | 我们现在的状态 |
 |---|---|---|
-| 1 | 快应用 `manifest.json` 的 `package` = 手机 App 的包名 | ✅ 两边都是 `com.astranexus.astramai` |
+| 1 | 快应用 `manifest.json` 的 `package` = 手机 App 的包名 | ✅ 两边都是 `com.nowmes.orhythm` |
 | 2 | 快应用要用**和手机 App 相同的证书**签名 | ✅ 已完成（见下） |
 | 3 | 手机端要集成 **XMS Wearable SDK** | ❌ **缺 SDK** |
 
