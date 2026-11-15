@@ -13,6 +13,7 @@
 
 import { LxnsClient } from './astramai-core.js';
 import { getApiToken, getServerBase } from './config.js';
+import { readSetting } from './store.js';
 import { createBridgeFetch, isBridgeFetchAvailable } from './bridge-fetch.js';
 import { createVelaFetch } from './vela-fetch.js';
 
@@ -82,22 +83,58 @@ let fetchModule;
     cachedClient = null;
   }
 
+  /**
+   * 调试开关：强制走网桥。
+   *
+   * 手表自带 `@system.fetch`，正常情况下永远不会触发网桥 ——
+   * 那就**没法验证网桥协议**。打开这个开关之后即使有原生 fetch 也走网桥，
+   * 专门用来在手表上测通道。
+   *
+   * 存在 storage 里，key 是 `forceBridge`，值为 `'1'` 表示开。
+   */
+  export function isForceBridge() {
+    try {
+      return readSetting('forceBridge', '') === '1';
+    } catch (error) {
+      return false;
+    }
+  }
+
   /** 现在实际会走哪条路（给设置页 / 诊断用）。 */
   export function activeTransport() {
+    const bridgeOk = isBridgeFetchAvailable();
+
+    if (isForceBridge()) {
+      // 强制网桥：不再报 direct，让人一眼看出当前走的是哪条
+      return bridgeOk ? 'bridge' : 'none';
+    }
+
     if (getFetchModule() && !nativeFetchBroken) return 'direct';
-    if (isBridgeFetchAvailable()) return 'bridge';
+    if (bridgeOk) return 'bridge';
     return 'none';
   }
 
 let cachedClient = null;
 let cachedBase = null;
 let cachedToken = null;
+/** 上次建客户端时 forceBridge 的值 —— 变了必须重建。 */
+let cachedForce = null;
 
 /** 取一个绑定到当前配置的客户端（地址或令牌变了会自动重建）。 */
 export function getClient(base) {
   const target = base || getServerBase();
   const token = getApiToken();
-  if (cachedClient && cachedBase === target && cachedToken === token) return cachedClient;
+  const force = isForceBridge();
+
+  // 强制开关变了也要重建，否则切完还用着旧的那条路
+  if (
+    cachedClient
+    && cachedBase === target
+    && cachedToken === token
+    && cachedForce === force
+  ) {
+    return cachedClient;
+  }
 
   /*
    * ⚠️ **手环走的是下面 `!systemFetch` 那个分支。**
@@ -114,7 +151,9 @@ export function getClient(base) {
    */
   const systemFetch = getFetchModule();
 
-  const usableFetch = systemFetch && !nativeFetchBroken ? systemFetch : null;
+  const usableFetch = force
+    ? null
+    : (systemFetch && !nativeFetchBroken ? systemFetch : null);
 
   if (!usableFetch && !isBridgeFetchAvailable()) {
     throw new Error(
@@ -124,8 +163,9 @@ export function getClient(base) {
     );
   }
 
-  const velaFetch = systemFetch
-    ? createVelaFetch(systemFetch, { timeoutMs: 12000 })
+  // 注意用 usableFetch（可能被 forceBridge 置空），不是 systemFetch
+  const velaFetch = usableFetch
+    ? createVelaFetch(usableFetch, { timeoutMs: 12000 })
     : createBridgeFetch();
   cachedClient = new LxnsClient({
     baseUrl: target,
@@ -134,6 +174,7 @@ export function getClient(base) {
   });
   cachedBase = target;
   cachedToken = token;
+  cachedForce = force;
   return cachedClient;
 }
 
@@ -305,7 +346,11 @@ let rawFetch = null;
      *   3. 都没有 → 报一句人话
      */
     const systemFetch = getFetchModule();
-    const usableFetch = systemFetch && !nativeFetchBroken ? systemFetch : null;
+    // forceBridge 打开时也要走网桥 —— 和 getClient 保持同一套判断
+    const force = isForceBridge();
+    const usableFetch = force
+      ? null
+      : (systemFetch && !nativeFetchBroken ? systemFetch : null);
 
     if (!usableFetch && !isBridgeFetchAvailable()) {
       throw new Error(

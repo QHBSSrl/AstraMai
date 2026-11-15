@@ -96,18 +96,28 @@
     <text class="hint" if="{{ fontNotice }}">{{ fontNotice }}</text>
 
     <!--
-      设备信息 —— 用来确认字号倍率算得对不对。
+      调试区 —— **给用户和测试者用的**，不是内部开关。
 
-      真机拿不到 console 日志，只能把关键字段摆到界面上看一眼。
-      `screenWidth` 到底是物理像素还是逻辑像素，官方文档没写清楚，
-      这里必须靠实际设备确认。
+      出问题时他们能自己看到：走的哪条网络、设备什么型号、能不能连上手机。
+      真机拿不到 console 日志，所以这些信息必须摆在界面上。
     -->
-    <div class="rows" @click="toggleDeviceInfo">
-      <div class="row">
+    <text class="section">调试</text>
+
+    <div class="rows">
+      <div class="row" @click="toggleForceBridge">
+        <text class="row__label">强制走网桥</text>
+        <text class="row__mark">{{ forceBridgeOn ? '已开启' : '关闭' }}</text>
+      </div>
+
+      <div class="row" @click="toggleDeviceInfo">
         <text class="row__label">设备信息</text>
         <text class="row__mark">{{ deviceInfoOpen ? '收起' : '查看' }}</text>
       </div>
     </div>
+
+    <text class="hint" if="{{ forceBridgeNotice }}">{{ forceBridgeNotice }}</text>
+    <text class="hint">强制走网桥：即使能直接联网也改走手机中转，用来排查网络问题。</text>
+
     <block if="{{ deviceInfoOpen }}">
       <text class="hint">{{ deviceInfoText }}</text>
     </block>
@@ -311,6 +321,11 @@
       deviceInfoOpen: false,
       /** 设备信息的多行文本。 */
       deviceInfoText: '',
+
+      /** 强制走网桥开关的状态。 */
+      forceBridgeOn: false,
+      /** 切换强制网桥后的提示。 */
+      forceBridgeNotice: '',
     },
 
     onReady() {
@@ -369,27 +384,14 @@
        */
       this.bridgeNeeded = true;
 
+      // 强制网桥开关的状态也要读回来
       try {
-        const transport = api.activeTransport();
-
-        if (transport === 'bridge') {
-          this.bridgeHint =
-            '这台设备没有网络模块，查成绩靠手机中转。'
-            + '在手机上装「ORhythm」并打开「手机网桥」，'
-            + '然后点上面的「测试连接」确认。';
-        } else if (transport === 'none') {
-          this.bridgeHint =
-            '没检测到可用的网络。'
-            + '请在手机上装「ORhythm」，打开「手机网桥」。';
-        } else {
-          this.bridgeHint =
-            '这台设备能直接联网，平时用不上网桥。'
-            + '只有直连失败时才需要打开手机上的「手机网桥」，'
-            + '这里可以点「测试连接」验证通道。';
-        }
+        this.forceBridgeOn = api.isForceBridge();
       } catch (error) {
-        this.bridgeHint = '';
+        this.forceBridgeOn = false;
       }
+
+      this.refreshBridgeHint();
 
       // 字号
       this.fontScaleLabel = fontScale.label(fontScale.current(readSetting));
@@ -507,6 +509,71 @@
      *
      * 手环屏幕小，默认给「大」。改完立刻写回存储，下次进来还是这个档。
      */
+    /**
+     * 重新算「网桥提示」。
+     *
+     * 抽出来是因为两处要用：进页面时（refresh）和切完强制开关后。
+     */
+    refreshBridgeHint() {
+      try {
+        const transport = api.activeTransport();
+
+        if (transport === 'bridge') {
+          this.bridgeHint = this.forceBridgeOn
+            ? '已强制走网桥。查成绩会经过手机中转。'
+            : '这台设备没有网络模块，查成绩靠手机中转。'
+              + '在手机上装「ORhythm」并打开「手机网桥」，'
+              + '然后点「测试连接」确认。';
+        } else if (transport === 'none') {
+          this.bridgeHint =
+            '没检测到可用的网络。请在手机上装「ORhythm」，打开「手机网桥」。';
+        } else {
+          this.bridgeHint =
+            '这台设备能直接联网，平时用不上网桥。'
+            + '只有直连失败时才需要打开手机上的「手机网桥」，'
+            + '这里可以点「测试连接」验证通道。';
+        }
+      } catch (error) {
+        this.bridgeHint = '';
+      }
+    },
+
+    /**
+     * 切换「强制走网桥」。
+     *
+     * 打开后即使设备能直接联网也改走手机中转 —— 用来：
+     *   · 排查「直连不通」是不是网络问题
+     *   · 在手表上验证网桥协议（手表平时永远走不到网桥）
+     *
+     * 改完必须让 api 丢掉缓存的客户端，否则还用着旧的那条路。
+     */
+    toggleForceBridge() {
+      const next = !this.forceBridgeOn;
+
+      try {
+        writeSetting('forceBridge', next ? '1' : '');
+      } catch (error) {
+        this.forceBridgeNotice =
+          '保存失败：' + (error && error.message ? error.message : error);
+        return;
+      }
+
+      this.forceBridgeOn = next;
+
+      // 让下一次请求重新建客户端
+      try {
+        if (typeof api.resetClient === 'function') api.resetClient();
+      } catch (error) {
+        // 没有就算了，最坏是下一次请求还用旧客户端
+      }
+
+      this.forceBridgeNotice = next
+        ? '已强制走网桥。返回首页查一次成绩试试。'
+        : '已恢复自动选择（能直连就直连）。';
+
+      this.refreshBridgeHint();
+    },
+
     /**
      * 展开 / 收起设备信息。
      *
