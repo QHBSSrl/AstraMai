@@ -128,18 +128,51 @@ class WearableBridge(private val context: Context) {
         nodeName = node.name
         Log.i(TAG, "找到设备 ${node.name} (${node.id})")
 
-        // 第一次会弹授权，之后就是静默通过
+        // 先查权限，没有再申请
         Wearable.getAuthApi(context)
             .checkPermission(node.id, Permission.DEVICE_MANAGER)
             .addOnSuccessListener { granted: Boolean ->
-                if (!granted) {
-                    update(State.ERROR, "设备管理权限被拒绝")
-                    return@addOnSuccessListener
+                if (granted) {
+                    Log.i(TAG, "权限已有")
+                    registerListener(node.id)
+                } else {
+                    /*
+                     * ⚠️ **权限不会自己来，必须 requestPermission。**
+                     *
+                     * 只 check 不 request 的话永远是「设备管理权限被拒绝」——
+                     * 这个错误看起来像用户拒绝了，其实是**我们根本没弹过窗**。
+                     */
+                    requestPermission(node.id)
                 }
-                registerListener(node.id)
             }
             .addOnFailureListener { e ->
                 Log.w(TAG, "checkPermission 失败", e)
+                update(State.ERROR, explain(e))
+            }
+    }
+
+    /**
+     * 申请设备管理权限。
+     *
+     * 会弹出系统授权框（手机上确认）。用户同意之后才能收发消息。
+     */
+    private fun requestPermission(id: String) {
+        Log.i(TAG, "申请设备管理权限")
+        update(State.WAITING_NODE, "请在手机上允许访问手表")
+
+        Wearable.getAuthApi(context)
+            .requestPermission(id, Permission.DEVICE_MANAGER)
+            .addOnSuccessListener { granted: Array<Permission> ->
+                if (granted.isNotEmpty()) {
+                    Log.i(TAG, "权限已授予")
+                    registerListener(id)
+                } else {
+                    Log.w(TAG, "用户拒绝了权限")
+                    update(State.ERROR, "没有手表权限。请在「小米运动健康」里允许 ORhythm 访问设备。")
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.w(TAG, "requestPermission 失败", e)
                 update(State.ERROR, explain(e))
             }
     }

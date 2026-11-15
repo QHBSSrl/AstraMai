@@ -122,7 +122,7 @@ class _BridgePageState extends State<BridgePage> {
                 Expanded(
                   child: Text(
                     '这个功能要靠手机中转，所以 ORhythm 必须保持运行。'
-                    '切到后台或者被系统清掉之后，手环那边就查不了分了。',
+                    '切到后台或者被系统清掉之后，设备那边就查不了分了。',
                     style: TextStyle(
                       color: scheme.onErrorContainer,
                       fontSize: 13,
@@ -265,7 +265,7 @@ class _SwitchCard extends StatelessWidget {
           style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
-          value ? '手环现在可以通过手机上网' : '打开之后手环才能查分',
+          value ? '现在可以通过手机上网' : '打开之后设备才能查分',
           style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
         secondary: busy
