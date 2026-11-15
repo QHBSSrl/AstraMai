@@ -357,30 +357,37 @@
        * 直接把判断结果摆出来，比让他们猜快得多。
        */
       /*
-       * 判断这台设备要不要网桥。
+       * 网桥入口一律显示。
        *
-       * **依据是能力，不是机型** —— 自带 fetch 的设备（手表系列）
-       * 整块「网络」都不显示，用户永远看不到，也就不会困惑。
+       * 原来按 `activeTransport()` 在「直连」的设备上整块隐藏，理由是
+       * 手表用不上。但那样有两个问题：
+       *
+       *   1. 直连失败时用户没法切到网桥，也没有入口做诊断
+       *   2. **没法在手表上验协议** —— 端口都看不见
+       *
+       * 改成常驻，文案按能力区分：直连的设备说清「这是备用通道」。
        */
+      this.bridgeNeeded = true;
+
       try {
         const transport = api.activeTransport();
-        this.bridgeNeeded = transport !== 'direct';
 
         if (transport === 'bridge') {
           this.bridgeHint =
-            '手环没有网络模块，查成绩靠手机中转。'
-            + '在手机上装「AstraMai（手环版）」并打开「手机网桥」，'
+            '这台设备没有网络模块，查成绩靠手机中转。'
+            + '在手机上装「ORhythm」并打开「手机网桥」，'
             + '然后点上面的「测试连接」确认。';
         } else if (transport === 'none') {
           this.bridgeHint =
-            '手环没有网络模块，而且没检测到手机。'
-            + '请在手机上装「AstraMai（手环版）」，打开「手机网桥」。';
+            '没检测到可用的网络。'
+            + '请在手机上装「ORhythm」，打开「手机网桥」。';
         } else {
-          this.bridgeHint = '';
+          this.bridgeHint =
+            '这台设备能直接联网，平时用不上网桥。'
+            + '只有直连失败时才需要打开手机上的「手机网桥」，'
+            + '这里可以点「测试连接」验证通道。';
         }
       } catch (error) {
-        // api 不可用时保守地不显示，别让用户瞎折腾
-        this.bridgeNeeded = false;
         this.bridgeHint = '';
       }
 
