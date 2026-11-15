@@ -22,19 +22,18 @@ class BridgeChannel {
   /// 原生侧主动推状态变更时回调。
   void Function(BridgeStatus status)? onStatusChanged;
 
-  /// 这个包体适不适合显示网桥入口。
+  /// 网桥入口要不要显示。
   ///
-  /// 由 Gradle flavor 决定（`std` = 手表版，`band` = 手环版）。
+  /// **现在是恒 true。** 曾经按 Gradle flavor（std / band 两个包体）区分，
+  /// 但那套已经去掉了：
   ///
-  /// ── 为什么用编译期开关而不是运行时判断设备 ────────────────────────
+  ///   · 手机端看不到手表的 `deviceType`，猜错的代价是 Pro 用户
+  ///     找不到唯一能联网的开关
+  ///   · 手环那一侧自己会按 `deviceType` 决定显不显示「网络」区块
+  ///   · 手机这页的文案已经写明「仅手环 Pro 系列需要」
   ///
-  /// 手机端拿不到可靠的手表型号 —— `Node.name` 是用户自定义的设备名，
-  /// 可能是「我的手表」。猜错的话 Pro 用户会**完全看不见入口**，
-  /// 而那是他唯一能查分的办法。
-  ///
-  /// 分两个包体之后，装哪个就是哪类设备，不用猜。
-  static bool _bridgeEnabled = false;
-  static bool get bridgeEnabled => _bridgeEnabled;
+  /// 所以手机上一直显示，反而更稳。
+  static bool get bridgeEnabled => true;
 
   /// 当前 applicationId（诊断用）。
   static String applicationId = '';
@@ -44,11 +43,11 @@ class BridgeChannel {
     final ch = channel ?? const MethodChannel('astramai/bridge');
     try {
       final result = await ch.invokeMethod<Map>('features');
-      _bridgeEnabled = result?['bridge'] as bool? ?? false;
+      // 保留读取：以后要按别的条件隐藏时还用得上
       applicationId = result?['applicationId'] as String? ?? '';
     } catch (_) {
       // iOS / 鸿蒙没有这个通道 —— 网桥本来也只有 Android 有
-      _bridgeEnabled = false;
+      applicationId = '';
     }
   }
 

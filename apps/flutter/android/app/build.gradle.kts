@@ -59,51 +59,27 @@ android {
     }
 
     /*
-     * 两个包体。
+     * 只有一个包体。
      *
-     * ┌──────────┬─────────────────────────────────┬──────────────────────┐
-     * │ flavor   │ applicationId                   │ 用途                  │
-     * ├──────────┼─────────────────────────────────┼──────────────────────┤
-     * │ std      │ com.nowmes.orhythm              │ 手表（Watch 系列）     │
-     * │ band     │ com.nowmes.orhythm.band         │ 手环 Pro（带网桥）     │
-     * └──────────┴─────────────────────────────────┴──────────────────────┘
+     * ── 为什么不用分包了 ────────────────────────────────────────────
      *
-     * ── 为什么要分两个包 ────────────────────────────────────────────
+     * 手环 Pro 没有 `@system.fetch`，需要手机中转；手表自带联网能力，
+     * 用不上网桥。
      *
-     * 手环 Pro 没有 `@system.fetch`，必须靠手机中转；手表自带联网能力，
-     * 完全用不上网桥。
+     * 一开始判断不了设备类型（手机端只能看到用户自定义的 `Node.name`），
+     * 所以分成 std / band 两个包体，「装哪个就是哪类设备」。
      *
-     * 运行时判断设备型号不可靠（`Node.name` 是用户自定义的设备名），
-     * 猜错了会让 Pro 用户根本看不见入口。所以干脆分成两个包体，
-     * 各自上传、各自安装 —— **装哪个就是哪类设备**，不用猜。
+     * **现在不需要了** —— `device.getInfo()` 直接返回 `deviceType`
+     * （`watch` / `band` / `smartspeaker`，APILevel 2+）。
+     * 手表自己就知道该显示什么，不用在包体上区分。
      *
-     * ⚠️ **applicationId 必须和对应快应用的 package 一致**，
-     * 否则 interconnect 连不上。所以打包时：
+     * 分包还有个实打实的坏处：**包名一变就是新 App**，
+     * 用户数据清零、要重装、包名还得和快应用逐字对齐。
+     * 能不分就不分。
      *
-     *   手表版：flutter build apk --flavor std
-     *           快应用 package = com.nowmes.orhythm
-     *
-     *   手环版：flutter build apk --flavor band
-     *           快应用 package = com.nowmes.orhythm.band
-     *
-     * 快应用的 package 用 `npm run package:band` 切换（见 apps/vela）。
+     * ⚠️ **applicationId 必须和快应用的 package 一致**，否则 interconnect
+     * 连不上。快应用那边是 `apps/vela/src/manifest.json` 的 `package`。
      */
-    flavorDimensions += "device"
-
-    productFlavors {
-        create("std") {
-            dimension = "device"
-            // 不加密后缀，applicationId 就是 com.nowmes.orhythm
-            buildConfigField("boolean", "BRIDGE_ENABLED", "false")
-        }
-        create("band") {
-            dimension = "device"
-            applicationIdSuffix = ".band"
-            // 给 Dart 侧一个编译期开关，用来决定要不要显示网桥入口
-            buildConfigField("boolean", "BRIDGE_ENABLED", "true")
-        }
-    }
-
     buildFeatures {
         buildConfig = true
     }

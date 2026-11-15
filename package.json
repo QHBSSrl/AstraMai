@@ -29,11 +29,6 @@
     "site:build": "node apps/site/build.mjs",
     "site:deploy": "node apps/site/build.mjs && npx wrangler pages deploy apps/site/dist --project-name astramai-site --branch main",
     "version:show": "node scripts/vela-version.mjs show",
-    "pkg:show": "node scripts/vela-package.mjs show",
-    "pkg:std": "node scripts/vela-package.mjs std",
-    "pkg:band": "node scripts/vela-package.mjs band",
-    "apk:std": "node scripts/vela-package.mjs std && cd apps/flutter && flutter build apk --flavor std",
-    "apk:band": "node scripts/vela-package.mjs band && cd apps/flutter && flutter build apk --flavor band",
     "version:debug": "node scripts/vela-version.mjs debug",
     "version:release": "node scripts/vela-version.mjs release"
   },

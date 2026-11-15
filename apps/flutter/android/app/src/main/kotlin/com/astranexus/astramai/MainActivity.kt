@@ -107,10 +107,20 @@ class MainActivity : FlutterActivity() {
                         "nodeName" to bridge?.nodeName,
                     ),
                 )
-                // 编译期的功能开关。由 Gradle flavor 决定，Dart 侧不用猜。
+                /*
+                 * 功能开关。
+                 *
+                 * 之前 bridge 由 Gradle flavor 决定（std / band 两个包体）。
+                 * 现在只有一个包体，网桥恒定存在 —— **要不要显示入口由
+                 * 手环自己决定**（device.getInfo().deviceType）。
+                 *
+                 * 手机上不按设备类型隐藏入口：手机看不到手表的 deviceType，
+                 * 而猜错的代价是 Pro 用户找不到唯一能联网的开关。
+                 * 页面文案已经写清楚「仅手环 Pro 系列需要」，足够了。
+                 */
                 "features" -> result.success(
                     mapOf(
-                        "bridge" to BuildConfig.BRIDGE_ENABLED,
+                        "bridge" to true,
                         "applicationId" to packageName,
                     ),
                 )
