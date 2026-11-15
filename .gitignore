@@ -35,3 +35,8 @@ apps/flutter/android/key.properties
 apps/flutter/android/app/*.p12
 apps/flutter/android/app/*.jks
 apps/flutter/android/app/*.keystore
+
+# 官网的安装包目录 —— 构建产物，不进仓库
+# 33.7 MB 的二进制进了 git 会永久留在历史里，克隆一次就多 34 MB
+# 部署前由本地的 flutter build / aiot release 生成
+apps/site/releases/

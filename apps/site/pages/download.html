@@ -1,6 +1,47 @@
       <section class="section section--top">
         <h1 class="page__title">下载</h1>
-        <p class="section__lead">还没有上架任何商店，只走 AstroBox。</p>
+        <p class="section__lead">
+          还没上架任何应用商店，只走官网和 AstroBox。当前版本 <strong>v{{VERSION}}</strong>。
+        </p>
+
+        <!-- ── 手机 App ─────────────────────────────────────────────── -->
+        <h2 class="dl-group">手机 App（Android）</h2>
+        <p class="dl-note">
+          <strong>99% 的手机选第一个就行。</strong>
+          不确定的话选 arm64 —— 2019 年以后出的机器基本都是。
+        </p>
+
+        <div class="dl-list">
+          <a class="dl-item dl-item--primary" href="./releases/ORhythm-0.1.3-arm64-v8a.apk">
+            <span class="dl-item__label">arm64-v8a</span>
+            <span class="dl-item__meta">17.9 MB · 绝大多数手机</span>
+            <span class="dl-item__action">下载</span>
+          </a>
+          <a class="dl-item" href="./releases/ORhythm-0.1.3-armeabi-v7a.apk">
+            <span class="dl-item__label">armeabi-v7a</span>
+            <span class="dl-item__meta">15.5 MB · 老设备</span>
+            <span class="dl-item__action">下载</span>
+          </a>
+        </div>
+
+        <p class="dl-note dl-note--dim">
+          装的时候会提示「未知来源」—— 允许就行。
+          Play 保护机制可能拦一次，点「仍要安装」。
+        </p>
+
+        <!-- ── 手表 / 手环 ──────────────────────────────────────────── -->
+        <h2 class="dl-group">手表 / 手环</h2>
+        <p class="dl-note">
+          快应用要装到设备上，<strong>用手机上的 AstroBox 推过去</strong>。
+        </p>
+
+        <div class="dl-list">
+          <a class="dl-item" href="./releases/com.nowmes.orhythm.0.1.3.rpk">
+            <span class="dl-item__label">com.nowmes.orhythm.0.1.3.rpk</span>
+            <span class="dl-item__meta">294 KB · 手表和手环通用</span>
+            <span class="dl-item__action">下载</span>
+          </a>
+        </div>
 
         <div class="dl-hero">
           <a
@@ -11,45 +52,58 @@
           >
             <img
               src="https://astrobox.online/goab/zhcn/rounded/white.svg"
-              alt="在 AstroBox 里打开 AstraMai"
+              alt="在 AstroBox 里打开 ORhythm"
               width="228"
               height="46"
             />
           </a>
           <p class="dl-hero__hint">
-            装了 AstroBox 的话直接点上面这个按钮，会跳到 AstraMai 的应用页。
+            已在 AstroBox 上架的话，点这个按钮能直接跳到应用页。
           </p>
         </div>
+
+        <!-- ── 装机步骤 ─────────────────────────────────────────────── -->
+        <h2 class="dl-group">怎么装</h2>
 
         <div class="steps">
           <div class="step">
             <span class="step__num">1</span>
             <div>
-              <h3>手机装 AstroBox</h3>
+              <h3>手机装 APK</h3>
               <p>
-                小米手表的第三方应用分发工具。官网
-                <a href="https://astrobox.online" target="_blank" rel="noreferrer">astrobox.online</a>，
-                搜一下也能找到。
+                点上面的下载链接，装到手机上。
+                <strong>先卸载旧版</strong>——0.1.3 换了包名，不卸载会出现两个图标。
               </p>
             </div>
           </div>
           <div class="step">
             <span class="step__num">2</span>
             <div>
-              <h3>搜 AstraMai</h3>
+              <h3>手机上装 AstroBox</h3>
               <p>
-                在 AstroBox 里搜索 <code>AstraMai</code>，
-                或者用包名 <code>com.nowmes.orhythm</code> 精确查找。
+                小米手表的第三方应用分发工具。官网
+                <a href="https://astrobox.online" target="_blank" rel="noreferrer">astrobox.online</a>。
               </p>
             </div>
           </div>
           <div class="step">
             <span class="step__num">3</span>
             <div>
-              <h3>装到手表 / 手环</h3>
+              <h3>把 RPK 推到手表</h3>
               <p>
-                小米手表（Watch S3 及以后）和<strong>小米手环 8 Pro 及以上</strong>都能用，
-                同一套界面，不用装两个版本。
+                打开 AstroBox → 连上设备 → 「安装快应用」→ 在文件选择器里切到
+                <strong>浏览 → Download</strong>，找到刚才下的 RPK。
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="step__num">4</span>
+            <div>
+              <h3>手环用户：打开手机网桥</h3>
+              <p>
+                手环没有网络模块，要靠手机中转。打开手机上的 ORhythm →
+                「我的」→「手机网桥」→ 启用。
+                <strong>手表（Watch 系列）不用这一步。</strong>
               </p>
             </div>
           </div>
@@ -63,11 +117,16 @@
               手环 8 Pro 之前的设备跑不了 Vela 应用。
             </li>
             <li>
-              <strong>搜不到</strong> —— 用包名 <code>com.nowmes.orhythm</code> 直接搜。
+              <strong>桌面上出现两个图标</strong> —— 旧版没卸载。
+              旧包名是 <code>com.astranexus.astramai</code>，删掉它。
             </li>
             <li>
-              <strong>装上了打不开 / 白屏</strong> —— 这是 bug，请进群告诉我们，
-              带上你的手表型号。
+              <strong>装上了打不开 / 白屏</strong> —— 这是 bug，进群告诉我们，
+              带上设备型号。
+            </li>
+            <li>
+              <strong>在 AstroBox 里搜不到</strong> —— 用包名
+              <code>com.nowmes.orhythm</code> 直接搜；还没有的话就用上面的 RPK 装。
             </li>
           </ul>
           <p class="callout__hint">
@@ -78,7 +137,7 @@
         <div class="callout callout--muted">
           <h3>关于版本号</h3>
           <p>
-            正式版是 <code>0.1.2</code> 这种干净号，开发中是 <code>0.1.3debug1</code>
+            正式版是 <code>0.1.3</code> 这种干净号，开发中是 <code>0.1.4debug1</code>
             这种带后缀的。如果群里让你试新版，你会装到 debug 版 ——
             那可能有 bug，但通常也有你要的修复。
           </p>

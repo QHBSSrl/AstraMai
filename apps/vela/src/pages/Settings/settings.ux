@@ -133,9 +133,14 @@
         <text class="row__label">重看新手引导</text>
         <text class="row__mark">›</text>
       </div>
+      <div class="row" @click="showWebsite">
+        <text class="row__label">官网 / 下载</text>
+        <text class="row__mark">orhythm.astranexus.cn</text>
+      </div>
     </div>
 
-    <text class="foot">AstraMai · 街机音游工具</text>
+    <text class="foot">ORhythm · 街机音游工具</text>
+
   </div>
 </template>
 
@@ -281,6 +286,10 @@
    * 被 try/catch 吞掉，网桥提示从来没显示过。现在改成解构 api。
    */
   const { api, community, diag, fetchbridge, fontScale, games, navigation, screenSize, store } = global.AstraMai;
+
+  /** 手表上的 toast。用 try/require 是因为有些设备不提供。 */
+  let prompt = null;
+  try { prompt = require('@system.prompt'); } catch (error) { prompt = null; }
   const { mark } = diag;
   const { groupNumber } = community;
   const { GAMES, readCurrentGame, writeCurrentGame } = games;
@@ -509,6 +518,22 @@
      *
      * 手环屏幕小，默认给「大」。改完立刻写回存储，下次进来还是这个档。
      */
+    /**
+     * 显示官网地址。
+     *
+     * 手表上没有浏览器，点了也打不开 —— 所以只把网址摆出来让人抄。
+     */
+    showWebsite() {
+      this.fontNotice = '官网：orhythm.astranexus.cn';
+      try {
+        if (prompt && typeof prompt.showToast === 'function') {
+          prompt.showToast({ message: 'orhythm.astranexus.cn', duration: 3000 });
+        }
+      } catch (error) {
+        console.warn('[ORhythm] toast 不可用：', error);
+      }
+    },
+
     /**
      * 重新算「网桥提示」。
      *

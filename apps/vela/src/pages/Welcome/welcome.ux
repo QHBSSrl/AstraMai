@@ -28,11 +28,16 @@
           <text class="body body--dim">{{ termsFootnote }}</text>
         </block>
 
-        <!-- ── 3. 配对 ─────────────────────────────────────────── -->
+        <!-- ── 3. 联网 ─────────────────────────────────────────── -->
+        <!--
+          这里原来写着「那个功能还在做」—— 网桥已经做完了，
+          文案必须跟上，否则用户会以为手环没法用。
+        -->
         <block if="{{ page === 'pairing' }}">
-          <text class="lead">你的手表能自己上网吗？</text>
-          <text class="body">eSIM 版（像 REDMI Watch 5 eSIM）能自己联网，这步不用管。</text>
-          <text class="body body--dim">其它的得靠手机中转，那个功能还在做，先往下走就行。</text>
+          <text class="lead">你的设备能自己上网吗？</text>
+          <text class="body">手表（Watch 系列）自带联网，这一步不用管。</text>
+          <text class="body">手环（Pro 系列）没有网络模块，要靠手机中转：手机上装 ORhythm，打开「我的 → 手机网桥」。</text>
+          <text class="body body--dim">没装手机 App 也能看离线缓存的上次成绩。</text>
         </block>
 
         <!-- ── 4. 群 ───────────────────────────────────────────── -->
@@ -278,9 +283,9 @@
   const PRIMARY_LABELS = {
     welcome: '开始吧',
     terms: '没问题',
-    pairing: '我的是 eSIM',
+    pairing: '知道了',
     community: '进群看看',
-    done: '用起来',
+    done: '开始用',
   };
 
   export default {

@@ -38,6 +38,12 @@ class BridgeChannel {
   /// 当前 applicationId（诊断用）。
   static String applicationId = '';
 
+  /// App 版本，从 BuildConfig 读（和 pubspec 保持一致）。
+  static String versionName = '';
+
+  /// 官网地址。下载、公告、更新日志都在这里。
+  static const String website = 'https://orhythm.astranexus.cn';
+
   /// 读一次编译期开关。App 启动时调一次即可。
   static Future<void> loadFeatures({MethodChannel? channel}) async {
     final ch = channel ?? const MethodChannel('astramai/bridge');
@@ -45,9 +51,24 @@ class BridgeChannel {
       final result = await ch.invokeMethod<Map>('features');
       // 保留读取：以后要按别的条件隐藏时还用得上
       applicationId = result?['applicationId'] as String? ?? '';
+      versionName = result?['versionName'] as String? ?? '';
     } catch (_) {
       // iOS / 鸿蒙没有这个通道 —— 网桥本来也只有 Android 有
       applicationId = '';
+    }
+  }
+
+  /// 用系统浏览器打开网址。
+  ///
+  /// 走 MethodChannel 而不是 url_launcher：后者对鸿蒙是又一个要适配的
+  /// 插件，而我们只要一个 Intent。
+  static Future<bool> openUrl(String url) async {
+    const ch = MethodChannel('astramai/bridge');
+    try {
+      await ch.invokeMethod<bool>('openUrl', {'url': url});
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

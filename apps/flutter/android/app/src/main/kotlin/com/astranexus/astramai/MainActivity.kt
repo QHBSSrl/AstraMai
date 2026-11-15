@@ -122,6 +122,8 @@ class MainActivity : FlutterActivity() {
                     mapOf(
                         "bridge" to true,
                         "applicationId" to packageName,
+                        "versionName" to BuildConfig.VERSION_NAME,
+                        "versionCode" to BuildConfig.VERSION_CODE,
                     ),
                 )
                 "protocolInfo" -> result.success(
@@ -131,6 +133,30 @@ class MainActivity : FlutterActivity() {
                         "caps" to BridgeProtocol.caps().toString(),
                     ),
                 )
+                /*
+                 * 用系统浏览器打开一个网址。
+                 *
+                 * 走 MethodChannel 而不是加 url_launcher 依赖：
+                 * 后者对鸿蒙是又一个要适配的插件，而我们只要一个 Intent。
+                 */
+                "openUrl" -> {
+                    val url = call.argument<String>("url")
+                    if (url.isNullOrBlank()) {
+                        result.error("bad_args", "缺少 url", null)
+                    } else {
+                        try {
+                            startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(url),
+                                ),
+                            )
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("no_browser", e.message, null)
+                        }
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

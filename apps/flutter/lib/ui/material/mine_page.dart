@@ -445,12 +445,26 @@ class _MineTabState extends State<MineTab> {
           margin: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
-              const _AboutRow(label: '版本', value: '0.1.0', onTap: null),
+              _AboutRow(
+                label: '版本',
+                // 从 BuildConfig 读，别再硬编码 —— 之前写死 0.1.0，
+                // 发版后忘了改，用户看到的永远是旧号。
+                value: BridgeChannel.versionName.isEmpty
+                    ? '—'
+                    : BridgeChannel.versionName,
+                onTap: null,
+              ),
               _divider(scheme),
               _AboutRow(
                 label: '数据来源',
                 value: '落雪查分器',
                 onTap: () => _comingSoon('数据来源说明'),
+              ),
+              _divider(scheme),
+              _AboutRow(
+                label: '官网 / 下载',
+                value: 'orhythm.astranexus.cn',
+                onTap: () => BridgeChannel.openUrl(BridgeChannel.website),
               ),
               _divider(scheme),
               _AboutRow(
@@ -465,7 +479,7 @@ class _MineTabState extends State<MineTab> {
                 onTap: () => showLicensePage(
                   context: context,
                   applicationName: 'ORhythm',
-                  applicationVersion: '0.1.0',
+                  applicationVersion: BridgeChannel.versionName,
                 ),
               ),
             ],

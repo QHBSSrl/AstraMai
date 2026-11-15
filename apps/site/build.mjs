@@ -19,7 +19,7 @@
  * 而且静态托管多几个 html 不要钱。
  */
 
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -261,6 +261,22 @@ function main() {
   }
 
   copyFileSync(resolve(HERE, 'style.css'), resolve(DIST, 'style.css'));
+
+  /*
+   * 把安装包一起发出去。
+   *
+   * ⚠️ Cloudflare Pages 单文件上限 25 MB —— 所以必须用 --split-per-abi
+   * 的产物（arm64 17.9 MB / v7a 15.5 MB），不能用那个 50 MB 的合并包。
+   */
+  const RELEASES = resolve(HERE, 'releases');
+  if (existsSync(RELEASES)) {
+    const releaseDir = resolve(DIST, 'releases');
+    mkdirSync(releaseDir, { recursive: true });
+    for (const file of readdirSync(RELEASES)) {
+      copyFileSync(resolve(RELEASES, file), resolve(releaseDir, file));
+      built.push('releases/' + file);
+    }
+  }
   writeFileSync(resolve(DIST, 'icon.svg'), ICON, 'utf8');
   writeFileSync(resolve(DIST, 'robots.txt'), 'User-agent: *\nAllow: /\n', 'utf8');
   // Cloudflare Pages 的自定义 404
