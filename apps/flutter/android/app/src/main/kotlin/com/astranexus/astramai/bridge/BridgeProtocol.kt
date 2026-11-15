@@ -32,8 +32,32 @@ import java.util.zip.CRC32
  */
 object BridgeProtocol {
 
-    /** 单个分片的最大原始字节数（base64 之后会膨胀 4/3）。 */
-    const val CHUNK_BYTES = 24 * 1024
+    /**
+     * 单个分片的原始字节上限（base64 之后会膨胀 4/3）。
+     *
+     * ⚠️ **必须是 4096，不能拍脑袋往大了取。**
+     *
+     * 手表端 `fetchbridge.js` 的 `MAX_CHUNK_SIZE` 就是 4096，并且在握手
+     * 的 caps 里声明了 `maxChunkSize`。原来这里用 24 KB，切出来的帧
+     * 手表直接不收 —— 现象是同一请求反复重试（fb-7 / fb-8 / fb-9）。
+     *
+     * 协议的正确做法是**听对端声明的上限**，见 [chunkBytesFor]。
+     */
+    const val CHUNK_BYTES = 4096
+
+    /** 协议允许的绝对上下限（见 PROTOCOL.md）。 */
+    const val MIN_CHUNK_BYTES = 256
+    const val MAX_CHUNK_BYTES = 64 * 1024
+
+    /**
+     * 按对端声明的 `maxChunkSize` 决定实际分片大小。
+     *
+     * 取不到就用自己的默认值；对端要得更小就听它的。
+     */
+    fun chunkBytesFor(peerMax: Int): Int {
+        if (peerMax < MIN_CHUNK_BYTES) return CHUNK_BYTES
+        return if (peerMax < CHUNK_BYTES) peerMax else CHUNK_BYTES
+    }
 
     /** 握手轮数 —— 和手表端 `HANDSHAKE_ROUNDS` 必须一致。 */
     const val HANDSHAKE_ROUNDS = 2
@@ -66,10 +90,12 @@ object BridgeProtocol {
     fun chunkResponse(
         id: String,
         body: ByteArray,
+        chunkSize: Int = CHUNK_BYTES,
         base64Encode: (ByteArray) -> String,
     ): List<String> {
         val frames = mutableListOf<String>()
-        val total = if (body.isEmpty()) 1 else (body.size + CHUNK_BYTES - 1) / CHUNK_BYTES
+        val size = if (chunkSize in MIN_CHUNK_BYTES..MAX_CHUNK_BYTES) chunkSize else CHUNK_BYTES
+        val total = if (body.isEmpty()) 1 else (body.size + size - 1) / size
 
         if (body.isEmpty()) {
             frames += JSONObject().apply {
@@ -86,8 +112,8 @@ object BridgeProtocol {
         }
 
         for (seq in 0 until total) {
-            val start = seq * CHUNK_BYTES
-            val end = minOf(start + CHUNK_BYTES, body.size)
+            val start = seq * size
+            val end = minOf(start + size, body.size)
             val slice = body.copyOfRange(start, end)
 
             frames += JSONObject().apply {
@@ -113,6 +139,7 @@ object BridgeProtocol {
         headers: Map<String, String>,
         bodyLength: Int,
         contentType: String?,
+        stream: Boolean,
     ): String = JSONObject().apply {
         put("tag", "fetch")
         put("id", id)
@@ -127,12 +154,46 @@ object BridgeProtocol {
                 put("raw", "")
                 put("bodyLength", bodyLength)
                 put("contentType", contentType ?: "")
-                put("stream", true)
+                put("stream", stream)
             },
         )
     }.toString()
 
     /** 出错时的帧。手表端看到 `resp.ok=false` 就会走错误分支。 */
+    /**
+     * 单消息响应：响应体一次发完，base64 内联在 `resp.body` 里。
+     *
+     * 手表默认 `MODE.SINGLE`，走的就是这条 —— 它不发分片帧，也不回 ACK。
+     * 之前一律按流式回帧，它不认，表现是同一个请求反复重试。
+     *
+     * ⚠️ 单帧有 **16 KB** 上限（`MAX_UNCHUNKED_WIRE_LEN`），base64 会
+     * 膨胀 4/3，所以原始数据要控制在 ~12 KB 以内。
+     */
+    fun responseHeadInline(
+        id: String,
+        ok: Boolean,
+        status: Int,
+        statusText: String,
+        headers: Map<String, String>,
+        body: String,
+    ): String = JSONObject().apply {
+        put("tag", "fetch")
+        put("id", id)
+        put(
+            "resp",
+            JSONObject().apply {
+                put("ok", ok)
+                put("status", status)
+                put("statusText", statusText)
+                put("headers", JSONObject(headers as Map<*, *>))
+                // 手表端 decodeBody 按 bodyEncoding 解 base64
+                put("body", body)
+                put("bodyEncoding", "base64")
+                put("stream", false)
+            },
+        )
+    }.toString()
+
     fun errorResponse(id: String, message: String, status: Int = 0): String =
         JSONObject().apply {
             put("tag", "fetch")

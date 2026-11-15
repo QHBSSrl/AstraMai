@@ -55,6 +55,18 @@ class WearableBridge(private val context: Context) {
 
     private var nodeId: String? = null
 
+    /** 对端在握手里声明的 maxChunkSize，决定我们分片多大。 */
+    private var peerChunkBytes: Int = BridgeProtocol.CHUNK_BYTES
+
+    /**
+     * 对端支不支持「分片流」。
+     *
+     * 手表默认 MODE.SINGLE，握手里声明 chunk: false ——
+     * 那时它**期望响应体直接放在 esp.body 里**，不接受分帧。
+     * 一律按流式回帧，它就不认，表现是同一个请求反复重试。
+     */
+    private var peerStream: Boolean = false
+
     /** 连接的手表名，给界面显示用。 */
     var nodeName: String? = null
         private set
@@ -252,6 +264,19 @@ class WearableBridge(private val context: Context) {
 
     private fun handleHandshake(id: String, frame: JSONObject) {
         val count = frame.optInt("count", 0)
+
+        // 对端声明的分片上限 —— 必须听它的，否则切出来的帧它不收
+        val caps = frame.optJSONObject("caps")
+        if (caps != null) {
+            peerStream = caps.optBoolean("chunk", false) && caps.optBoolean("ack", false)
+            Log.i(TAG, "对端分片能力=$peerStream")
+        }
+        if (caps != null && caps.has("maxChunkSize")) {
+            val peer = caps.optInt("maxChunkSize", BridgeProtocol.CHUNK_BYTES)
+            peerChunkBytes = BridgeProtocol.chunkBytesFor(peer)
+            Log.i(TAG, "对端 maxChunkSize=$peer → 我们用 $peerChunkBytes")
+        }
+
         Log.i(TAG, "握手 count=$count")
 
         if (count >= BridgeProtocol.HANDSHAKE_ROUNDS) {
@@ -279,9 +304,17 @@ class WearableBridge(private val context: Context) {
         val result = runCatching { performHttp(url, method, headers, body) }
 
         result.onSuccess { resp ->
-            send(
-                id,
-                BridgeProtocol.responseHead(
+            /*
+             * ⚠️ **两种响应形态，必须按对端声明的能力选。**
+             *
+             * 手表默认 `MODE.SINGLE`（`chunk: false`），它期望响应体
+             * 直接放在 `resp.body` 里，**不接受分帧**。一律按流式回帧
+             * 它就不认 —— 现象是同一个请求反复重试。
+             *
+             * 只有对端声明了 `chunk:true` + `ack:true` 才走流式。
+             */
+            if (peerStream) {
+                val header = BridgeProtocol.responseHead(
                     id = requestId,
                     ok = resp.status in 200..299,
                     status = resp.status,
@@ -289,16 +322,32 @@ class WearableBridge(private val context: Context) {
                     headers = resp.headers,
                     bodyLength = resp.body.size,
                     contentType = resp.headers["content-type"],
-                ),
-            )
+                    stream = true,
+                )
+                send(id, header)
+                Log.i(TAG, "已发流式头 id=$requestId status=${resp.status} 长度=${resp.body.size}")
 
-            // 分片逐条发。⚠️ 每帧之间让出一下，别把 interconnect 的缓冲打满
-            val frames = BridgeProtocol.chunkResponse(requestId, resp.body) { bytes ->
-                Base64.encodeToString(bytes, Base64.NO_WRAP)
-            }
-            for (f in frames) {
-                send(id, f)
-                Thread.sleep(4)
+                val frames = BridgeProtocol.chunkResponse(requestId, resp.body, peerChunkBytes) { bytes ->
+                    Base64.encodeToString(bytes, Base64.NO_WRAP)
+                }
+                Log.i(TAG, "分片数=${frames.size} 首帧长度=${frames.firstOrNull()?.length ?: 0}")
+                for (f in frames) {
+                    send(id, f)
+                    Thread.sleep(4)
+                }
+                Log.i(TAG, "分片发送完毕 id=$requestId")
+            } else {
+                // 单消息：整个响应体一次发完，base64 内联
+                val inline = BridgeProtocol.responseHeadInline(
+                    id = requestId,
+                    ok = resp.status in 200..299,
+                    status = resp.status,
+                    statusText = resp.statusText,
+                    headers = resp.headers,
+                    body = Base64.encodeToString(resp.body, Base64.NO_WRAP),
+                )
+                Log.i(TAG, "已发单消息响应 id=$requestId status=${resp.status} 原始=${resp.body.size} 帧长=${inline.length}")
+                send(id, inline)
             }
         }.onFailure { e ->
             Log.w(TAG, "请求失败", e)
@@ -364,6 +413,9 @@ class WearableBridge(private val context: Context) {
 
         Wearable.getMessageApi(context)
             .sendMessage(id, bytes)
+            .addOnSuccessListener {
+                Log.i(TAG, "sendMessage ok ${bytes.size}B ${json.take(60)}")
+            }
             .addOnFailureListener { e ->
                 Log.w(TAG, "sendMessage 失败", e)
                 update(State.ERROR, explain(e))

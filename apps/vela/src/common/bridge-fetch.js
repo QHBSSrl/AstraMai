@@ -43,7 +43,24 @@ import { getServerBase } from './config.js';
 import { readSetting } from './store.js';
 
 /** 默认模式。单消息更快，先用它。 */
-export const DEFAULT_BRIDGE_MODE = MODE.SINGLE;
+/*
+ * 默认用**分片**，不是单消息。
+ *
+ * ── 为什么改 ────────────────────────────────────────────────────
+ *
+ * 单消息上限是 **16 KB**（MAX_UNCHUNKED_WIRE_LEN），而且限制的是
+ * **整帧 JSON**，不是原始 body —— base64 还要膨胀 4/3。
+ *
+ * 实测：B50 compact 端点返回 12782 字节，base64 后加上 JSON 外壳
+ * 是 **17568 字节**，直接超限。手表收到就丢，表现是同一个请求
+ * 反复重试、界面上「网络请求失败」。
+ *
+ * 分片没有长度上限，而且我们两侧的实现（CRC32 / ACK / 序号）
+ * 都已经对上了。**性能差异远小于「根本用不了」。**
+ *
+ * 用户仍可以在设置里手动切回「完整」—— 但那条路只适合很小的响应。
+ */
+export const DEFAULT_BRIDGE_MODE = MODE.STREAM;
 
 /** 设置里存的键。 */
 export const BRIDGE_MODE_KEY = 'bridgeMode';

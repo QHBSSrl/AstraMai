@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  网络安全配置。
+
+  ── 为什么必须放宽明文 HTTP ──────────────────────────────────────────
+  
+  Android 9（API 28）起默认**禁止明文 HTTP**，而我们的服务端是
+  `http://101.132.148.117:8787` —— 没有 TLS。
+
+  后果非常隐蔽：网桥能收到手表发来的 fetch 帧（说明蓝牙、包名、证书
+  全都对），但真正发请求时抛：
+
+      java.io.IOException: Cleartext HTTP traffic to ... not permitted
+
+  看起来像「网络请求失败」，其实是本地策略拦的，请求**根本没出去**。
+
+  ── 为什么不只放开那一个域名 ────────────────────────────────────────
+  
+  应用允许用户自己填服务器地址（自建实例、局域网调试），
+  地址可能是任意 IP 或域名的 http。逐个列举不可行。
+
+  所以整体放开，但保留这个文件的目的是**把原因写下来** ——
+  不然以后有人看到 `usesCleartextTraffic="true"` 会以为是随手加的。
+
+  ── 以后该做什么 ────────────────────────────────────────────────────
+  
+  给服务端上 TLS（Caddy / Nginx + Let's Encrypt 都行），
+  然后把这里改回 `cleartextTrafficPermitted="false"`，
+  只对本地调试地址开例外。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
