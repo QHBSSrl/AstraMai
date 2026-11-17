@@ -1,0 +1,439 @@
+---
+import '../styles/global.css';
+import { getLatestRelease } from '../lib/release';
+
+interface Props {
+  title?: string;
+  description?: string;
+  currentNav?: 'home' | 'games' | 'features' | 'changelog' | 'faq' | 'download';
+}
+
+const {
+  title = 'ORhythm —— 街机与多平台音游查分工具 | NowMes Software',
+  description = 'ORhythm 是由 NowMes Software 开发的街机与多平台音游查分工具，支持舞萌 DX、中二节奏、Phigros 与 osu!。支持 Android 手机与小米手表/手环双端联动，手机网桥突破手环无网络限制。',
+  currentNav = 'home',
+} = Astro.props;
+
+const release = await getLatestRelease();
+const manifestUrl = import.meta.env.PUBLIC_RELEASE_MANIFEST_URL || '';
+---
+
+<!doctype html>
+<html lang="zh-CN" class="dark scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <!-- Open Graph / 社交分享卡片（QQ、微信与主流浏览器严格抓取 1200×630 位图） -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content="/og.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="theme-color" content="#070b16" />
+  </head>
+
+  <body class="bg-[#070b16] text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-[#4fd6ff]/20 selection:text-[#4fd6ff]">
+    <!-- 吸顶毛玻璃导航栏 -->
+    <header class="sticky top-0 z-50 w-full border-b border-white/10 bg-[#070b16]/80 backdrop-blur-md transition-colors duration-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        
+        <!-- Brand Logo & Version Badge -->
+        <div class="flex items-center gap-3">
+          <a href="/" class="flex items-center gap-2.5 group">
+            <div class="w-8 h-8 rounded-lg bg-[#0f1629] border border-white/10 flex items-center justify-center transition-all duration-200 group-hover:border-[#4fd6ff]/50 group-hover:shadow-[0_0_12px_rgba(79,214,255,0.25)]">
+              <svg class="w-5 h-5 text-[#4fd6ff]" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="18" stroke="#4fd6ff" stroke-width="4" stroke-dasharray="8 4" />
+                <circle cx="32" cy="32" r="6" fill="#ff5f9e" />
+                <path d="M32 10v-4M32 58v-4M10 32h-4M58 32h-4" stroke="#4fd6ff" stroke-width="3" stroke-linecap="round" />
+              </svg>
+            </div>
+            <span class="text-lg font-bold tracking-tight text-white group-hover:text-[#4fd6ff] transition-colors">
+              ORhythm
+            </span>
+          </a>
+
+          <!-- 动态版本号徽章 -->
+          <a
+            href="/changelog"
+            class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-mono font-medium bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-[#4fd6ff]/40 transition-colors"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-[#4fd6ff] mr-1.5 animate-pulse"></span>
+            <span data-release-version>v{release.version}</span>
+          </a>
+        </div>
+
+        <!-- Desktop Navigation Links (无任何 GitHub 链接) -->
+        <nav class="hidden md:flex items-center gap-1 sm:gap-2">
+          <a
+            href="/games"
+            class:list={[
+              'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+              currentNav === 'games'
+                ? 'text-[#4fd6ff] bg-[#4fd6ff]/10 border border-[#4fd6ff]/20'
+                : 'text-slate-300 hover:text-white hover:bg-white/5',
+            ]}
+          >
+            支持的游戏
+          </a>
+
+          <a
+            href="/features"
+            class:list={[
+              'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+              currentNav === 'features'
+                ? 'text-[#4fd6ff] bg-[#4fd6ff]/10 border border-[#4fd6ff]/20'
+                : 'text-slate-300 hover:text-white hover:bg-white/5',
+            ]}
+          >
+            核心功能
+          </a>
+
+          <a
+            href="/changelog"
+            class:list={[
+              'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+              currentNav === 'changelog'
+                ? 'text-[#4fd6ff] bg-[#4fd6ff]/10 border border-[#4fd6ff]/20'
+                : 'text-slate-300 hover:text-white hover:bg-white/5',
+            ]}
+          >
+            更新日志
+          </a>
+
+          <a
+            href="/faq"
+            class:list={[
+              'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+              currentNav === 'faq'
+                ? 'text-[#4fd6ff] bg-[#4fd6ff]/10 border border-[#4fd6ff]/20'
+                : 'text-slate-300 hover:text-white hover:bg-white/5',
+            ]}
+          >
+            常见问题
+          </a>
+
+          <div class="h-4 w-px bg-white/10 mx-2"></div>
+
+          <!-- 主下载 CTA -->
+          <a
+            href="/download"
+            class:list={[
+              'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200',
+              currentNav === 'download'
+                ? 'bg-[#4fd6ff] text-[#070b16] font-semibold shadow-[0_0_15px_rgba(79,214,255,0.4)]'
+                : 'bg-[#4fd6ff]/15 text-[#4fd6ff] border border-[#4fd6ff]/30 hover:bg-[#4fd6ff] hover:text-[#070b16] hover:shadow-[0_0_15px_rgba(79,214,255,0.3)]',
+            ]}
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>下载客户端</span>
+          </a>
+        </nav>
+
+        <!-- 移动端汉堡菜单按钮 -->
+        <div class="flex items-center gap-2 md:hidden">
+          <a
+            href="/download"
+            class="px-2.5 py-1 text-xs font-medium rounded-md bg-[#4fd6ff] text-[#070b16]"
+          >
+            下载
+          </a>
+          <button
+            id="mobile-menu-btn"
+            type="button"
+            aria-label="打开菜单"
+            class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 focus:outline-none"
+          >
+            <svg id="menu-icon-open" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 移动端抽屉导航 -->
+      <div id="mobile-menu" class="hidden md:hidden border-b border-white/10 bg-[#070b16]/95 backdrop-blur-xl px-4 pt-2 pb-4 space-y-1">
+        <a
+          href="/games"
+          class:list={[
+            'block px-3 py-2 rounded-md text-base font-medium',
+            currentNav === 'games' ? 'text-[#4fd6ff] bg-[#4fd6ff]/10' : 'text-slate-300 hover:bg-white/5 hover:text-white',
+          ]}
+        >
+          支持的游戏
+        </a>
+        <a
+          href="/features"
+          class:list={[
+            'block px-3 py-2 rounded-md text-base font-medium',
+            currentNav === 'features' ? 'text-[#4fd6ff] bg-[#4fd6ff]/10' : 'text-slate-300 hover:bg-white/5 hover:text-white',
+          ]}
+        >
+          核心功能
+        </a>
+        <a
+          href="/changelog"
+          class:list={[
+            'block px-3 py-2 rounded-md text-base font-medium',
+            currentNav === 'changelog' ? 'text-[#4fd6ff] bg-[#4fd6ff]/10' : 'text-slate-300 hover:bg-white/5 hover:text-white',
+          ]}
+        >
+          更新日志
+        </a>
+        <a
+          href="/faq"
+          class:list={[
+            'block px-3 py-2 rounded-md text-base font-medium',
+            currentNav === 'faq' ? 'text-[#4fd6ff] bg-[#4fd6ff]/10' : 'text-slate-300 hover:bg-white/5 hover:text-white',
+          ]}
+        >
+          常见问题
+        </a>
+        <a
+          href="/download"
+          class:list={[
+            'block px-3 py-2 rounded-md text-base font-medium',
+            currentNav === 'download' ? 'text-[#4fd6ff] bg-[#4fd6ff]/10' : 'text-slate-300 hover:bg-white/5 hover:text-white',
+          ]}
+        >
+          下载安装包
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 w-full">
+      <slot />
+    </main>
+
+    <!-- 全局统一页脚 (严格遵守无 GitHub 约束与隐私法定表述) -->
+    <footer class="w-full border-t border-white/10 bg-[#070b16] mt-auto">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+        
+        <!-- 上层：品牌、声明与 QQ 群 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          <!-- 品牌与开发方 -->
+          <div class="space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-[#4fd6ff]"></span>
+              <span class="font-bold tracking-tight text-white text-base">ORhythm</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10 font-mono" data-release-version>
+                v{release.version}
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              NowMes Software 匠心打造的街机与多平台音游查分体验。
+            </p>
+            <div class="inline-flex items-center gap-2 text-xs text-emerald-400 font-medium">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              <span>基础功能完全免费</span>
+            </div>
+          </div>
+
+          <!-- 合规隐私与数据源声明（严格遵守法定合规文案） -->
+          <div class="space-y-2 text-xs text-slate-400 leading-relaxed">
+            <p class="text-slate-300 font-medium text-sm">合规与隐私安全</p>
+            <p class="text-slate-300/90 font-medium bg-[#0f1629]/80 p-2.5 rounded-lg border border-white/10">
+              好友码和游戏凭证只存在本机；同步数据加密后才离开手机。
+            </p>
+            <p class="pt-1">
+              舞萌 DX 成绩数据同步对接 <a href="https://maimai.lxns.net" target="_blank" rel="noreferrer" class="text-slate-300 hover:text-[#4fd6ff] underline underline-offset-2">落雪查分器</a>，
+              osu! 数据对接 <a href="https://osu.ppy.sh/docs/" target="_blank" rel="noreferrer" class="text-slate-300 hover:text-[#4fd6ff] underline underline-offset-2">官方开放 API</a>。
+            </p>
+          </div>
+
+          <!-- 官方交流与反馈（一键复制 QQ 群） -->
+          <div class="space-y-3">
+            <p class="text-slate-300 font-medium text-sm">用户交流与支持</p>
+            <p class="text-xs text-slate-400">
+              加入官方交流群获取最新开发进度、测试包与机台适配反馈。
+            </p>
+            <div class="flex items-center gap-2">
+              <div class="px-3 py-1.5 rounded-lg bg-[#0f1629] border border-white/10 font-mono text-xs text-slate-200">
+                QQ 群: <span id="qq-group-number" class="text-[#4fd6ff] font-semibold">308532898</span>
+              </div>
+              <button
+                id="copy-qq-btn"
+                type="button"
+                class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:text-white hover:bg-white/10 hover:border-[#4fd6ff]/40 transition-all flex items-center gap-1.5"
+                title="复制群号"
+              >
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                <span id="copy-qq-text">复制群号</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下层：版权声明与系统导航 -->
+        <div class="pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <div>
+            &copy; {new Date().getFullYear()} NowMes Software. 保留所有权利。
+          </div>
+          <div class="flex items-center gap-4">
+            <a href="/games" class="hover:text-slate-300 transition-colors">支持的游戏</a>
+            <a href="/features" class="hover:text-slate-300 transition-colors">功能</a>
+            <a href="/changelog" class="hover:text-slate-300 transition-colors">更新日志</a>
+            <a href="/faq" class="hover:text-slate-300 transition-colors">常见问题</a>
+            <a href="/download" class="hover:text-[#4fd6ff] transition-colors">下载客户端</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- 交互脚本：移动端菜单、QQ 复制与客户端双保险发版水合 -->
+    <script is:inline define:vars={{ manifestUrl }}>
+      // 移动端菜单切换
+      var menuBtn = document.getElementById('mobile-menu-btn');
+      var mobileMenu = document.getElementById('mobile-menu');
+      var menuOpenIcon = document.getElementById('menu-icon-open');
+      var menuCloseIcon = document.getElementById('menu-icon-close');
+
+      if (menuBtn && mobileMenu) {
+        menuBtn.addEventListener('click', function() {
+          var isExpanded = !mobileMenu.classList.contains('hidden');
+          if (isExpanded) {
+            mobileMenu.classList.add('hidden');
+            menuOpenIcon && menuOpenIcon.classList.remove('hidden');
+            menuCloseIcon && menuCloseIcon.classList.add('hidden');
+          } else {
+            mobileMenu.classList.remove('hidden');
+            menuOpenIcon && menuOpenIcon.classList.add('hidden');
+            menuCloseIcon && menuCloseIcon.classList.remove('hidden');
+          }
+        });
+      }
+
+      // QQ 群一键复制交互
+      var copyBtn = document.getElementById('copy-qq-btn');
+      var copyText = document.getElementById('copy-qq-text');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+          var textToCopy = '308532898';
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy).then(showCopied, fallbackCopy);
+          } else {
+            fallbackCopy();
+          }
+
+          function showCopied() {
+            if (copyText) {
+              copyText.textContent = '已复制！';
+              setTimeout(function() {
+                copyText.textContent = '复制群号';
+              }, 2000);
+            }
+          }
+
+          function fallbackCopy() {
+            var tempInput = document.createElement('input');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showCopied();
+          }
+        });
+      }
+
+      // 客户端发版动态水合（若配置了有效 R2 清单 URL，则无感更新版本号与下载直链）
+      if (manifestUrl && !manifestUrl.includes('example.com') && !manifestUrl.includes('.example')) {
+        (function hydrateRelease() {
+          var bustUrl = manifestUrl + (manifestUrl.indexOf('?') === -1 ? '?_t=' : '&_t=') + Date.now();
+          fetch(bustUrl, { cache: 'no-cache' })
+            .then(function(res) {
+              if (res.ok) return res.json();
+              throw new Error('Manifest fetch error: ' + res.status);
+            })
+            .then(function(data) {
+              if (!data || !data.version) return;
+
+              // 1. 全局版本号文字更新
+              var versionNodes = document.querySelectorAll('[data-release-version]');
+              versionNodes.forEach(function(el) {
+                el.textContent = 'v' + data.version;
+              });
+
+              // 2. 更新日期更新
+              if (data.releaseDate) {
+                document.querySelectorAll('[data-release-date]').forEach(function(el) {
+                  el.textContent = data.releaseDate;
+                });
+              }
+
+              // 3. 更新日志简介更新
+              if (data.changelogSummary) {
+                document.querySelectorAll('[data-changelog-summary]').forEach(function(el) {
+                  el.textContent = data.changelogSummary;
+                });
+              }
+
+              // 4. 安装包直链与体积更新
+              if (data.packages) {
+                if (data.packages.androidArm64) {
+                  var arm64 = data.packages.androidArm64;
+                  document.querySelectorAll('[data-download-arm64]').forEach(function(el) {
+                    el.setAttribute('href', arm64.url);
+                  });
+                  document.querySelectorAll('[data-size-arm64]').forEach(function(el) {
+                    el.textContent = arm64.size;
+                  });
+                }
+                if (data.packages.androidArmv7) {
+                  var armv7 = data.packages.androidArmv7;
+                  document.querySelectorAll('[data-download-armv7]').forEach(function(el) {
+                    el.setAttribute('href', armv7.url);
+                  });
+                  document.querySelectorAll('[data-size-armv7]').forEach(function(el) {
+                    el.textContent = armv7.size;
+                  });
+                }
+                if (data.packages.velaRpk) {
+                  var vela = data.packages.velaRpk;
+                  document.querySelectorAll('[data-download-rpk]').forEach(function(el) {
+                    el.setAttribute('href', vela.url);
+                  });
+                  document.querySelectorAll('[data-size-rpk]').forEach(function(el) {
+                    el.textContent = vela.size;
+                  });
+                }
+              }
+            })
+            .catch(function(err) {
+              // 保持静态兜底渲染，不打扰用户
+              console.debug('[ORhythm] Client manifest hydration skipped:', err);
+            });
+        })();
+      }
+    </script>
+  </body>
+</html>

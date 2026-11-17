@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "orhythm-site",
+  "compatibility_date": "2025-02-01",
+  // Cloudflare Workers 静态资产托管配置（纯静态部署，无需 Worker 运行时，请勿在此配置 vars）
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

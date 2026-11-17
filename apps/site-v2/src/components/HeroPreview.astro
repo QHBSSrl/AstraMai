@@ -1,0 +1,47 @@
+---
+/**
+ * HeroPreview.astro
+ * 双端真实截屏高保真视觉预览组件
+ * - 主画面：Android 手机端真实截屏（Flutter M3 查分界面）
+ * - 悬浮画面：纯净无冗余文字的小米手表 / 手环真实截屏（精细表壳贴合）
+ */
+---
+
+<div class="relative w-full max-w-[420px] mx-auto lg:max-w-none flex items-center justify-center py-4 lg:py-6 select-none">
+  <!-- 背景氛围光晕（克制深电光青与微粉点缀） -->
+  <div class="absolute -inset-6 bg-gradient-to-tr from-[#4fd6ff]/15 via-transparent to-[#ff5f9e]/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+
+  <!-- ==================== 1. Android 手机端真实截屏展示框 ==================== -->
+  <div class="relative w-[280px] sm:w-[320px] rounded-[2.8rem] bg-[#0b1120] p-2.5 sm:p-3 border border-white/15 shadow-2xl shadow-black/85 ring-1 ring-white/10 transition-transform duration-300 hover:-translate-y-1">
+    
+    <!-- 手机屏幕外壳内联边框 -->
+    <div class="relative w-full rounded-[2.2rem] bg-[#070b16] border border-white/10 overflow-hidden flex flex-col">
+      <img
+        src="/screenshots/preview-phone.jpg"
+        alt="ORhythm 手机版真实界面"
+        class="w-full h-auto object-cover rounded-[2.1rem] block"
+        loading="eager"
+        width="540"
+        height="1200"
+      />
+      <!-- 环境反光微光层 -->
+      <div class="absolute inset-0 rounded-[2.1rem] ring-1 ring-inset ring-white/10 pointer-events-none"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. 小米手表快应用真实截屏 (纯粹表盘浮雕质感，去文字) ==================== -->
+  <div class="absolute -bottom-3 -right-2 sm:-bottom-5 sm:-right-4 w-[160px] sm:w-[190px] rounded-[2.2rem] bg-[#0c1222] p-1.5 sm:p-2 border border-[#4fd6ff]/35 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-20 transition-all duration-300 hover:scale-105 hover:border-[#4fd6ff]/70">
+    <div class="relative w-full rounded-[1.8rem] bg-black overflow-hidden ring-1 ring-white/10 flex items-center justify-center">
+      <img
+        src="/screenshots/preview-rw5.png"
+        alt="ORhythm 手表快应用真实界面"
+        class="w-full h-auto object-contain rounded-[1.8rem] block"
+        loading="eager"
+        width="384"
+        height="440"
+      />
+      <!-- 极简手表高光微光边框 -->
+      <div class="absolute inset-0 rounded-[1.8rem] ring-1 ring-inset ring-white/15 pointer-events-none"></div>
+    </div>
+  </div>
+</div>

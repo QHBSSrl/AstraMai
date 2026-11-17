@@ -1,0 +1,202 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="核心功能 | ORhythm —— 街机与多平台音游查分工具"
+  description="深度解析 ORhythm 的六大核心能力：B50/B30 极速查分、手机网桥手环直连、目标定数推分计算、四维判定分析、地下机厅离线曲库与机台快速二维码。"
+  currentNav="features"
+>
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 space-y-16">
+    
+    <!-- 顶部标题 -->
+    <div class="text-center max-w-3xl mx-auto space-y-3">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[#4fd6ff]/10 text-[#4fd6ff] border border-[#4fd6ff]/25">
+        Capabilities & Architecture
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        能干什么
+      </h1>
+      <p class="text-sm sm:text-base text-slate-400">
+        查分、推分、离线看，大概这些。
+      </p>
+    </div>
+
+    <!-- 六大功能详解板块 -->
+    <div class="space-y-12">
+      
+      <!-- 功能 1: 手机网桥突破手环限制 (核心特色) -->
+      <div class="p-8 rounded-3xl bg-[#0f1629]/90 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              FEATURE 01 · 手环联网
+            </div>
+            <h2 class="text-2xl font-bold text-white tracking-tight">
+              手机网桥（Phone Bridge）突破手环无网络壁垒
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">
+              红米手表系列（如 RW5）、小米手环 Pro 系列等穿戴设备未配备独立网络连接，无法脱机发起网络请求。
+              底层用的是<strong>小米穿戴官方的 interconnect 通道</strong>，不是我们自造协议。手环端快应用与 Android 手机 App 建立双向握手，
+              由手机 App 代发请求，把结果分片推回手环。机台前抬腕即查。
+            </p>
+            <div class="flex flex-wrap gap-2 pt-2 text-xs font-mono">
+              <span class="px-2.5 py-1 rounded-lg bg-[#070b16] border border-white/5 text-slate-300">BLE 4.2 / 5.0 握手</span>
+              <span class="px-2.5 py-1 rounded-lg bg-[#070b16] border border-white/5 text-slate-300">中转耗时 &lt; 15ms</span>
+              <span class="px-2.5 py-1 rounded-lg bg-[#070b16] border border-white/5 text-slate-300">本地离线回退保护</span>
+            </div>
+          </div>
+
+          <!-- 模拟网桥通信视效卡片 -->
+          <div class="lg:col-span-5 p-5 rounded-2xl bg-[#070b16] border border-white/10 space-y-3 font-mono text-xs">
+            <div class="flex items-center justify-between text-slate-400 pb-2 border-b border-white/5">
+              <span>Bridge Topology</span>
+              <span class="text-emerald-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                ACTIVE
+              </span>
+            </div>
+            <div class="space-y-2 text-slate-300 text-[11px]">
+              <div class="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                <span>[Xiaomi Band] 发起同步请求</span>
+                <span class="text-slate-400">00:00.001</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                <span>[BLE Tunnel] 手机网桥中转代理</span>
+                <span class="text-[#4fd6ff]">00:00.012</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                <span>[API Server] 落雪查分凭证验证</span>
+                <span class="text-emerald-400">HTTP 200 OK</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                <span>[Sync Done] 数据已推到手表</span>
+                <span>Rating: 15842</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 功能 2: B50 / B30 极速查分与排版 -->
+      <div class="p-8 rounded-3xl bg-[#0f1629]/90 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-[#4fd6ff]/10 text-[#4fd6ff] border border-[#4fd6ff]/30">
+              FEATURE 02 · 核心体验
+            </div>
+            <h2 class="text-2xl font-bold text-white tracking-tight">
+              B50 / B30 成绩单解析与精确排版
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">
+              按官方 Rating 公式计算，数据来自落雪查分器与 osu! 官方接口。
+              Best 35 与 New 15 乐曲按单曲 DX Rating 降序精确排列，支持按达成率、定数、更新时间多维度过滤，所有数字等宽对齐，赏心悦目。
+            </p>
+            <div class="flex flex-wrap gap-2 pt-2 text-xs font-mono">
+              <span class="px-2.5 py-1 rounded-lg bg-[#070b16] border border-white/5 text-slate-300">定数精确到小数点后一位</span>
+              <span class="px-2.5 py-1 rounded-lg bg-[#070b16] border border-white/5 text-slate-300">达成率 4 位小数</span>
+              <span class="px-2.5 py-1 rounded-lg bg-[#070b16] border border-white/5 text-slate-300">AP / FC 标记</span>
+            </div>
+          </div>
+
+          <!-- 模拟 B50 卡片 -->
+          <div class="lg:col-span-5 p-4 rounded-2xl bg-[#070b16] border border-white/10 space-y-2">
+            <div class="flex justify-between items-center text-xs font-mono pb-2 border-b border-white/5">
+              <span class="text-white font-bold">maimai DX Rating 榜样</span>
+              <span class="text-[#4fd6ff] font-bold tabular-nums">15842</span>
+            </div>
+            <div class="space-y-1.5 text-xs font-mono tabular-nums">
+              <div class="p-2 rounded-lg bg-white/5 flex justify-between items-center">
+                <span class="text-slate-200 truncate pr-2">PANDORA PARADOXXX</span>
+                <span class="text-emerald-400 font-bold">100.8421% SSS+ (324)</span>
+              </div>
+              <div class="p-2 rounded-lg bg-white/5 flex justify-between items-center">
+                <span class="text-slate-200 truncate pr-2">QZKago Requiem</span>
+                <span class="text-emerald-400 font-bold">100.5210% SSS+ (319)</span>
+              </div>
+              <div class="p-2 rounded-lg bg-white/5 flex justify-between items-center">
+                <span class="text-slate-200 truncate pr-2">Valsqetch</span>
+                <span class="text-amber-400 font-bold">100.2104% SSS (315)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 功能 3: 目标定数与推分计算器 -->
+      <div class="p-8 rounded-3xl bg-[#0f1629]/90 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-[#ff5f9e]/10 text-[#ff5f9e] border border-[#ff5f9e]/30">
+              FEATURE 03 · 进阶推分
+            </div>
+            <h2 class="text-2xl font-bold text-white tracking-tight">
+              推分计算器与目标定数缺口逆向测算
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">
+              输入目标 Rating，和某一首曲子的定数，直接算出这首要打到多少达成率才够。<strong>是单曲计算，不是歌单推荐</strong> —— 哪首值得打，你自己判断。
+            </p>
+          </div>
+
+          <!-- 推分测算模拟卡片 -->
+          <div class="lg:col-span-5 p-4 rounded-2xl bg-[#070b16] border border-white/10 space-y-3 font-mono text-xs">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400">Target Rating</span>
+              <span class="text-[#ff5f9e] font-bold tabular-nums">16000 (彩框)</span>
+            </div>
+            <div class="w-full bg-white/5 rounded-full h-2">
+              <div class="bg-gradient-to-r from-[#4fd6ff] to-[#ff5f9e] h-2 rounded-full" style="width: 82%"></div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-white/5 space-y-1 text-slate-300 text-[11px] tabular-nums">
+              <div class="flex justify-between">
+                <span>底分缺口：</span>
+                <span class="text-white font-bold">+158 Rating</span>
+              </div>
+              <div class="flex justify-between">
+                <span>推荐路径：</span>
+                <span class="text-amber-300">定数 14.6 乐曲提分至 SSS+</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 功能 4 & 5 & 6 紧凑网格 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- 4: 四维判定分析 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 space-y-3">
+          <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-xs">
+            4D
+          </div>
+          <h3 class="text-base font-bold text-white">四维判定偏离度分析</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            谱面详情里有 BPM、谱师和物量分项（TAP / HOLD / SLIDE / TOUCH / BREAK），知道这首难在哪。
+          </p>
+        </div>
+
+        <!-- 5: 地下机厅弱网离线曲库 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 space-y-3">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-xs">
+            OFF
+          </div>
+          <h3 class="text-base font-bold text-white">地下机厅全量离线缓存</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            查过一次之后，这份 B50 会存在本地（最多留最近 6 份）。商场地库没信号时，翻得到上次的成绩，还会标出数据是什么时候抓的。
+          </p>
+        </div>
+
+        <!-- 6: 机台二维码助手 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 space-y-3">
+          <div class="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-xs">
+            QR
+          </div>
+          <h3 class="text-base font-bold text-white">机台扫码快捷登录</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            一键呼出机台登录卡号或动态二维码，免去在公众号与网页间反复跳转翻找的困扰，投币扫码一气呵成。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

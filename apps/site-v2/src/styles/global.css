@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #070b16;
+  --color-surface-card: #0f1629;
+  --color-brand-cyan: #4fd6ff;
+  --color-brand-pink: #ff5f9e;
+
+  --color-diff-basic: #22c55e;
+  --color-diff-advanced: #f59e0b;
+  --color-diff-expert: #ef4444;
+  --color-diff-master: #a855f7;
+
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "PingFang SC", "Microsoft YaHei", monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background-color: #070b16;
+  color: #f1f5f9;
+  font-family: var(--font-sans);
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #070b16;
+  color: #f1f5f9;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 保证所有评分、达成率、定数等宽对齐 */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 自定义极简低对比度暗色滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #070b16;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 214, 255, 0.3);
+}
+
+/* 极简网格纹理辅助类 */
+.bg-grid-pattern {
+  background-size: 36px 36px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+}

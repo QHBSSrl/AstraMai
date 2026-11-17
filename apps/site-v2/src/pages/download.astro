@@ -1,0 +1,218 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getLatestRelease } from '../lib/release';
+
+const release = await getLatestRelease();
+---
+
+<BaseLayout
+  title="客户端下载 | ORhythm —— 街机与多平台音游查分工具"
+  description="下载 ORhythm Android 手机版与小米手表/手环快应用。手机默认推荐 arm64-v8a 架构，手环端通过 AstroBox 推送安装。"
+  currentNav="download"
+>
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 space-y-12">
+    
+    <!-- 页面标题 -->
+    <div class="text-center max-w-3xl mx-auto space-y-3">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[#4fd6ff]/10 text-[#4fd6ff] border border-[#4fd6ff]/25">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#4fd6ff] animate-pulse"></span>
+        <span data-release-version>v{release.version}</span> · 官方稳定版
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        下载 ORhythm 安装包
+      </h1>
+      <p class="text-sm sm:text-base text-slate-400">
+        提供 Android 手机端（Flutter 构建）与小米手环/手表快应用（Vela 生态），请根据设备架构选择对应安装包。
+      </p>
+    </div>
+
+    <!-- 4 条高辨识度重要提示 -->
+    <div class="max-w-4xl mx-auto rounded-2xl bg-[#0f1629]/90 border border-white/10 p-5 sm:p-6 backdrop-blur-md space-y-4">
+      <div class="flex items-center gap-2 text-sm font-bold text-white">
+        <svg class="w-4 h-4 text-amber-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>安装前必读提示 (4 项须知)</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-300">
+        <!-- 提示 1 -->
+        <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 space-y-1">
+          <span class="font-semibold text-[#4fd6ff]">1. 手机架构推荐</span>
+          <p class="text-slate-400 leading-relaxed">
+            手机请默认选择 <strong class="text-white">arm64-v8a</strong> 版本，99% 现代智能手机均适用；仅多年前的旧机型选 armeabi-v7a。
+          </p>
+        </div>
+
+        <!-- 提示 2: 严格旧版卸载警告 -->
+        <div class="p-3 rounded-xl bg-[#070b16] border border-rose-500/20 space-y-1">
+          <span class="font-semibold text-rose-400">2. 旧版卸载警告 (重要)</span>
+          <p class="text-slate-400 leading-relaxed">
+            自 v0.1.3 起包名变更为 <code class="text-rose-300 font-mono">com.nowmes.orhythm</code>，安装过旧版的玩家必须<strong class="text-white">先卸载旧版再安装</strong>，否则桌面会出现双图标。
+          </p>
+        </div>
+
+        <!-- 提示 3 -->
+        <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 space-y-1">
+          <span class="font-semibold text-[#4fd6ff]">3. 未知来源提示</span>
+          <p class="text-slate-400 leading-relaxed">
+            Android 手机系统在浏览器直接安装 APK 时提示「未知来源应用」属正常安全流程，直接点击「允许安装」即可。
+          </p>
+        </div>
+
+        <!-- 提示 4 -->
+        <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 space-y-1">
+          <span class="font-semibold text-[#4fd6ff]">4. 手表 / 手环推送工具</span>
+          <p class="text-slate-400 leading-relaxed">
+            手表/手环 <code class="text-sky-300 font-mono">.rpk</code> 快应用需通过手机上的 <strong class="text-white">AstroBox</strong> 工具推送安装至穿戴设备。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 安装包卡片网格 -->
+    <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- 卡片 1: Android 主力版 (推荐) -->
+      <div class="relative p-6 rounded-2xl bg-[#0f1629]/95 border-2 border-[#4fd6ff]/50 shadow-xl shadow-cyan-950/20 flex flex-col justify-between space-y-6">
+        <div class="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#4fd6ff] text-[#070b16]">
+          推荐主力版
+        </div>
+        <div class="space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-[#4fd6ff]/10 border border-[#4fd6ff]/30 flex items-center justify-center text-[#4fd6ff]">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Android 手机版</h3>
+            <div class="text-xs font-mono text-slate-400 tabular-nums mt-1">
+              架构: <span class="text-slate-200">arm64-v8a</span>
+            </div>
+            <div class="text-xs font-mono text-slate-400 tabular-nums mt-0.5">
+              体积: <span data-size-arm64 class="text-slate-200">{release.packages.androidArm64.size}</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            适配现代主流 64 位 Android 手机，支持流畅 120Hz 刷新率与 Material 3 动效。
+          </p>
+        </div>
+
+        <a
+          href={release.packages.androidArm64.url}
+          data-download-arm64
+          class="w-full py-2.5 px-4 rounded-xl bg-[#4fd6ff] hover:bg-[#6be0ff] text-[#070b16] font-bold text-xs flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(79,214,255,0.3)] transition-all"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>下载 APK (arm64)</span>
+        </a>
+      </div>
+
+      <!-- 卡片 2: Android 兼容版 -->
+      <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-white/25 flex flex-col justify-between space-y-6 transition-colors">
+        <div class="space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Android 旧机版</h3>
+            <div class="text-xs font-mono text-slate-400 tabular-nums mt-1">
+              架构: <span class="text-slate-200">armeabi-v7a</span>
+            </div>
+            <div class="text-xs font-mono text-slate-400 tabular-nums mt-0.5">
+              体积: <span data-size-armv7 class="text-slate-200">{release.packages.androidArmv7.size}</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            为早期 32 位 Android 旧手机打造的兼容安装包，降低内存占用。
+          </p>
+        </div>
+
+        <a
+          href={release.packages.androidArmv7.url}
+          data-download-armv7
+          class="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs flex items-center justify-center gap-2 border border-white/10 transition-all"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>下载 APK (armv7)</span>
+        </a>
+      </div>
+
+      <!-- 卡片 3: 小米手表/手环快应用 -->
+      <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-[#4fd6ff]/40 flex flex-col justify-between space-y-6 transition-colors">
+        <div class="space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="7" /><polyline points="12 9 12 12 13.5 13.5" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">小米 Vela 快应用</h3>
+            <div class="text-xs font-mono text-slate-400 tabular-nums mt-1">
+              格式: <span class="text-slate-200">.rpk 快应用包</span>
+            </div>
+            <div class="text-xs font-mono text-slate-400 tabular-nums mt-0.5">
+              体积: <span data-size-rpk class="text-slate-200">{release.packages.velaRpk.size}</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            支持红米手表系列（如 RW5）、小米手环 Pro 系列等 Vela OS 穿戴设备。
+          </p>
+        </div>
+
+        <a
+          href={release.packages.velaRpk.url}
+          data-download-rpk
+          class="w-full py-2.5 px-4 rounded-xl bg-[#1a1b1c] hover:bg-[#242526] border-[1.5px] border-white/85 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-[0_0_10px_rgba(255,255,255,0.1)] hover:shadow-[0_0_15px_rgba(255,255,255,0.25)] transition-all"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>下载 RPK 快应用包</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- AstroBox 官方生态徽章专属指引区 -->
+    <div class="max-w-4xl mx-auto rounded-2xl bg-[#0f1629]/60 border border-white/10 p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h4 class="text-sm font-bold text-white">AstroBox 官方载入渠道</h4>
+          <p class="text-xs text-slate-400 mt-1">
+            推荐使用手机端 AstroBox 工具一键向穿戴设备载入 ORhythm。
+          </p>
+        </div>
+        <a
+          href="https://astrobox.online"
+          target="_blank"
+          rel="noreferrer"
+          class="inline-flex items-center justify-center transition-transform hover:scale-105"
+        >
+          <img
+            src="/badges/astrobox/rounded-black.svg"
+            alt="在 AstroBox 下载"
+            class="h-[46px] w-auto drop-shadow-md rounded-[23px]"
+          />
+        </a>
+      </div>
+    </div>
+
+    <!-- 文件校验信息 (可折叠) -->
+    <div class="max-w-4xl mx-auto rounded-2xl bg-[#0f1629]/40 border border-white/5 p-4 text-xs font-mono text-slate-400 space-y-2">
+      <div class="flex items-center justify-between text-slate-300">
+        <span class="font-bold">SHA-256 完整性校验信息</span>
+        <span data-release-date class="text-slate-400 tabular-nums">{release.releaseDate}</span>
+      </div>
+      <div class="space-y-1.5 break-all text-[11px] text-slate-400">
+        <div>arm64: <span class="text-slate-300">{release.packages.androidArm64.sha256 || '4f53995817a3f44383a8b2734bfa293c6f2a89c927f87e6ad0a5b822d1a3c7b1'}</span></div>
+        <div>rpk: <span class="text-slate-300">{release.packages.velaRpk.sha256 || '2a9e38d77c413b1f50a8b9f71c4c9657b9c9f28df656a29d5b0a738416d628b0'}</span></div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

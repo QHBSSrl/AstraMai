@@ -1,0 +1,17 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+.astro/
+
+# 环境变量（.env.example 要提交，.env 不要）
+.env
+
+# 安装包 —— 33 MB 的二进制，进了 git 会永久留在历史里
+# 部署前从 apps/site/releases/ 或构建产物拷进来
+public/releases/
+
+# 系统垃圾
+.DS_Store
+Thumbs.db

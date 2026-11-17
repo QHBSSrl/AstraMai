@@ -1,0 +1,243 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import HeroPreview from '../components/HeroPreview.astro';
+import { getLatestRelease } from '../lib/release';
+
+const release = await getLatestRelease();
+const currentYear = new Date().getFullYear();
+---
+
+<BaseLayout
+  title="ORhythm —— 街机与多平台音游查分工具 | NowMes Software"
+  description="ORhythm 是由 NowMes Software 开发的街机与多平台音游查分工具。支持舞萌 DX、中二节奏、Phigros 与 osu!。支持 Android 手机与小米手表/手环双端联动，手机网桥突破手环无网络限制。"
+  currentNav="home"
+>
+  <!-- 背景氛围光与极简网格 -->
+  <div class="relative overflow-hidden bg-grid-pattern">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-gradient-to-b from-[#4fd6ff]/10 via-[#ff5f9e]/5 to-transparent blur-3xl pointer-events-none -z-10"></div>
+
+    <!-- 首屏 Hero 区域：非对称双栏（左文右图，移动端紧凑排布） -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-16 lg:pt-16 lg:pb-24">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+        
+        <!-- 左侧：文案与核心行动 CTA -->
+        <div class="lg:col-span-7 space-y-6 sm:space-y-8 text-center lg:text-left">
+          
+          <!-- 顶部标签群：开发方与支持游戏 -->
+          <div class="inline-flex flex-wrap items-center justify-center lg:justify-start gap-2">
+            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-[#4fd6ff]/10 text-[#4fd6ff] border border-[#4fd6ff]/30">
+              NowMes Software
+            </span>
+            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 text-slate-300 border border-white/10">
+              舞萌 DX
+            </span>
+            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 text-slate-300 border border-white/10">
+              中二节奏
+            </span>
+            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 text-slate-300 border border-white/10">
+              Phigros
+            </span>
+            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 text-slate-300 border border-white/10">
+              osu!
+            </span>
+          </div>
+
+          <!-- 产品定位主标题 -->
+          <div class="space-y-3">
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-[1.15]">
+              街机与多平台音游<br class="hidden sm:inline" />
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#4fd6ff] via-sky-300 to-indigo-300">
+                随行即时查分工具
+              </span>
+            </h1>
+            <p class="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
+              Android 手机端，加上小米手表 / 手环的快应用，成绩和推分在两边都能看。
+              手环没有网络模块，靠手机上的
+              <strong class="text-slate-200 font-semibold">手机网桥</strong>
+              中转 —— 手机装着 ORhythm 就能查。
+            </p>
+          </div>
+
+          <!-- 双端下载主按钮组：与 AstroBox 同款暗黑胶囊及白色光圈设计对齐 -->
+          <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+            
+            <!-- 1. 移动版下载 (与 AstroBox 胶囊黑同款 #1a1b1c、46px 等高、同款外圈高光白圈与微光感) -->
+            <a
+              href={release.packages.androidArm64.url}
+              data-download-arm64
+              id="android-download-btn"
+              class="group inline-flex items-center justify-center gap-2.5 px-6 h-[46px] rounded-[23px] bg-[#1a1b1c] border-[1.5px] border-white/85 hover:border-white hover:bg-[#242526] shadow-[0_0_10px_rgba(255,255,255,0.15)] hover:shadow-[0_0_18px_rgba(255,255,255,0.35)] transition-all duration-200 transform hover:scale-[1.02]"
+              title="移动版下载"
+            >
+              <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+              <span class="text-sm font-semibold text-white tracking-wide">
+                移动版下载
+              </span>
+            </a>
+
+            <!-- 2. 小米 Vela 快应用 (AstroBox 官方 SVG 胶囊黑徽章，自带原生白色光圈，46px 等高) -->
+            <a
+              href={release.packages.velaRpk.url}
+              data-download-rpk
+              target="_blank"
+              rel="noreferrer"
+              class="group inline-flex items-center justify-center h-[46px] transition-all duration-200 transform hover:scale-[1.02]"
+              title="前往 AstroBox 下载 ORhythm 快应用"
+            >
+              <img
+                src="/badges/astrobox/rounded-black.svg"
+                alt="在 AstroBox 下载"
+                class="h-[46px] w-auto drop-shadow-md rounded-[23px] hover:shadow-[0_0_18px_rgba(255,255,255,0.35)] transition-all"
+                loading="eager"
+              />
+            </a>
+          </div>
+
+          <!-- 合规隐私提示 -->
+          <div class="flex items-center justify-center lg:justify-start gap-2 text-xs text-slate-400 pt-1">
+            <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            <span>好友码和游戏凭证只存在本机；同步数据加密后才离开手机。</span>
+          </div>
+        </div>
+
+        <!-- 右侧：双端高保真 UI 视觉预览组件 -->
+        <div class="lg:col-span-5 flex justify-center">
+          <HeroPreview />
+        </div>
+      </div>
+    </section>
+
+    <!-- Bento Grid 六大核心卖点区 -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-white/5">
+      <div class="text-center max-w-3xl mx-auto space-y-3 mb-12">
+        <h2 class="text-xs uppercase tracking-widest font-mono text-[#4fd6ff]">Core Capabilities</h2>
+        <p class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+          能干的几件事
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- 卡片 1: B50 / B30 查分 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all group space-y-4">
+          <div class="w-10 h-10 rounded-xl bg-[#4fd6ff]/10 border border-[#4fd6ff]/30 flex items-center justify-center text-[#4fd6ff]">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white group-hover:text-[#4fd6ff] transition-colors">B50 / B30 极速生成</h3>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              从落雪查分器和 osu! 官方接口取数，Best 35 与 New 15 的定数、达成率、单曲 Rating 排好给你。
+            </p>
+          </div>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-xs text-slate-300 flex justify-between tabular-nums">
+            <span>Rating: <strong class="text-[#4fd6ff]">15842</strong></span>
+            <span>Avg: <strong class="text-emerald-400">316.8</strong></span>
+          </div>
+        </div>
+
+        <!-- 卡片 2: 手机网桥突破手环限制 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all group space-y-4">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white group-hover:text-emerald-400 transition-colors">手机网桥 (Bridge) 突破手环限制</h3>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              手环没有网络模块，快应用只能靠蓝牙。手机上装 ORhythm 并打开「手机网桥」，手环就能通过手机上网。
+            </p>
+          </div>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-xs text-emerald-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>BLE 网桥连接正常 · 延迟 12ms</span>
+          </div>
+        </div>
+
+        <!-- 卡片 3: 精准推分计算器 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all group space-y-4">
+          <div class="w-10 h-10 rounded-xl bg-[#ff5f9e]/10 border border-[#ff5f9e]/30 flex items-center justify-center text-[#ff5f9e]">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="2" width="16" height="20" rx="2" />
+              <line x1="8" y1="6" x2="16" y2="6" /><line x1="16" y1="14" x2="16" y2="18" /><path d="M8 10h.01" /><path d="M12 10h.01" /><path d="M16 10h.01" /><path d="M8 14h.01" /><path d="M12 14h.01" /><path d="M8 18h.01" /><path d="M12 18h.01" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white group-hover:text-[#ff5f9e] transition-colors">目标定数与推分计算</h3>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              输入目标 Rating，算出某首曲子要打到多少达成率。不用自己拿计算器算。
+            </p>
+          </div>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-xs text-slate-300 flex justify-between tabular-nums">
+            <span>下一档目标: 16000</span>
+            <span class="text-[#ff5f9e]">还需 +158 分</span>
+          </div>
+        </div>
+
+        <!-- 卡片 4: 四维成绩对比与雷达图 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all group space-y-4">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 22 22 22" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white group-hover:text-purple-400 transition-colors">四维成绩分析</h3>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              谱面详情有 BPM、谱师、物量分项，知道这首难在哪。
+            </p>
+          </div>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-xs text-slate-300 flex justify-between tabular-nums">
+            <span>CRITICAL: 97.4%</span>
+            <span class="text-purple-400">BREAK: 2500</span>
+          </div>
+        </div>
+
+        <!-- 卡片 5: 地库离线全量缓存 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all group space-y-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white group-hover:text-amber-400 transition-colors">地下机厅弱网离线缓存</h3>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              查过一次就存在本地，最多留最近 6 份。地库没信号时还能翻到上次的成绩。
+            </p>
+          </div>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-xs text-slate-300 flex justify-between">
+            <span>离线曲目数据库</span>
+            <span class="text-amber-400">离线可看</span>
+          </div>
+        </div>
+
+        <!-- 卡片 6: 机台二维码与快速登录 -->
+        <div class="p-6 rounded-2xl bg-[#0f1629]/80 border border-white/10 hover:border-[#4fd6ff]/40 backdrop-blur-md transition-all group space-y-4">
+          <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white group-hover:text-sky-400 transition-colors">机台二维码助手</h3>
+            <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+              机台登录用的二维码直接给出来，不用在公众号和网页之间来回翻。
+            </p>
+          </div>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-xs text-slate-300 flex justify-between">
+            <span>二维码生成</span>
+            <span class="text-sky-400">即点即出</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

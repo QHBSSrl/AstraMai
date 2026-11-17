@@ -1,0 +1,152 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="支持的游戏 | VRhythm —— 街机与多平台音游查分工具"
+  description="VRhythm 全面支持舞萌 DX (maimai DX)、中二节奏 (CHUNITHM)、Phigros 以及 osu!，支持各平台 Rating、定数表与成绩分析。"
+  currentNav="games"
+>
+  <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 space-y-12">
+    
+    <!-- 顶部标题 -->
+    <div class="text-center max-w-3xl mx-auto space-y-3">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[#4fd6ff]/10 text-[#4fd6ff] border border-[#4fd6ff]/25">
+        Supported Games
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        跨平台街机与移动音游支持
+      </h1>
+      <p class="text-sm sm:text-base text-slate-400">
+        无缝连接四大主流音游生态，官方 Rating 算法原生适配，打造统一无割裂的查分阵地。
+      </p>
+    </div>
+
+    <!-- 四大游戏网格 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- 游戏 1: 舞萌 DX (maimai DX) -->
+      <div class="p-6 sm:p-8 rounded-3xl bg-[#0f1629]/90 border border-white/10 hover:border-[#4fd6ff]/40 transition-all space-y-6">
+        <div class="flex items-center justify-between pb-4 border-b border-white/5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-[#4fd6ff]/10 border border-[#4fd6ff]/30 flex items-center justify-center font-bold text-sm text-[#4fd6ff]">
+              DX
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white">舞萌 DX (maimai DX)</h2>
+              <span class="text-xs text-slate-400">数据源：落雪查分器对接</span>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            完全适配
+          </span>
+        </div>
+
+        <div class="space-y-3 text-xs text-slate-300">
+          <p class="leading-relaxed text-slate-400">
+            完整支持 2024 / FESTIVAL PLUS 官方 DX Rating 算法（Best 35 旧曲 + New 15 新曲）。支持单曲定数精准查询、AP / FC 徽标、同步段位与真段位标识。
+          </p>
+          
+          <!-- 难度胶囊颜色展示 -->
+          <div class="space-y-1.5 pt-1">
+            <span class="text-[11px] font-mono text-slate-400">官方难度语义规范：</span>
+            <div class="flex flex-wrap gap-1.5 font-mono text-[10px]">
+              <span class="px-2 py-0.5 rounded-full bg-[#22c55e]/15 text-[#22c55e] border border-[#22c55e]/30">Basic 1-7+</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30">Advanced 7-11+</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#ef4444]/15 text-rose-300 border border-[#ef4444]/30">Expert 10-14</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#a855f7]/15 text-[#c084fc] border border-[#a855f7]/30">Master 11-15</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#ff5f9e]/15 text-[#ff5f9e] border border-[#ff5f9e]/30">Re:MASTER 12-15</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 游戏 2: 中二节奏 (CHUNITHM) -->
+      <div class="p-6 sm:p-8 rounded-3xl bg-[#0f1629]/90 border border-white/10 hover:border-[#4fd6ff]/40 transition-all space-y-6">
+        <div class="flex items-center justify-between pb-4 border-b border-white/5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-bold text-sm text-amber-400">
+              CH
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white">中二节奏 (CHUNITHM)</h2>
+              <span class="text-xs text-slate-400">数据源：官方接口 / 落雪同步</span>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            完全适配
+          </span>
+        </div>
+
+        <div class="space-y-3 text-xs text-slate-300">
+          <p class="leading-relaxed text-slate-400">
+            精确计算 CHUNITHM Rating（Best 30 + Recent 10 构成），VVER PVWER 达成比例实时分析，支持 All Justice (AJ) 与 Full Combo 标记筛选。
+          </p>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-[11px] flex justify-between tabular-nums">
+            <span class="text-slate-400">支持字段：</span>
+            <span class="text-amber-400">VVER PVWER · AJ / FC · R30+B10</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 游戏 3: Phigros -->
+      <div class="p-6 sm:p-8 rounded-3xl bg-[#0f1629]/90 border border-white/10 hover:border-[#4fd6ff]/40 transition-all space-y-6">
+        <div class="flex items-center justify-between pb-4 border-b border-white/5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center font-bold text-sm text-sky-400">
+              PHI
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white">Phigros</h2>
+              <span class="text-xs text-slate-400">数据源：本地存档与云端解析</span>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-sky-500/10 text-sky-400 border border-sky-500/30">
+            支持同步
+          </span>
+        </div>
+
+        <div class="space-y-3 text-xs text-slate-300">
+          <p class="leading-relaxed text-slate-400">
+            提供精准 rks (Ranking Score) 试算器，Best 19 最佳乐曲 + 1 首最高 phi 成绩自动抓取，支持定数表离线速查与课题模式目标测算。
+          </p>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-[11px] flex justify-between tabular-nums">
+            <span class="text-slate-400">计算模型：</span>
+            <span class="text-sky-400">rks = (B19 + MaxPhi) / 20</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 游戏 4: osu! -->
+      <div class="p-6 sm:p-8 rounded-3xl bg-[#0f1629]/90 border border-white/10 hover:border-[#4fd6ff]/40 transition-all space-y-6">
+        <div class="flex items-center justify-between pb-4 border-b border-white/5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center font-bold text-sm text-[#ff5f9e]">
+              VSU
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white">osu! (All Modes)</h2>
+              <span class="text-xs text-slate-400">数据源：osu! v2 官方开放 API</span>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            官方 API
+          </span>
+        </div>
+
+        <div class="space-y-3 text-xs text-slate-300">
+          <p class="leading-relaxed text-slate-400">
+            对接 osu! 官方开放接口，读取你的 Best Plays：pp、准确率、星数、MVD。
+          </p>
+          <div class="p-3 rounded-xl bg-[#070b16] border border-white/5 font-mono text-[11px] flex justify-between tabular-nums">
+            <span class="text-slate-400">当前支持：</span>
+            <span class="text-[#4fd6ff]">Standard</span>
+          </div>
+          <p class="leading-relaxed text-slate-500 text-[11px]">
+            Taiko / Catch / Mania 还没接，后面会补。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
