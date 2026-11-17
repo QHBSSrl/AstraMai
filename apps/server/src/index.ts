@@ -124,11 +124,16 @@ const hasWebDist = existsSync(config.webDist);
  * 都能拿它刷请求额度。
  */
 const ALLOWED_ORIGINS = new Set([
+  // Cloudflare Pages 的默认域（部署时会变，留着兜底）
   'https://astramai.pages.dev',
   'https://astramai-site.pages.dev',
   'https://astramai-sync.pages.dev',
-  // 顺带允许自定义域（如果以后绑了）
-  'https://astramai.astranexus.cn',
+
+  // 正式域名
+  'https://orhythm.astranexus.cn',
+  'https://orhythm.astnx.com',
+
+  // 同步服务
   'https://worksync.astramai.astranexus.cn',
 ]);
 

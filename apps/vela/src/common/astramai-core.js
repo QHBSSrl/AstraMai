@@ -649,8 +649,14 @@ var RATE_THRESHOLDS = [
 function normalizeAchievement(achievement) {
   if (!Number.isFinite(achievement))
     return 0;
-  const percent = achievement > ACHIEVEMENT_MAX && achievement <= ACHIEVEMENT_MAX * 1e4 ? achievement / 1e4 : achievement;
-  return Math.min(Math.max(percent, 0), ACHIEVEMENT_MAX);
+  if (achievement <= ACHIEVEMENT_MAX) {
+    return Math.min(Math.max(achievement, 0), ACHIEVEMENT_MAX);
+  }
+  const asTenThousandths = achievement / 1e4;
+  if (asTenThousandths >= 1) {
+    return Math.min(Math.max(asTenThousandths, 0), ACHIEVEMENT_MAX);
+  }
+  return ACHIEVEMENT_MAX;
 }
 function dxRatingCoefficient(achievement) {
   const percent = normalizeAchievement(achievement);
@@ -2076,6 +2082,119 @@ function weightText(entry) {
   return `${formatWeight(entry.weightPercent)}%`;
 }
 
+// packages/core/dist/dancecube/types.js
+var DANCECUBE_CATEGORIES = [2, 3, 4, 5, 6];
+var DANCECUBE_CATEGORY_LABEL = {
+  2: "\u56FD\u8BED",
+  3: "\u7CA4\u8BED",
+  4: "\u97E9\u8BED",
+  5: "\u6B27\u7F8E",
+  6: "\u5176\u5B83"
+};
+var DANCECUBE_LEVEL_KIND = { CLASSIC: 1, SHOW: 10 };
+
+// packages/core/dist/dancecube/bests.js
+var BEST_COUNT = 15;
+var RECENT_COUNT = 15;
+function scoreRatio(accuracy, level) {
+  if (!Number.isFinite(accuracy) || !Number.isFinite(level))
+    return 0;
+  return accuracy * (level + 2);
+}
+function average(values) {
+  if (values.length === 0)
+    return 0;
+  let sum2 = 0;
+  for (const value of values)
+    sum2 += value;
+  return sum2 / values.length;
+}
+function topByRatio(charts, count) {
+  return [...charts].sort((a, b) => b.ratio - a.ratio).slice(0, count);
+}
+function difficultyLabel(levelKind, difficulty, level) {
+  if (levelKind === 10 || difficulty === -1)
+    return `show ${level}`;
+  return String(level);
+}
+function toScoreEntry(score, position) {
+  const isShow = score.levelKind === 10 || score.difficulty === -1;
+  return {
+    position,
+    musicId: score.musicId,
+    name: score.name,
+    difficulty: difficultyLabel(score.levelKind, score.difficulty, score.level),
+    level: score.level,
+    levelText: isShow ? `show ${score.level}` : String(score.level),
+    ratio: score.ratio,
+    ratioText: score.ratio.toFixed(2),
+    accuracy: score.accuracy,
+    accuracyText: `${(score.accuracy * 100).toFixed(2)}%`,
+    score: score.score,
+    scoreText: score.score.toLocaleString("en-US"),
+    combo: score.combo,
+    miss: score.miss,
+    ranking: score.ranking,
+    rankingText: score.ranking > 0 ? `#${score.ranking}` : "\u2014",
+    isShow
+  };
+}
+function flattenRankItem(item) {
+  return item.charts.map((chart) => ({
+    musicId: item.musicId,
+    name: item.name,
+    difficulty: chart.difficulty,
+    level: chart.level,
+    levelKind: chart.levelKind,
+    // 上游给的是百分比（比如 98.5），这里统一成 0–1
+    accuracy: chart.percent / 100,
+    score: chart.score,
+    combo: chart.comboCount,
+    miss: chart.miss,
+    ratio: scoreRatio(chart.percent / 100, chart.level),
+    ranking: chart.ranking
+  }));
+}
+function buildDanceCubeView(input) {
+  const best15Raw = topByRatio(input.allCharts, BEST_COUNT);
+  const recent15Raw = input.recentCharts.slice(0, RECENT_COUNT);
+  const bestAvg = average(best15Raw.map((score) => score.ratio));
+  const recentAvg = average(recent15Raw.map((score) => score.ratio));
+  const topRatio = best15Raw.length > 0 ? best15Raw[0].ratio : 0;
+  return {
+    game: "dancecube",
+    player: {
+      userId: input.player.userId,
+      name: input.player.name,
+      avatarUrl: input.player.avatarUrl,
+      titleUrl: input.player.titleUrl,
+      ratio: input.player.ratio,
+      ratioText: String(Math.round(input.player.ratio)),
+      musicScore: input.player.musicScore,
+      musicScoreText: input.player.musicScore.toLocaleString("en-US"),
+      rankNation: input.player.rankNation,
+      rankNationText: input.player.rankNation > 0 ? `#${input.player.rankNation}` : "\u2014",
+      // 上游是「百分之几 × 100」（518 → 5.18%），要除回去
+      comboPercentText: `${(input.player.comboPercent / 100).toFixed(2)}%`,
+      cityName: input.player.cityName,
+      teamName: input.player.teamName
+    },
+    best15: best15Raw.map(toScoreEntry),
+    recent15: recent15Raw.map(toScoreEntry),
+    stats: {
+      bestAvg,
+      bestAvgText: bestAvg.toFixed(2),
+      recentAvg,
+      recentAvgText: recentAvg.toFixed(2),
+      totalRatio: bestAvg + recentAvg,
+      totalRatioText: (bestAvg + recentAvg).toFixed(2),
+      topRatio,
+      topRatioText: topRatio.toFixed(2),
+      totalCharts: input.allCharts.length
+    }
+  };
+}
+
 // packages/core/dist/qr/tables.js
 var EC_LEVELS = ["L", "M", "Q", "H"];
 var EC_LEVEL_FORMAT_BITS = {
@@ -3226,6 +3345,9 @@ export {
   CHUNITHM_RATING_IS_SERVER_SIDE,
   CHUNITHM_UNKNOWN_COLOR,
   CHUNITHM_WORLD_S_END_INDEX,
+  DANCECUBE_CATEGORIES,
+  DANCECUBE_CATEGORY_LABEL,
+  DANCECUBE_LEVEL_KIND,
   DIFFICULTY_COLORS,
   DIFFICULTY_NAMES,
   DIFFICULTY_SHORT_NAMES,
@@ -3267,6 +3389,7 @@ export {
   base64ToBytes,
   buildB50View,
   buildChunithmBestsView,
+  buildDanceCubeView,
   buildOsuBestsView,
   buildPhigrosView,
   buildSongIndex,
@@ -3301,6 +3424,7 @@ export {
   encodeSyncPayload,
   encryptSyncPayload,
   findDifficulty,
+  flattenRankItem,
   formatAchievement,
   formatAchievementShort,
   formatDelta,
@@ -3352,11 +3476,13 @@ export {
   requiredLevelValue,
   rsGeneratorPolynomial,
   rsRemainder,
+  scoreRatio,
   serializeLxnsError,
   summarizeDiff,
   titleFromSongId,
   toChunithmScoreEntry,
   toOsuScoreEntry,
+  toScoreEntry,
   truncate,
   unwrapEnvelope,
   utf8Decode,

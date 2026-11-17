@@ -27,7 +27,21 @@ class ApiClient {
   ///
   /// 和手表端、网页端用的是同一台（阿里云）。
   /// ⚠️ 现在是 http 裸 IP，上 HTTPS 之后要改这里。
-  static const String defaultServerBase = 'http://101.132.148.117:8787';
+  /// 默认服务端地址。
+  ///
+  /// ── 为什么是 pi-orhythm 而不是 pi.orhythm ────────────────────
+  ///
+  /// Cloudflare 免费版 Universal SSL 只覆盖**一级子域**
+  /// （example.com 和 *.example.com）：
+  ///
+  ///   api.orhythm.astranexus.cn   二级 → 要付费 ACM
+  ///   api-orhythm.astranexus.cn   一级 → 免费证书够用
+  ///
+  /// 链路：客户端 ──TLS──▶ Cloudflare ──HTTP──▶ 阿里云 8787
+  ///
+  /// 源站是 HTTP，但对用户是 HTTPS，而且阿里云看不到 SNI ——
+  /// 不需要备案，也不会被按域名封。
+  static const String defaultServerBase = 'https://api-orhythm.astranexus.cn';
 
   /// 请求超时。网络差的时候 15 秒够了 —— 再久用户会以为死机。
   static const Duration timeout = Duration(seconds: 15);

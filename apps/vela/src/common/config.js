@@ -11,16 +11,26 @@ import { readSetting } from './store.js';
 /**
  * 默认服务端地址。
  *
- * 这是**你自己的服务器**，服务端代码在 `apps/server`，部署方式见 `docs/deploy-baota.md`。
- * 注意是 `http://` + 端口：域名没备案，暂时绑不了域名，也就没有 TLS。
+ * 服务端代码在 `apps/server`，部署方式见 `docs/deploy-baota.md`。
  *
- * ⚠️ **公开发布前必须处理这一行。**
- * 这个地址会**随安装包发出去**，任何人解包都能看到。
- * 界面上已经不再显示服务端地址（设置页那一段已删），但代码里还留着它是必须的——
- * 舞萌和中二的查询都得连它。
+ * ── 为什么是 `api-orhythm` 而不是 `api.orhythm` ──────────────────────
+ *
+ * Cloudflare 的免费 Universal SSL 只覆盖 **一级子域**
+ * （`example.com` 和 `*.example.com`）。
+ *
+ *   api.orhythm.astranexus.cn   二级 → 需要付费的 ACM
+ *   api-orhythm.astranexus.cn   一级 → 免费证书就够
+ *
+ * 所以用连字符，不加钱。
+ *
+ * ── 链路 ────────────────────────────────────────────────────────────
+ *
+ *   客户端 ──TLS──▶ Cloudflare 边缘 ──HTTP──▶ 阿里云 8787
+ *
+ * 源站是 HTTP，但**对用户是 HTTPS**，而且阿里云看不到 SNI
+ * （不需要备案，也不会被按域名封）。
  *
  * 换服务器时不改代码：用户在设置里填的 `serverBase` 会覆盖它。
- * 真要彻底不暴露 IP，得改成**构建时注入**或**首次运行时让用户填**。
  *
  * 另外两个地址在不同环境下才是对的，别混用：
  *   - `http://10.0.2.2:8787` —— **模拟器**里宿主机的地址
@@ -28,7 +38,7 @@ import { readSetting } from './store.js';
  *     模拟器填局域网 IP 或 localhost 都连不上。
  *   - `http://192.168.x.x:8787` —— 电脑上直连同一局域网的服务端
  */
-export const DEFAULT_SERVER_BASE = 'http://101.132.148.117:8787';
+export const DEFAULT_SERVER_BASE = 'https://api-orhythm.astranexus.cn';
 
 /** 模拟器专用的服务端地址，便于本地联调时切回来。 */
 export const EMULATOR_SERVER_BASE = 'http://10.0.2.2:8787';
