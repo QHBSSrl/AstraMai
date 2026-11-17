@@ -13,6 +13,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 
 import { assertDeploymentSafety, readConfig } from './config.js';
 import { DiagStore } from './diag.js';
+import { LogStore } from './logs.js';
+import { UsageStore } from './usage.js';
 import { PairingService } from './pairing.js';
 import { PhigrosService } from './phigros.js';
 import { GatewayService } from './gateway.js';
@@ -94,6 +96,8 @@ if (config.osuClientId && config.osuClientSecret) {
 const service = new GatewayService(config, registry);
 // 端上报诊断：真机拿不到日志，只能让 App 自己打回来
 const diag = new DiagStore(config.repoRoot);
+const usage = new UsageStore(config.repoRoot);
+const logs = new LogStore(config.repoRoot);
 // 配对：网页填数据 → 服务端内存暂存 → 手表凭 token 取走
 const pairing = new PairingService();
 // Phigros：玩家凭证来自 TapTap 扫码，不是一把全局密钥
@@ -107,7 +111,7 @@ const pairing = new PairingService();
   });
   registry.register(dancecube);
 const guard = createGuard(config);
-const router = createRouter(service, config, guard, diag, pairing, phigros, dancecube);
+const router = createRouter(service, config, guard, diag, pairing, phigros, dancecube, usage, logs);
 const hasWebDist = existsSync(config.webDist);
 
 /**
@@ -167,6 +171,26 @@ function applyCors(req: IncomingMessage, res: ServerResponse): void {
   res.setHeader('access-control-max-age', '600');
 }
 
+/**
+ * 取客户端地址。
+ *
+ * 现在流量走 Cloudflare，优先用 `cf-connecting-ip`（它最准），
+ * 其次 `x-forwarded-for` 的第一段（经 frp / 其它反代时会带），
+ * 最后才是 socket 的 remoteAddress（直连时）。
+ */
+function clientIpOf(req: import('node:http').IncomingMessage): string {
+  const cf = req.headers['cf-connecting-ip'];
+  if (typeof cf === 'string' && cf) return cf.trim();
+
+  const forwarded = req.headers['x-forwarded-for'];
+  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  if (value) {
+    const first = value.split(',')[0]?.trim();
+    if (first) return first;
+  }
+
+  return req.socket?.remoteAddress ?? '';
+}
 const server = createServer((req, res) => {
   applyCors(req, res);
 
@@ -195,6 +219,9 @@ const server = createServer((req, res) => {
     });
     return;
   }
+
+  // 用量统计：记一次请求（不阻塞、不抛错）
+  usage.record(clientIpOf(req), url.pathname);
 
   const matched = router.match(method, url.pathname);
   if (matched) {

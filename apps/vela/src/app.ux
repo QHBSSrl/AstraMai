@@ -23,7 +23,15 @@
 
   export default {
     onCreate() {
-      console.debug('[AstraMai] app onCreate');
+      /*
+       * 把 console 的 warn/error 收进诊断缓冲。
+       *
+       * 只收不发 —— 真正上传要等报错时带上前后 3 分钟。
+       * 放在最前面，这样初始化阶段的日志也能记下来。
+       */
+      diag.hookConsole();
+
+      console.debug('[ORhythm] app onCreate');
       diag.mark('app:onCreate');
 
       /*

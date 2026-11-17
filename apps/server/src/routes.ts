@@ -30,6 +30,8 @@ import { Router, readBody, sendJson, sendText, type RequestContext } from './htt
 import type { Guard } from './guard.js';
 import type { GatewayService } from './gateway.js';
 import type { DiagStore } from './diag.js';
+import type { LogStore } from './logs.js';
+import type { UsageStore } from './usage.js';
 import { POLL_INTERVAL_MS, type PairingService } from './pairing.js';
 import type { PhigrosService } from './phigros.js';
 import type { DanceCubeSource } from './sources/dancecube.js';
@@ -209,6 +211,8 @@ export function createRouter(
   pairing: PairingService,
   phigros: PhigrosService,
   dancecube: DanceCubeSource,
+    usage: UsageStore,
+    logs: LogStore,
 ): Router {
   const router = new Router();
 
@@ -230,6 +234,7 @@ export function createRouter(
         songCache: service.cacheStatus(),
         upstreamBudget: service.registry.upstreamStatus(),
         accessControl: guard.stats(),
+        usage: usage.status(),
         upstream: 'https://maimai.lxns.net/api/v0',
         time: new Date().toISOString(),
       },
@@ -1080,6 +1085,40 @@ export function createRouter(
   });
 
   /** 读取上报。用于开发者在服务器上排查真机问题。 */
+  /*
+   * 客户端错误日志归档。
+   *
+   * 只收「报错 + 前后各 3 分钟的日志」，不收全量 —— 见 logs.ts 的说明。
+   *
+   * 门禁：`/api/logs` 加进 guard 的 OPEN_PATHS（和 /api/diag 一样），
+   * 因为**出错恰恰可能发生在登录之前**，要求鉴权会让最有价值的日志收不到。
+   */
+  router.add('POST', '/api/logs', async (ctx) => {
+    try {
+      const raw = await readBody(ctx.req, 256 * 1024);
+      /*
+       * 去掉 UTF-8 BOM。
+       *
+       * 有些客户端（尤其是 Windows 上的脚本工具）会在 JSON 前面带 BOM，
+       * 而 JSON.parse 会直接抛 "Unexpected token '﻿'"，看起来像客户端 bug。
+       * 真实的 Vela / Flutter 不会带，但容错一行不亏。
+       */
+      const parsed = JSON.parse((raw || '{}').replace(/^\uFEFF/, ''));
+      const from = String(ctx.req.headers['cf-connecting-ip'] || ctx.req.socket?.remoteAddress || '');
+      const result = logs.save(parsed, from);
+      if (!result.ok) {
+        sendJson(ctx.res, 400, { ok: false, success: false, message: result.reason || 'rejected' });
+        return;
+      }
+      sendJson(ctx.res, 200, { ok: true, success: true, data: { id: result.id } });
+    } catch (error) {
+      sendJson(ctx.res, 400, {
+        ok: false,
+        success: false,
+        message: error instanceof Error ? error.message : 'bad request',
+      });
+    }
+  });
   router.get('/api/diag', (ctx) => {
     const since = (ctx.query.get('since') ?? '').trim();
     const limit = Number.parseInt(ctx.query.get('limit') ?? '200', 10) || 200;
