@@ -1,0 +1,51 @@
+# frps —— 甲骨文大阪这边的隧道服务端
+#
+# 角色：机房没法开公网端口，只能主动往外连（frpc）。
+# 我们让它连到 Caddy 的 /tunnel 路径，frps 只监听本机，
+# 这样**不用额外开任何端口**，也复用现有的 443 和证书。
+#
+# 链路：
+#   机房 frpc ──wss://api-orhythm.astranexus.cn/tunnel──▶ Caddy ──▶ frps:127.0.0.1:7000
+#                                                                   ↓
+#                                                        映射出 127.0.0.1:8788
+#                                                                   ↓
+#   玩家 ──HTTPS──▶ Caddy ──▶ 127.0.0.1:8788（机房里的服务）
+
+# ── 监听 ────────────────────────────────────────────────────────────
+# 只绑本机。对外由 Caddy 的 /tunnel 转发进来，不直接暴露 7000。
+bindAddr = "127.0.0.1"
+bindPort = 7000
+
+# frpc 注册的代理端口也绑本机，同样由 Caddy 转出去。
+proxyBindAddr = "127.0.0.1"
+
+# ── 认证 ────────────────────────────────────────────────────────────
+# 没有 token 的话，任何知道地址的人都能把流量接走。
+auth.method = "token"
+auth.token = "__FRP_TOKEN__"
+
+# ── 传输 ────────────────────────────────────────────────────────────
+# ⚠️ 这里**不要**写 transport.protocol —— 那是 frpc 侧的选择。
+# frps 会自动识别客户端用的是 TCP 还是 WebSocket，写了反而报
+# "json: unknown field protocol" 直接起不来。
+#
+# TLS 由 Caddy 在外层负责（wss://.../tunnel），frps 收的是明文 ws。
+
+# 多路复用，减少连接数
+transport.tcpMux = true
+transport.tcpMuxKeepaliveInterval = 30
+
+# ── 心跳（用户明确要求）────────────────────────────────────────────
+# 服务端 90 秒收不到心跳就认定连接已死，回收代理。
+transport.heartbeatTimeout = 90
+
+# ── 其它 ────────────────────────────────────────────────────────────
+# 允许的端口范围收紧一点，别让隧道能映射任意端口
+allowPorts = [
+  { start = 8788, end = 8799 },
+]
+
+# 日志
+log.to = "/var/log/frps.log"
+log.level = "info"
+log.maxDays = 7
