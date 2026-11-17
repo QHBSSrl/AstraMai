@@ -6,7 +6,7 @@
     "packages":  {
                      "androidArm64":  {
                                           "fileName":  "ORhythm-0.1.3-arm64-v8a.apk",
-                                          "url":  "https://pub-2482057ec458464ea53292e9e072f0f1.r2.dev/ORhythm-0.1.3-arm64-v8a.apk",
+                                          "url":  "https://orhythm-dl.astranexus.cn/ORhythm-0.1.3-arm64-v8a.apk",
                                           "size":  "17.9 MB",
                                           "sizeBytes":  18787335,
                                           "arch":  "arm64-v8a",
@@ -14,7 +14,7 @@
                                       },
                      "androidArmv7":  {
                                           "fileName":  "ORhythm-0.1.3-armeabi-v7a.apk",
-                                          "url":  "https://pub-2482057ec458464ea53292e9e072f0f1.r2.dev/ORhythm-0.1.3-armeabi-v7a.apk",
+                                          "url":  "https://orhythm-dl.astranexus.cn/ORhythm-0.1.3-armeabi-v7a.apk",
                                           "size":  "15.5 MB",
                                           "sizeBytes":  16299751,
                                           "arch":  "armeabi-v7a",
@@ -22,7 +22,7 @@
                                       },
                      "velaRpk":  {
                                      "fileName":  "com.nowmes.orhythm.0.1.3.rpk",
-                                     "url":  "https://pub-2482057ec458464ea53292e9e072f0f1.r2.dev/com.nowmes.orhythm.0.1.3.rpk",
+                                     "url":  "https://orhythm-dl.astranexus.cn/com.nowmes.orhythm.0.1.3.rpk",
                                      "size":  "294 KB",
                                      "sizeBytes":  300819,
                                      "arch":  "xiaomi-vela",
