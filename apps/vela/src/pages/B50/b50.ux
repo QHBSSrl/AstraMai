@@ -919,14 +919,33 @@
     explainError(error, code) {
       const raw = error && error.message ? String(error.message) : '查询失败';
 
+      /*
+       * ⚠️ 先分清「网络挂了」和「服务端拒绝」，这两类要给的提示完全不同。
+       *
+       * 踩过的坑：之前只要消息里带 `/api/` 就当成服务端拒绝，但**网络层的
+       * 错误也会把路径拼进消息**（`网络请求失败：/api/v1/...`）。结果用户在
+       * QQ 号标签、号码也没错，却被告知「检查你选的是好友码还是 QQ 号」，
+       * 完全误导。
+       */
+      const isNetwork = /网络请求失败|请求超时|timeout|network/i.test(raw);
+      if (isNetwork) {
+        /*
+         * 手环没有网络模块，必须靠手机 App 中转（手机网桥）。
+         * 这是这类设备最常见的失败原因，直接说出来。
+         */
+        const hint = this.gameId === 'maimai' || this.gameId === 'chunithm'
+          ? '连不上服务器。手环需要手机 App 的「手机网桥」开着；手表检查一下 WiFi 或信号。'
+          : '连不上服务器，检查一下网络。';
+        return hint;
+      }
+
       // 好友码 15 位，QQ 最多 11 位 —— 长度对不上就是填错了地方
       if (this.kind === 'friendCode' && code && code.length < 15) {
         return `好友码是 15 位数字，你填了 ${code.length} 位。如果这是 QQ 号，请切到「QQ 号」标签。`;
       }
 
-      // 服务端把路径也塞进消息里了，对用户没意义，截掉
-      const pathLike = /\/api\//.test(raw);
-      if (pathLike) {
+      // 服务端消息里若还残留路径，换成一句人话
+      if (/\/api\//.test(raw)) {
         return '查询失败：服务器拒绝了这次请求。检查一下选的是「好友码」还是「QQ 号」。';
       }
 
