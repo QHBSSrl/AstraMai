@@ -129,17 +129,11 @@
     -->
     <text class="section">关于</text>
     <div class="rows">
-      <div class="row" @click="replayOnboarding">
-        <text class="row__label">重看新手引导</text>
+      <div class="row" @click="goAbout">
+        <text class="row__label">关于软件</text>
         <text class="row__mark">›</text>
       </div>
-      <div class="row" @click="showWebsite">
-        <text class="row__label">官网 / 下载</text>
-        <text class="row__mark">orhythm.astranexus.cn</text>
-      </div>
     </div>
-
-    <text class="foot">ORhythm · 街机音游工具</text>
 
   </div>
 </template>
@@ -149,7 +143,7 @@
 
   .page {
     flex-direction: column;
-    padding: 14px 20px;
+    padding: 18px 26px 22px;
     background-color: @ui-surface;
   }
 
@@ -709,6 +703,15 @@
         console.warn('[AstraMai] 清除引导标记失败：', error);
       }
       push('/welcome');
+    },
+
+    /*
+     * 换页到「关于软件」。
+     *
+     * 用 push 而不是 replace：看完能返回设置，符合直觉。
+     */
+    goAbout() {
+      push('/about');
     },
 
     onBack() {

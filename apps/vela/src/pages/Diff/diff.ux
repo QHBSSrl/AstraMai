@@ -75,7 +75,7 @@
     flex: 1;
     width: 100%;
     flex-direction: column;
-    padding: 14px 20px;
+    padding: 18px 26px 22px;
     background-color: @ui-surface;
   }
 
@@ -190,6 +190,14 @@
     font-size: 17px;
     font-weight: bold;
     lines: 1;
+  }
+
+  /* 圆屏：左右再往里收，避免内容和屏幕边缘相切被裁 */
+  @media (shape: circle) {
+    .page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
   }
 </style>
 

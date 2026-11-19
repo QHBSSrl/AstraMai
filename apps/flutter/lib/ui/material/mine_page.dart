@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'about_page.dart';
 
 import '../../data/profile_store.dart';
 import '../../features/auth/auth_controller.dart';
@@ -434,6 +435,13 @@ class _MineTabState extends State<MineTab> {
 
   // ── 关于 ────────────────────────────────────────────────────────────
 
+  /*
+   * 只留**一个入口**。
+   *
+   * 以前版本、数据来源、官网、加群、开源许可全堆在这个分组下面，
+   * 「我的」页越拉越长，想找版本号得往下翻。现在全搬进 AboutPage，
+   * 这里只剩一行。以后关于类的东西也都放那一页，别再往这里加。
+   */
   Widget _buildAbout(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
@@ -443,65 +451,18 @@ class _MineTabState extends State<MineTab> {
         _SectionLabel('关于'),
         Card(
           margin: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              _AboutRow(
-                label: '版本',
-                // 从 BuildConfig 读，别再硬编码 —— 之前写死 0.1.0，
-                // 发版后忘了改，用户看到的永远是旧号。
-                value: BridgeChannel.versionName.isEmpty
-                    ? '—'
-                    : BridgeChannel.versionName,
-                onTap: null,
+          child: ListTile(
+            title: const Text('关于软件'),
+            subtitle: Text('版本 / 官网 / 交流群 / 协议'),
+            trailing: Icon(Icons.chevron_right, color: scheme.outline),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AboutPage(),
               ),
-              _divider(scheme),
-              _AboutRow(
-                label: '数据来源',
-                value: '落雪查分器',
-                onTap: () => _comingSoon('数据来源说明'),
-              ),
-              _divider(scheme),
-              _AboutRow(
-                label: '官网 / 下载',
-                value: 'orhythm.astranexus.cn',
-                onTap: () => BridgeChannel.openUrl(BridgeChannel.website),
-              ),
-              _divider(scheme),
-              _AboutRow(
-                label: '加入群聊',
-                value: '308532898',
-                onTap: () => _comingSoon('加群'),
-              ),
-              _divider(scheme),
-              _AboutRow(
-                label: '开源许可',
-                value: '',
-                onTap: () => showLicensePage(
-                  context: context,
-                  applicationName: 'ORhythm',
-                  applicationVersion: BridgeChannel.versionName,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _divider(ColorScheme scheme) => Divider(
-        height: 1,
-        indent: 16,
-        endIndent: 16,
-        color: scheme.outlineVariant.withValues(alpha: 0.4),
-      );
-
-  void _comingSoon(String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('「$what」还没做'),
-        behavior: SnackBarBehavior.floating,
-      ),
     );
   }
 }
@@ -580,39 +541,3 @@ class _BindingRow extends StatelessWidget {
   }
 }
 
-class _AboutRow extends StatelessWidget {
-  const _AboutRow({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    return ListTile(
-      onTap: onTap,
-      title: Text(label, style: text.bodyMedium),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (value.isNotEmpty)
-            Text(
-              value,
-              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          if (onTap != null) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right, size: 18, color: scheme.outline),
-          ],
-        ],
-      ),
-    );
-  }
-}

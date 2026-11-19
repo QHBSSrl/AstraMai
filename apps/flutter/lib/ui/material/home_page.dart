@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../data/bridge_channel.dart';
 
 import '../../data/profile_store.dart';
 import '../../features/home/home_controller.dart';
@@ -229,7 +230,8 @@ class _HomeTabState extends State<HomeTab> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Text(
-        'ORhythm · 0.1.0',
+        // 从安装包读，别再写死 —— 之前这里一直是 0.1.0，和「关于」页对不上
+        'ORhythm · ${BridgeChannel.versionName}',
         style: Theme.of(context)
             .textTheme
             .labelSmall

@@ -102,7 +102,7 @@
     flex: 1;
     width: 100%;
     flex-direction: column;
-    padding: @ui-space-4 @ui-space-5;
+    padding: 18px 26px 22px;
     background-color: @ui-surface;
   }
 
@@ -246,6 +246,14 @@
   .action__text {
     font-size: @ui-font-body;
     color: @ui-on-primary;
+  }
+
+  /* 圆屏：左右再往里收，避免内容和屏幕边缘相切被裁 */
+  @media (shape: circle) {
+    .page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
   }
 </style>
 

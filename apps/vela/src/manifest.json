@@ -39,6 +39,9 @@
     },
     {
       "name": "system.interconnect"
+    },
+    {
+      "name": "system.clipboard"
     }
   ],
   "config": {
@@ -98,6 +101,10 @@
       "pages/Plan": {
         "component": "plan",
         "path": "/plan"
+      },
+      "pages/About": {
+        "component": "about",
+        "path": "/about"
       }
     }
   },

@@ -1,12 +1,35 @@
 <template>
+  <!--
+    首页 —— 和手机端同一套设计语言。
+
+    版式（用户定的）：
+
+      左上 ORhythm           右上 设置
+      ┌──────────────────────────┐
+      │  当前游戏（卡片）          │
+      └──────────────────────────┘
+      快捷功能（一行两个；窄屏设备一行一个）
+
+    ── 为什么要改 ───────────────────────────────────────────────────
+    旧版在圆屏上把顶栏改成了**竖排居中**（标题在上、按钮在下），
+    因为「标题左 + 按钮右」在 466 圆屏的顶部会被物理裁掉两端。
+
+    但实机看下来这个妥协更糟：标题被切掉一部分、设置按钮既贴边又小，
+    很难点到。用户的原话是「被屏幕边框裁了一小部分」「设置按钮比较难点」。
+
+    现在改成：
+      · 顶栏**保持单行左右布局**（用户要的），
+      · 靠**足够大的左右内边距**把内容压进圆内接矩形，
+      · 设置按钮加大到 60×60 的点击区域。
+
+    ── 一行几个怎么决定 ────────────────────────────────────────────
+    Vela 的 flex-wrap 支持不确定，所以**不靠 CSS 换行**，
+    而是在 JS 里按屏幕宽度算出每行几个，再把数据排成「行」渲染。
+    这样在手表（宽）和手环（窄）上都能得到确定的版式。
+  -->
   <div class="page">
-    <!--
-      顶栏：标题在左、设置在右。
-      之前标题是居中的大 logo，加游戏之后首页入口会变多，
-      把「设置 / 切换游戏 / 同步」这些收进右上角，首页才留得下功能入口。
-    -->
     <div class="topbar">
-      <text class="brand">AstraMai</text>
+      <text class="brand">ORhythm</text>
       <div class="settings-btn" @click="goSettings">
         <text class="settings-btn__text">设置</text>
       </div>
@@ -18,28 +41,23 @@
       <text class="game__hint">当前游戏 · 点此切换</text>
     </div>
 
-    <div class="menu">
-      <div class="entry" if="{{ showB50 }}" @click="go('b50')">
-        <text class="entry__title">Best 50</text>
-        <text class="entry__sub">{{ targetSummary }}</text>
+    <text class="section" if="{{ hasItems }}">快捷</text>
+
+    <!-- 快捷功能：每行最多两个 -->
+    <div class="grid" if="{{ hasItems }}">
+      <div class="grid__row" for="{{ rows }}">
+        <div class="card {{ $item.full }}" @click="go($item.a.key)">
+          <text class="card__title">{{ $item.a.title }}</text>
+          <text class="card__sub">{{ $item.a.sub }}</text>
+        </div>
+        <div class="card card--half" if="{{ $item.b }}" @click="go($item.b.key)">
+          <text class="card__title">{{ $item.b.title }}</text>
+          <text class="card__sub">{{ $item.b.sub }}</text>
+        </div>
       </div>
-
-      <div class="entry" if="{{ showSearch }}" @click="go('search')">
-        <text class="entry__title">曲目搜索</text>
-        <text class="entry__sub">日文曲名 · 中文别名 · 罗马音</text>
-      </div>
-
-      <div class="entry" if="{{ showQr }}" @click="go('qr')">
-        <text class="entry__title">二维码</text>
-        <text class="entry__sub">{{ qrSummary }}</text>
-      </div>
-
-
-      <text class="empty" if="{{ !showB50 && !showSearch && !showQr }}">
-        这个游戏还没有可用功能
-      </text>
     </div>
 
+    <text class="empty" if="{{ !hasItems }}">这个游戏还没有可用功能</text>
   </div>
 </template>
 
@@ -47,70 +65,60 @@
   @import '../../common/theme-tokens.less';
 
   /*
-   * 首页 · MD3 参考实现
+   * ⚠️ 内边距是这一版的重点。
    *
-   * 采用的三条 MD3 原则：
-   *
-   *   1. **色调海拔**（tonal elevation）——层级靠**表面亮度**表达，不靠阴影。
-   *      surface → surface-container → surface-container-high 依次变亮。
-   *      这在手表上尤其对：Vela 的 box-shadow 要 APILevel 3，而我们是 2。
-   *
-   *   2. **颜色角色**——不直接写色号，一律用 token。
-   *      「当前游戏」用 primary-container（强强调），功能入口用 surface-container。
-   *
-   *   3. **型阶**——字号从 display 到 caption 有明确层级，不再随手取值。
+   * 手表是圆角屏幕，内容贴着边缘会被物理裁掉。左右留足 26px，
+   * 圆屏再额外加宽到 40px —— 这样顶栏的标题和设置按钮都落在
+   * 圆内接矩形里，实机上不会再被切掉一角。
    */
-
   .page {
     flex-direction: column;
-    padding: @ui-space-4 @ui-space-5;
+    width: 100%;
+    padding: 18px 26px 22px;
     background-color: @ui-surface;
   }
 
-  /* MD3 小号顶栏（small top app bar）：标题 + 一个动作 */
+  /* ── 顶栏：标题左、设置在右 ─────────────────────────────────── */
   .topbar {
     flex-direction: row;
     align-items: center;
+    justify-content: space-between;
     width: 100%;
-    height: 56px;
+    min-height: 60px;
   }
 
-  /* 品牌字：display 型阶 + 主色 */
   .brand {
-    flex: 1;
     font-size: @ui-font-display;
     font-weight: bold;
     color: @ui-primary;
   }
 
   /*
-   * 设置按钮：**实心胶囊**。
+   * 设置按钮：点击区域 60×60。
    *
-   * 上一版是 MD3 的描边按钮（透明底 + 1px 描边 + 主色文字）。
-   * 那种做法在手机上是为了区分「主/次动作」，但在一块只有三个入口的手表上，
-   * 一个描边按钮会让顶栏显得比内容还讲究——这就是「设计感过强」的一部分。
-   *
-   * 现在：实心胶囊 + 中性底，靠亮度差和标题分开，不靠描边。
+   * 旧版只有 padding 8/16 的小胶囊，实机上手指根本压不准 ——
+   * 用户明确抱怨过。圆角用 full，视觉上仍然是胶囊。
    */
   .settings-btn {
-    padding: @ui-space-2 @ui-space-4;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    height: 60px;
+    padding: 0 @ui-space-5;
     border-radius: @ui-radius-full;
     background-color: @ui-surface-container;
   }
 
   .settings-btn__text {
-    font-size: @ui-font-label;
+    font-size: @ui-font-body;
     color: @ui-on-surface;
   }
 
-  /*
-   * MD3 **主色容器卡片** ——「当前游戏」是这页最重要的状态，
-   * 用 primary-container 让它一眼跳出来。选中态用主色容器是 MD3 的标准做法。
-   */
+  /* ── 当前游戏卡 ────────────────────────────────────────────── */
   .game {
     flex-direction: column;
     width: 100%;
-    padding: @ui-space-3 @ui-space-4;
+    padding: @ui-space-4 @ui-space-5;
     margin-top: @ui-space-2;
     border-radius: @ui-radius-card;
     background-color: @ui-surface-emphasis;
@@ -122,7 +130,6 @@
     color: @ui-on-surface;
   }
 
-  /* 次要信息用透明度降权——MD3 处理 supporting text 的常规手法 */
   .game__hint {
     font-size: @ui-font-label;
     color: @ui-on-surface;
@@ -130,30 +137,61 @@
     margin-top: 2px;
   }
 
-  .menu {
-    flex-direction: column;
-    width: 100%;
-    margin-top: @ui-space-3;
+  /* ── 快捷区 ────────────────────────────────────────────────── */
+  .section {
+    font-size: @ui-font-label;
+    color: @ui-on-surface-variant;
+    margin-top: @ui-space-5;
+    margin-bottom: @ui-space-2;
   }
 
-  /* MD3 filled card：比底色亮一档，靠亮度而不是边框分层 */
-  .entry {
+  .grid {
     flex-direction: column;
-    padding: @ui-space-4;
+    width: 100%;
+  }
+
+  .grid__row {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
     margin-bottom: @ui-space-3;
+  }
+
+  /*
+   * 卡片宽度。
+   *
+   * ⚠️ 不要用 `:last-child` 去清右边距 —— Vela 的 Less 编译器
+   * 不支持伪类，会直接报 "Selector type unsupport PseudoClassSelector"。
+   *
+   * 改成：行用 space-between 平铺，卡片自己定宽。
+   *   双列 → card--half 占 48%，中间自然留出间隙
+   *   单列 → card--full 占 100%
+   */
+  .card {
+    flex-direction: column;
+    justify-content: center;
+    padding: @ui-space-4;
     border-radius: @ui-radius-card;
     background-color: @ui-surface-card;
   }
 
-  .entry__title {
+  .card--half {
+    width: 47%;
+  }
+
+  .card--full {
+    width: 100%;
+  }
+
+  .card__title {
     font-size: @ui-font-headline;
     color: @ui-on-surface;
   }
 
-  .entry__sub {
-    font-size: @ui-font-label;
+  .card__sub {
+    font-size: @ui-font-caption;
     color: @ui-on-surface-variant;
-    margin-top: 2px;
+    margin-top: 4px;
   }
 
   .empty {
@@ -163,40 +201,11 @@
     margin-top: @ui-space-5;
   }
 
-  .foot {
-    font-size: @ui-font-caption;
-    color: @ui-on-surface-variant;
-    margin-top: @ui-space-2;
-  }
-
-  /*
-   * ── 圆形屏适配 ─────────────────────────────────────────────────
-   * 依据官方《多屏适配 · 页面标题栏》：
-   *   「在圆屏、胶囊屏等存在边缘剪切的设备上，标题栏会使用多行设计，
-   *     保证顶部的展示内容长度不会超出屏幕；而在矩形屏幕上则做单行左右布局。」
-   *
-   * 圆屏四角是物理裁掉的：466×466 的屏，顶栏中心 y≈44 处可用宽度只有约 272px，
-   * 而「标题在左 + 设置在右」需要整幅 466px，两端必然被切。
-   * 所以这里改竖排居中，并加左右内边距把内容压进圆内接矩形。
-   *
-   * **只影响 shape: circle**，矩形屏样式与行为完全不变。
-   */
+  /* 圆屏：把内容进一步往内收 */
   @media (shape: circle) {
     .page {
       padding-left: 40px;
       padding-right: 40px;
-    }
-
-    /* 顶栏改竖排居中：单行左右布局在圆屏上两端必被裁 */
-    .topbar {
-      flex-direction: column;
-      align-items: center;
-      height: auto;
-    }
-
-    /* 返回键/标题不再靠边，改为居中并留出上下间距 */
-    .back {
-      margin-bottom: @ui-space-2;
     }
   }
 </style>
@@ -205,7 +214,7 @@
   // 刻意**不** import api.js：首页不需要网络，
   // 而 api.js 会连上 @system.fetch，拖进来只会让首页多一个初始化失败的可能。
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
-  const { core, diag, games, navigation, store, syncAes, validate } = global.AstraMai;
+  const { core, diag, games, navigation, screenSize, store, validate } = global.AstraMai;
   const { describeValidity, parseWahlapQrPayload } = core;
   const { mark } = diag;
   const { gameById, gameHasFeature, readCurrentGame } = games;
@@ -213,14 +222,22 @@
   const { readSetting, warmUp } = store;
   const { summarizeTarget } = validate;
 
+  /**
+   * 多宽算「窄屏」。
+   *
+   * 466 是设计基准（手表）。手环普遍在 400 以下，
+   * 那个宽度上一行放两张卡会挤成一团，所以退成单列。
+   */
+  const NARROW_WIDTH = 400;
+
   export default {
     private: {
       qrSummary: '未导入',
       targetSummary: '未保存，点击输入',
       gameLabel: '',
-      showB50: false,
-      showSearch: false,
-      showQr: false,
+      /** 排好的行：[{ key, title, sub }] 的数组的数组 */
+      rows: [],
+      hasItems: false,
     },
 
     onReady() {
@@ -229,7 +246,6 @@
 
     onInit() {
       mark('Index:onInit');
-      console.debug('[AstraMai] Index onInit');
       warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame', 'oobeShown'])
         .then(() => {
           this.refresh();
@@ -237,19 +253,11 @@
            * 首次启动进引导。
            *
            * ⚠️ 判断的是 **`oobeShown`（弹过没）**，不是「走完没」。
-           * 上一版用的是 `oobeDone`，只在引导最后一步才写——
-           * 用户中途退出就白写了，于是**每次启动都弹**。
-           *
-           * 现在引导页在 `onInit` 里一进来就写 `oobeShown`，
-           * 所以这里判断一次就够，不会反复骚扰。
-           *
-           * 为什么放在 Index 而不是 app.ux：
-           * `readSetting` 在存储预热之前会静默返回兜底值，
-           * 那样会把「已看过」读成空——必须等 `warmUp` 完成再判断。
+           * 用 `oobeDone` 的话用户中途退出就白写了，于是每次启动都弹。
            */
           if (!readSetting('oobeShown', '')) push('/welcome');
         })
-        .catch((error) => console.error('[AstraMai] Index 初始化失败：', error));
+        .catch((error) => console.error('[ORhythm] Index 初始化失败：', error));
     },
 
     // 从设置或其它页面返回时刷新（切换游戏后菜单要跟着变）
@@ -257,16 +265,23 @@
       this.refresh();
     },
 
+    /**
+     * 刷新页面数据。
+     *
+     * 分两步：
+     *   1. 按当前游戏算出**有哪些功能**
+     *   2. 按屏幕宽度把它们**排成行**（一行一个或两个）
+     */
     refresh() {
       try {
-        // ── 当前游戏决定显示哪些入口 ──
         const game = gameById(readCurrentGame(readSetting));
         this.gameLabel = game.label;
+
         // 按游戏的能力开关入口：中二还没接查分，就不显示 Best 50，
         // **宁可少显示，也别让玩家点进去报错**
-        this.showB50 = gameHasFeature(game, 'b50');
-        this.showSearch = gameHasFeature(game, 'search');
-        this.showQr = gameHasFeature(game, 'qr');
+        const showB50 = gameHasFeature(game, 'b50');
+        const showSearch = gameHasFeature(game, 'search');
+        const showQr = gameHasFeature(game, 'qr');
 
         // 已保存的查分目标——展示出来让用户知道不用再输一遍
         const kind = readSetting('queryKind', 'friendCode') === 'qq' ? 'qq' : 'friendCode';
@@ -293,9 +308,45 @@
           }
         }
 
+        // ── 组装卡片 ──
+        const items = [];
+        if (showB50) items.push({ key: 'b50', title: 'Best 50', sub: this.targetSummary });
+        if (showSearch) items.push({ key: 'search', title: '曲目搜索', sub: '日文 · 别名 · 罗马音' });
+        if (showQr) items.push({ key: 'qr', title: '二维码', sub: this.qrSummary });
+
+        this.rows = this.layout(items);
+        this.hasItems = items.length > 0;
       } catch (error) {
-        console.error('[AstraMai] Index refresh 失败：', error);
+        console.error('[ORhythm] Index refresh 失败：', error);
       }
+    },
+
+    /**
+     * 把卡片排成行。
+     *
+     * 一行两个还是两个，取决于屏幕宽度 —— 手表两列、手环一列。
+     * 单列时也保留 `b: null`，模板那边靠它决定要不要渲染占位卡。
+     */
+    layout(items) {
+      let perRow = 2;
+      try {
+        const width = screenSize.screenWidth();
+        if (width && width < NARROW_WIDTH) perRow = 1;
+      } catch (error) {
+        // 拿不到宽度就按两列排，手表是主流
+      }
+
+      const rows = [];
+      for (let i = 0; i < items.length; i += perRow) {
+        const b = perRow === 2 && items[i + 1] ? items[i + 1] : null;
+        rows.push({
+          a: items[i],
+          b,
+          // 单列（或这行只剩一张）时给整宽
+          full: b ? 'card--half' : 'card--full',
+        });
+      }
+      return rows;
     },
 
     go(name) {

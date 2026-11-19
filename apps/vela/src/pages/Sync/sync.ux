@@ -241,6 +241,14 @@
     color: @ui-on-surface;
     lines: 1;
   }
+
+  /* 圆屏：左右再往里收，避免内容和屏幕边缘相切被裁 */
+  @media (shape: circle) {
+    .page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
 </style>
 
 <script>

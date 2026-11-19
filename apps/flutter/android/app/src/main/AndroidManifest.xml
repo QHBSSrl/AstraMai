@@ -1,4 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        ⚠️ 这两条**必须留在 main** 里。
+
+        Flutter 的模板只在 `debug/` 和 `profile/` 的 manifest 里放了
+        INTERNET，`main/` 里是没有的 —— 所以 **release 包默认没有联网权限**。
+
+        现象极其误导人：App 里所有请求都报
+
+            Failed host lookup: 'api-orhythm.astranexus.cn'
+            (OS Error: No address associated with hostname, errno = 7)
+
+        看起来像 DNS 挂了，实际上系统解析完全正常（`ping` 能通），
+        只是 App 进程没有 INTERNET 权限，`getaddrinfo` 直接返回 NODATA。
+
+        以前没暴露是因为老版本连的是**裸 IP**，不走 DNS；换成域名后
+        这个问题才现形。
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="true"
