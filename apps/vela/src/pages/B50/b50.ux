@@ -483,7 +483,7 @@
 <script>
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
-  const { api, core, diag, games, keys, navigation, store, validate } = global.AstraMai;
+  const { api, core, diag, games, keys, navigation, screenSize, store, validate } = global.AstraMai;
   const {
     fetchB50,
     fetchB50ByQq,
@@ -930,13 +930,28 @@
       const isNetwork = /网络请求失败|请求超时|timeout|network/i.test(raw);
       if (isNetwork) {
         /*
-         * 手环没有网络模块，必须靠手机 App 中转（手机网桥）。
-         * 这是这类设备最常见的失败原因，直接说出来。
+         * 按**设备类型**给不同的排查建议。
+         *
+         * ⚠️ 之前这里一律说「手环需要手机网桥」，对 REDMI Watch 这类
+         * 自带联网的手表是**错的** —— 它们连上小米运动健康就能上网，
+         * 跟网桥没关系，照着提示去开网桥只会白折腾。
+         *
+         * deviceType 来自 @system.device.getInfo()（APILevel 2+）：
+         *   band          手环 → 没有网络模块，必须靠手机中转
+         *   watch         手表 → 自带联网，问题多半在 WiFi / 信号
+         *   smartspeaker  音箱 → 少见，按网络问题处理
          */
-        const hint = this.gameId === 'maimai' || this.gameId === 'chunithm'
-          ? '连不上服务器。手环需要手机 App 的「手机网桥」开着；手表检查一下 WiFi 或信号。'
-          : '连不上服务器，检查一下网络。';
-        return hint;
+        let device = '';
+        try {
+          device = String(screenSize.deviceType() || '');
+        } catch (error) {
+          device = '';
+        }
+
+        if (device === 'band') {
+          return '连不上服务器。手环没有网络模块，需要手机 App 的「手机网桥」开着。';
+        }
+        return '连不上服务器。检查一下手表的 WiFi 或信号。';
       }
 
       // 好友码 15 位，QQ 最多 11 位 —— 长度对不上就是填错了地方
