@@ -35,10 +35,26 @@
       </div>
     </div>
 
-    <!-- 当前游戏。整块可点，点了也进设置（切换游戏在那里） -->
-    <div class="game" @click="goSettings">
-      <text class="game__name">{{ gameLabel }}</text>
-      <text class="game__hint">当前游戏 · 点此切换</text>
+    <!--
+      顶部卡片：有成绩缓存就显示分数，没有就显示游戏名。
+
+      和手机端首页的 head 卡片对齐（游戏名 / Rating / 旧曲新曲 / 平均定数）。
+      数据直接读 B50 页写下的缓存，**首页不发请求** —— 第一次查过之后就
+      一直有得看，没查过就提示去查一次。
+    -->
+    <div class="game" @click="onGameCardTap">
+      <div class="game__head">
+        <text class="game__name">{{ gameLabel }}</text>
+        <text class="game__tier" if="{{ tier }}">{{ tier }}</text>
+      </div>
+      <text class="game__rating" if="{{ hasScore }}">{{ ratingText }}</text>
+      <text class="game__rating-label" if="{{ hasScore }}">DX Rating</text>
+      <text class="game__hint" if="{{ !hasScore }}">还没查过成绩 · 点此切换游戏</text>
+      <div class="game__stats" if="{{ hasScore }}">
+        <text class="game__stat">{{ standardCount }} 旧曲</text>
+        <text class="game__stat">{{ dxCount }} 新曲</text>
+        <text class="game__stat">{{ avgLevel }} 平均定数</text>
+      </div>
     </div>
 
     <text class="section" if="{{ hasItems }}">快捷</text>
@@ -137,6 +153,47 @@
     margin-top: 2px;
   }
 
+  /* ── 分数卡片（有缓存时）────────────────────────────────────── */
+  .game__head {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .game__tier {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface;
+    opacity: 0.7;
+    margin-left: @ui-space-2;
+    padding: 2px 10px;
+    border-radius: @ui-radius-full;
+    background-color: @ui-surface-container;
+  }
+
+  /* Rating 是这张卡的主角：display 字号 + 主色 */
+  .game__rating {
+    font-size: 46px;
+    font-weight: bold;
+    color: @ui-primary;
+    margin-top: @ui-space-1;
+  }
+
+  .game__rating-label {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-variant;
+    margin-top: -2px;
+  }
+
+  .game__stats {
+    flex-direction: row;
+    margin-top: @ui-space-3;
+  }
+
+  .game__stat {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-variant;
+    margin-right: @ui-space-4;
+  }
+
   /* ── 快捷区 ────────────────────────────────────────────────── */
   .section {
     font-size: @ui-font-label;
@@ -154,7 +211,7 @@
     flex-direction: row;
     justify-content: space-between;
     width: 100%;
-    margin-bottom: @ui-space-3;
+    margin-bottom: 14px;
   }
 
   /*
@@ -175,8 +232,23 @@
     background-color: @ui-surface-card;
   }
 
+  /*
+   * 双列卡片。
+   *
+   * ⚠️ 不要用百分比宽度 + space-between 去「凑」间距 ——
+   * 百分比在不同容器里解析出来的实测间隙和计算值对不上，
+   * 结果就是用户看到的「横向比纵向窄」。
+   *
+   * 改成：两张都 flex:1 平分，只在**左边那张**加固定右边距。
+   * 这样横向间隙恒等于 14px，和纵向的 row 间距一致。
+   */
   .card--half {
-    width: 47%;
+    flex: 1;
+  }
+
+  /* 只给左卡加右边距，右卡不加 —— 否则整行会往左偏 */
+  .card--left {
+    margin-right: 14px;
   }
 
   .card--full {
@@ -214,7 +286,7 @@
   // 刻意**不** import api.js：首页不需要网络，
   // 而 api.js 会连上 @system.fetch，拖进来只会让首页多一个初始化失败的可能。
   // 共享模块从 global 取，不再 import（官方内存优化建议）。
-  const { core, diag, games, navigation, screenSize, store, validate } = global.AstraMai;
+  const { core, diag, games, keys, navigation, screenSize, store, validate } = global.AstraMai;
   const { describeValidity, parseWahlapQrPayload } = core;
   const { mark } = diag;
   const { gameById, gameHasFeature, readCurrentGame } = games;
@@ -238,6 +310,13 @@
       /** 排好的行：[{ key, title, sub }] 的数组的数组 */
       rows: [],
       hasItems: false,
+      /* ── 顶部分数卡片 ── */
+      hasScore: false,
+      ratingText: '',
+      tier: '',
+      standardCount: 0,
+      dxCount: 0,
+      avgLevel: '',
     },
 
     onReady() {
@@ -316,8 +395,57 @@
 
         this.rows = this.layout(items);
         this.hasItems = items.length > 0;
+
+        // 顶部卡片：能读到缓存就显示分数
+        this.loadScoreCard(game.id, value);
       } catch (error) {
         console.error('[ORhythm] Index refresh 失败：', error);
+      }
+    },
+
+    /**
+     * 读 B50 缓存，算出顶部分数卡片的内容。
+     *
+     * ⚠️ **首页绝不发请求。** 数据全部来自 B50 页查完写下的那份缓存
+     * （键见 `common/keys.js` 的 `b50CacheKey`）。第一次查过之后就一直有，
+     * 没查过就退回显示游戏名 —— 用户点一下就去查了。
+     *
+     * 缓存格式是 B50View：`player.rating` 是总 Rating，
+     * `stats.standardCount` / `dxCount` / `averageLevelValue` 是分项。
+     */
+    loadScoreCard(gameId, code) {
+      this.hasScore = false;
+      this.ratingText = '';
+      this.tier = '';
+      this.standardCount = 0;
+      this.dxCount = 0;
+      this.avgLevel = '';
+
+      if (!code) return;
+
+      try {
+        const raw = readSetting(keys.b50CacheKey(gameId, code), '');
+        if (!raw) return;
+
+        const view = JSON.parse(raw);
+        const player = (view && view.player) || {};
+        const stats = (view && view.stats) || {};
+
+        const rating = Number(player.rating) || 0;
+        if (rating <= 0) return;
+
+        this.hasScore = true;
+        this.ratingText = String(rating);
+        this.tier = player.tier ? String(player.tier) : '';
+        this.standardCount = Number(stats.standardCount) || 0;
+        this.dxCount = Number(stats.dxCount) || 0;
+        this.avgLevel =
+          typeof stats.averageLevelValue === 'number'
+            ? stats.averageLevelValue.toFixed(2)
+            : '';
+      } catch (error) {
+        // 缓存坏了就当没有，绝不能因此让首页白屏
+        this.hasScore = false;
       }
     },
 
@@ -343,7 +471,7 @@
           a: items[i],
           b,
           // 单列（或这行只剩一张）时给整宽
-          full: b ? 'card--half' : 'card--full',
+          full: b ? 'card--half card--left' : 'card--full',
         });
       }
       return rows;
@@ -355,6 +483,23 @@
 
     goSettings() {
       push('/settings');
+    },
+
+    /**
+     * 顶部卡片的点击行为。
+     *
+     * ⚠️ 不在模板里写三元表达式 —— Vela 的 `@click` 只接受方法名，
+     * 写成 `@click="{{ a ? ''x'' : ''y'' }}"` 会直接报
+     * `Unsupported Event value`。
+     *
+     * 有成绩就去 Best 50（用户想看细节），没成绩就去设置（十有八九是还没绑码）。
+     */
+    onGameCardTap() {
+      if (this.hasScore) {
+        push('/b50');
+      } else {
+        push('/settings');
+      }
     },
   };
 </script>
