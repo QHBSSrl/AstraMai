@@ -39,9 +39,18 @@
       </div>
     </block>
 
+    <!--
+      查询按钮。
+
+      ⚠️ 查询中必须**看得见**。换了海外节点之后一次查询要好几秒，
+      之前只有 hint 里悄悄多一句「· 查询中…」，用户以为按钮没反应，
+      会反复点。
+
+      现在：按钮文字直接变成「查询中…」，并且禁用点击。
+    -->
     <div class="actions">
-      <div class="action {{ canSubmit || gameId === 'phigros' ? '' : 'action--disabled' }}" @click="query">
-        <text class="action__text {{ canSubmit || gameId === 'phigros' ? 'action__text--filled' : 'action__text--disabled' }}">{{ gameId === 'phigros' ? '查询自己的成绩' : '查询' }}</text>
+      <div class="action {{ actionClass }}" @click="onQueryTap">
+        <text class="action__text {{ actionTextClass }}">{{ actionLabel }}</text>
       </div>
       <!-- 输入按钮对 Phigros 也没意义（没有要输入的码） -->
       <div class="action action--ghost" if="{{ kinds.length > 0 }}" @click="toggleKeyboard">
@@ -566,6 +575,11 @@
       canSubmit: false,
       errorText: '',
       saving: '',
+      /* 按钮的三个派生状态，由 syncBusy() 计算，模板直接绑 */
+      busy: false,
+      actionLabel: '查询',
+      actionClass: '',
+      actionTextClass: '',
       displayValue: '输入好友码',
 
       hasResult: false,
@@ -741,12 +755,47 @@
       const described = describeInput(this.kind, this.code);
       this.hint = described.text + (this.saving ? ` · ${this.saving}` : '');
       this.canSubmit = isReadyToSubmit(this.kind, this.code);
+      this.syncBusy();
       this.displayValue = this.code
         ? this.code
         : `输入${KIND_LABELS[this.kind] ?? '好友码'}`;
     },
 
     /** 只监听 complete：keyDown 会在拼音模式下把字母也报上来，两个都听会重复输入。 */
+    /**
+     * 把「忙不忙」同步到按钮上。
+     *
+     * 之前只有 Phigros / osu 的路径会设 `saving`，舞萌的查询完全没设 ——
+     * 所以点了按钮之后界面一动不动，用户以为没点上，会反复点。
+     *
+     * 现在按钮文字、颜色、可点性都跟着 `saving` 走。
+     */
+    syncBusy() {
+      const busy = !!this.saving;
+      this.busy = busy;
+
+      const phigros = this.gameId === 'phigros';
+      const ready = this.canSubmit || phigros;
+
+      if (busy) {
+        this.actionLabel = '查询中…';
+        // 保持实心，但不再接受点击 —— 用 disabled 的类把颜色压暗一点
+        this.actionClass = 'action--disabled';
+        this.actionTextClass = 'action__text--filled';
+        return;
+      }
+
+      this.actionLabel = phigros ? '查询自己的成绩' : '查询';
+      this.actionClass = ready ? '' : 'action--disabled';
+      this.actionTextClass = ready ? 'action__text--filled' : 'action__text--disabled';
+    },
+
+    /** 按钮点击：忙的时候直接忽略，避免重复请求。 */
+    onQueryTap() {
+      if (this.busy) return;
+      this.query();
+    },
+
     onComplete(evt) {
       const content = evt && evt.detail ? evt.detail.content : '';
       const before = this.code;
@@ -797,6 +846,15 @@
       this.errorText = '';
       this.keyboardHidden = true;
 
+      /*
+       * 标记「正在查询」。
+       *
+       * 之前这里没有这一行（只有 Phigros / osu 的路径有），所以舞萌查询
+       * 期间界面毫无变化。海外节点一次要几秒，用户会以为没点上。
+       */
+      this.saving = '查询中…';
+      this.syncBusy();
+
       // 落盘：下次打开直接可用
       writeSetting('queryKind', this.kind);
       writeSetting('queryValue', code);
@@ -825,10 +883,39 @@
           this.refreshInputState();
           // 先试离线缓存；有缓存就不显示错误，改成"离线数据"的提示
           if (this.showCache(code, '查询失败。')) return;
-          this.errorText = error && error.message ? error.message : '查询失败';
+          this.errorText = this.explainError(error, code);
           this.hasResult = false;
           this.keyboardHidden = false;
         });
+    },
+
+    /**
+     * 把错误翻译成用户能看懂的一句话。
+     *
+     * 为什么需要：最常见的一次「网络请求失败」其实不是网络问题 ——
+     * 用户在「好友码」标签下填了自己的 **QQ 号**，客户端因为
+     * `FRIEND_CODE_MIN_LENGTH = 10` 放行了，服务端按 15 位好友码解析
+     * 就回了 400。用户看到的是一串接口路径，根本猜不到是这个原因。
+     *
+     * 所以这里做两件事：
+     *   1. 输入像 QQ 号而当前是好友码时，**直接告诉他切标签**
+     *   2. 其它情况保留服务端消息（它比「请求失败」有用）
+     */
+    explainError(error, code) {
+      const raw = error && error.message ? String(error.message) : '查询失败';
+
+      // 好友码 15 位，QQ 最多 11 位 —— 长度对不上就是填错了地方
+      if (this.kind === 'friendCode' && code && code.length < 15) {
+        return `好友码是 15 位数字，你填了 ${code.length} 位。如果这是 QQ 号，请切到「QQ 号」标签。`;
+      }
+
+      // 服务端把路径也塞进消息里了，对用户没意义，截掉
+      const pathLike = /\/api\//.test(raw);
+      if (pathLike) {
+        return '查询失败：服务器拒绝了这次请求。检查一下选的是「好友码」还是「QQ 号」。';
+      }
+
+      return raw;
     },
 
     /*
