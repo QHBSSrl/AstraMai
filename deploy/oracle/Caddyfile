@@ -34,7 +34,7 @@ api-orhythm.astranexus.cn {
 	}
 
 	# ── API 本体 ────────────────────────────────────────────────────
-	reverse_proxy 127.0.0.1:8787 {
+	reverse_proxy 127.0.0.1:8788 {
 		header_up X-Real-IP {remote_host}
 
 		# 上游偶发抖动（落雪从境外访问偶尔 11 秒）

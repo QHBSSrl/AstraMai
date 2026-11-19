@@ -1,50 +1,44 @@
-# 机房那台的 frpc 配置
+# 机房那台的 frpc
 #
-# 放在机房的服务器上，路径建议 /etc/frp/frpc.toml
-#
+# 放在 /etc/frp/frpc.toml
 # ⚠️ 把 __FRP_TOKEN__ 换成甲骨文 /etc/frp/frps.toml 里那个 token。
-#    两边必须一致，否则连不上（日志里会报 token 不匹配）。
 
 # ── 连服务端 ────────────────────────────────────────────────────────
-# 走 WSS：Caddy 在甲骨文那边用 443 接收，路径 /tunnel
-serverAddr = "api-orhythm.astranexus.cn"
-serverPort = 443
+# 直接连甲骨文的 IP 和已经放行的 8787，不用域名 ——
+# Cloudflare 不代理 8787，走域名反而解析到 CF 的 IP 连不上。
+serverAddr = "161.33.15.92"
+serverPort = 8787
 
-# frpc 用 WebSocket 连，路径要和 Caddy 里的 handle /tunnel* 对上
-transport.protocol = "websocket"
+# 隧道本身用 TLS 加密（frps 侧 transport.tls.force = true 要求）
 transport.tls.enable = true
 transport.tls.serverName = "api-orhythm.astranexus.cn"
-
-metadatas.tunnelPath = "/tunnel"
 
 auth.method = "token"
 auth.token = "__FRP_TOKEN__"
 
-# ── 心跳（关键）──────────────────────────────────────────────────────
-# 每 30 秒发一次心跳，90 秒收不到回应就判定断开并重连。
-# 服务端那边的 heartbeatTimeout 也是 90，两边对齐。
+# ── 心跳（用户明确要求）──────────────────────────────────────────────
 transport.heartbeatInterval = 30
 transport.heartbeatTimeout = 90
 
-# 连不上时不要退出进程（否则 systemd 会当成崩溃反复拉起）
-# 让它自己一直重试，配合 Restart=always 双保险
+# 连不上不要退出，自己一直重试；systemd 再兜一层 Restart=always
 loginFailExit = false
 
-# TCP 多路复用
-transport.tcpMux = true
-transport.tcpMuxKeepaliveInterval = 30
-
-# ── 日志 ────────────────────────────────────────────────────────────
 log.to = "/var/log/frpc.log"
 log.level = "info"
 log.maxDays = 7
 
 # ── 要暴露的服务 ────────────────────────────────────────────────────
-# 把机房本地的 8787（我们的服务端）映射成甲骨文的 127.0.0.1:8788。
-# Caddy 那边把 api-orhythm.astranexus.cn 的上游指向 127.0.0.1:8788 即可。
+# 机房本地 8787（我们的服务端）→ 甲骨文的 127.0.0.1:8788
 [[proxies]]
 name = "orhythm-api"
 type = "tcp"
 localIP = "127.0.0.1"
 localPort = 8787
 remotePort = 8788
+
+# ── 压缩 ────────────────────────────────────────────────────────────
+# B50 的响应是 96 KB 的 JSON，压缩后通常只剩 10~20 KB。
+#
+# 跨境链路的瓶颈不是带宽而是丢包重传，**传得少就等于传得快**。
+transport.useCompression = true
+transport.useEncryption = true

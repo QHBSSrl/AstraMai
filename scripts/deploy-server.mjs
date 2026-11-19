@@ -15,6 +15,8 @@
  *   DEPLOY_PORT   SSH 端口       默认 52778
  *   DEPLOY_USER   SSH 用户       默认 root
  *   DEPLOY_KEY    私钥路径       默认 ~/.ssh/astramai_ed25519
+ *   DEPLOY_ALIAS  SSH 别名       默认空。设了就完全走 ~/.ssh/config，
+ *                                忽略 HOST/PORT/USER/KEY（机房那种要经跳板的最省事）
  *   DEPLOY_DIR    远端目录       默认 /www/wwwroot/astramai
  *
  * 关于密钥：**已存在的远端 .env 不会被覆盖**，避免每次部署都把 API_TOKEN 换掉、
@@ -40,12 +42,32 @@ const DIR = process.env.DEPLOY_DIR ?? '/www/wwwroot/astramai';
  * 而且脚本**只在远端 .env 里没有这个键时才写入**，已有值不会被覆盖。
  */
 const PHIGROS_KEY = process.env.PHIGROS_API_KEY ?? 'pgr_test_rZ_TxS9QyvqkjrrpOEJKy1gEf2ZBKQU4';
-const TARGET = `${USER}@${HOST}`;
 
 const root = resolve(import.meta.dirname, '..');
 const checkOnly = process.argv.includes('--check');
 
-const SSH_OPTS = ['-i', KEY, '-p', PORT, '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=20'];
+/*
+ * 两种连接方式：
+ *
+ *   ① DEPLOY_ALIAS 有值 —— 完全交给 ~/.ssh/config。
+ *      机房那台要经阿里云的 SSH 隧道，配置（跳板、密钥、端口）
+ *      全在 config 里，脚本不掺和，最不容易出错。
+ *
+ *   ② 否则用 HOST / PORT / USER / KEY 显式拼参数。
+ */
+const ALIAS = process.env.DEPLOY_ALIAS ?? '';
+const JUMP = process.env.DEPLOY_JUMP ?? '';
+
+const TARGET = ALIAS || `${USER}@${HOST}`;
+const SSH_OPTS = ALIAS
+  ? ['-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=20']
+  : [
+      '-i', KEY,
+      '-p', PORT,
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'ConnectTimeout=20',
+      ...(JUMP ? ['-J', JUMP] : []),
+    ];
 
 /** 跑一条远端命令（脚本走 stdin，避免引号与编码问题）。 */
 function remote(script, label) {
@@ -68,7 +90,10 @@ function remote(script, label) {
 
 function scp(local, dest, label) {
   process.stdout.write(`  ${label} … `);
-  execFileSync('scp', ['-i', KEY, '-P', PORT, '-o', 'StrictHostKeyChecking=no', local, `${TARGET}:${dest}`], {
+  const scpOpts = ALIAS
+    ? ['-o', 'StrictHostKeyChecking=no']
+    : ['-i', KEY, '-P', PORT, '-o', 'StrictHostKeyChecking=no'];
+  execFileSync('scp', [...scpOpts, local, TARGET + ':' + dest], {
     stdio: 'pipe',
   });
   console.log('OK');
