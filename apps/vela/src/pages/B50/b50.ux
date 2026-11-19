@@ -206,16 +206,31 @@
   }
 
   .kind--on {
-    background-color: @ui-surface-container;
+    /* 选中的标签用更亮的表面，靠亮度差区分，不靠描边 */
+    background-color: @ui-surface-emphasis;
   }
 
+  /*
+   * ⚠️ 这里踩过一个对比度坑。
+   *
+   * 原来选中态写的是 `color: @ui-on-primary` —— 那是**给粉色底用的深色字**
+   * （#1a0710，近乎纯黑）。但标签的底色是深蓝的 surface-container，
+   * 结果就是「黑字压深蓝」，在实机上几乎看不见。
+   *
+   * 未选中的 `.kind__text` 更糟：**根本没写 color**，用的是运行时默认，
+   * 也是黑的。
+   *
+   * 现在：未选中用 on-surface-variant（浅蓝灰，能读），
+   *       选中用 on-surface（近白）+ 加粗。
+   */
   .kind__text {
-    /* 只留尺寸，颜色拆到变体上——和后按钮同一个理由 */
     font-size: 22px;
+    color: @ui-on-surface-variant;
   }
 
   .kind__text--on {
-    color: @ui-on-primary;
+    color: @ui-on-surface;
+    font-weight: bold;
   }
 
 

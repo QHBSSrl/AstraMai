@@ -132,7 +132,7 @@
 
   /* 主按钮上的文字：深色，压在粉色底上 */
   .action__text--filled {
-    color: @ui-on-primary;
+    color: @ui-on-surface;
   }
 
   /* 次要按钮上的文字：浅色，压在深色底上 */
