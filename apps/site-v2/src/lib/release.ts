@@ -26,34 +26,34 @@ export interface ReleaseManifest {
 }
 
 /**
- * 默认硬编码兜底发布信息 (v0.1.3)
+ * 默认硬编码兜底发布信息 (v0.1.4)
  * 当未配置 PUBLIC_RELEASE_MANIFEST_URL、配置为示例域名或网络拉取失败时自动降级生效
  */
 export const FALLBACK_RELEASE: ReleaseManifest = {
-  version: '0.1.3',
-  releaseDate: '2026-11-15',
+  version: '0.1.4',
+  releaseDate: '2026-11-19',
   channel: 'stable',
   changelogSummary: '包名正式更名为 com.nowmes.orhythm，支持舞萌 DX 与中二节奏成绩同步，小米手表/手环端手机网桥中转支持。',
   packages: {
     androidArm64: {
-      fileName: 'ORhythm-0.1.3-arm64-v8a.apk',
-      url: '/releases/ORhythm-0.1.3-arm64-v8a.apk',
+      fileName: 'ORhythm-0.1.4-arm64-v8a.apk',
+      url: '/releases/ORhythm-0.1.4-arm64-v8a.apk',
       size: '17.9 MB',
       sizeBytes: 18787335,
       arch: 'arm64-v8a',
       recommended: true,
     },
     androidArmv7: {
-      fileName: 'ORhythm-0.1.3-armeabi-v7a.apk',
-      url: '/releases/ORhythm-0.1.3-armeabi-v7a.apk',
+      fileName: 'ORhythm-0.1.4-armeabi-v7a.apk',
+      url: '/releases/ORhythm-0.1.4-armeabi-v7a.apk',
       size: '15.5 MB',
       sizeBytes: 16299751,
       arch: 'armeabi-v7a',
       recommended: false,
     },
     velaRpk: {
-      fileName: 'com.nowmes.orhythm.0.1.3.rpk',
-      url: '/releases/com.nowmes.orhythm.0.1.3.rpk',
+      fileName: 'com.nowmes.orhythm.0.1.4.rpk',
+      url: '/releases/com.nowmes.orhythm.0.1.4.rpk',
       size: '294 KB',
       sizeBytes: 300819,
       arch: 'xiaomi-vela',

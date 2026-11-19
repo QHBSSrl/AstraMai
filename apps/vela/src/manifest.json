@@ -2,8 +2,8 @@
   "package": "com.nowmes.orhythm",
   "name": "ORhythm",
   "icon": "/common/icon.png",
-  "versionName": "0.1.3",
-  "versionCode": 10399,
+  "versionName": "0.1.4",
+  "versionCode": 10400,
   "minAPILevel": 2,
   "deviceTypeList": [
     "watch",
@@ -12,6 +12,9 @@
   "features": [
     {
       "name": "system.fetch"
+    },
+    {
+      "name": "system.prompt"
     },
     {
       "name": "system.storage"

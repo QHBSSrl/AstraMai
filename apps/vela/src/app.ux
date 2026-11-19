@@ -19,7 +19,7 @@
   // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
   import './common/global.js';
 
-  const { diag, screenSize } = global.AstraMai;
+  const { diag, screenSize, update, store } = global.AstraMai;
 
   export default {
     onCreate() {
@@ -30,6 +30,18 @@
        * 放在最前面，这样初始化阶段的日志也能记下来。
        */
       diag.hookConsole();
+
+      /*
+       * 查一次有没有新版本，有就弹个 toast。
+       *
+       * 放在 onCreate 里但**不 await** —— 网络慢的时候不能让它拖住启动。
+       * 内部已经做了「同一版本只提示一次」，不会每次开都烦人。
+       */
+      try {
+        update.remindIfNeeded(require('@system.prompt'), store);
+      } catch (error) {
+        // 查版本失败绝不能影响启动
+      }
 
       console.debug('[ORhythm] app onCreate');
       diag.mark('app:onCreate');

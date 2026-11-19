@@ -34,6 +34,7 @@ import * as legal from './legal.js';
 import * as fetchbridge from './fetchbridge.js';
 import * as fontScale from './font-scale.js';
 import * as screenSize from './screen-size.js';
+import * as update from './update.js';
 
 /**
  * 挂在一个命名空间下，而不是把几十个符号平铺到 global。
@@ -57,6 +58,7 @@ global.AstraMai = {
   syncClient,
   legal,
   fetchbridge,
+  update,
 };
 
 /**

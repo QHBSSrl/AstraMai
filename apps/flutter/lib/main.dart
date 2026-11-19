@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'data/bridge_channel.dart';
 import 'core/platform.dart';
+import 'core/update_check.dart';
 import 'ui/material/main_shell.dart';
 import 'ui/theme.dart';
 
@@ -43,10 +44,82 @@ class _AstraMaiAppState extends State<AstraMaiApp> {
 
   static const MethodChannel _channel = MethodChannel('astramai/dynamic_color');
 
+  /// 用来在没有 BuildContext 的异步回调里弹窗。
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   void initState() {
     super.initState();
     _loadDynamicColor();
+
+    /*
+     * 首帧之后再查版本。
+     *
+     * 用 addPostFrameCallback 而不是直接 await —— 查版本要走网络，
+     * 卡在 initState 里会让首屏白屏。
+     */
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkUpdate());
+  }
+
+  /// 查有没有新版本，有就弹一次（同一版本只弹一次）。
+  ///
+  /// 全程吞异常：查版本失败不该影响任何正常功能。
+  Future<void> _checkUpdate() async {
+    final info = await UpdateCheck.check();
+    if (info == null || !info.hasUpdate) return;
+    if (await UpdateCheck.alreadyReminded(info.latest)) return;
+
+    final initialContext = _navigatorKey.currentContext;
+    if (initialContext == null || !mounted) return;
+
+    await UpdateCheck.markReminded(info.latest);
+    if (!mounted) return;
+
+    // ⚠️ 重新取一次 context：上面 await 过，原来的引用可能已经失效
+    final context = _navigatorKey.currentContext;
+    if (context == null) return;
+
+    /*
+     * 这里 context 是**最后一次 await 之后**才取的，本身是安全的。
+     * 分析器之所以还报，是因为它无法把 `_navigatorKey.currentContext`
+     * 和 `mounted` 关联起来（那是个字段上的方法调用，不是 widget 自己的 context）。
+     *
+     * ignore 必须放在真正被标记的那一行（`context:`），不是 `await showDialog`。
+     */
+    await showDialog<void>(
+      // ignore: use_build_context_synchronously
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('有新版本 v${info.latest}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (info.highlight.isNotEmpty) ...[
+              Text(info.highlight),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              '当前版本 v${info.current}',
+              style: Theme.of(ctx).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('以后再说'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              BridgeChannel.openUrl(BridgeChannel.website);
+            },
+            child: const Text('去下载'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadDynamicColor() async {
@@ -162,6 +235,7 @@ class _AstraMaiAppState extends State<AstraMaiApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'ORhythm',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(
