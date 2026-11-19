@@ -294,7 +294,7 @@
    * 而下面用的是 pi.activeTransport()。结果 api 一直是 undefined，
    * 被 try/catch 吞掉，网桥提示从来没显示过。现在改成解构 api。
    */
-  const { api, community, diag, fetchbridge, fontScale, games, navigation, screenSize, store } = global.AstraMai;
+const { api, community, config, diag, fetchbridge, fontScale, games, navigation, screenSize, store } = global.AstraMai;
 
   /** 手表上的 toast。用 try/require 是因为有些设备不提供。 */
   let prompt = null;
@@ -742,33 +742,52 @@
     testServer() {
       const started = Date.now();
       this.serverState = '测试中…';
-      this.serverNotice = '';
+
+      /*
+       * 先把**实际用的地址**显示出来。
+       *
+       * 这一步很关键：如果存储里留着一个旧的 serverBase（比如早先调试时
+       * 填的 emulator 地址），请求根本不会打到线上，光看「失败」猜不到。
+       */
+      let base = "";
+      try {
+        base = config.getServerBase() || "";
+      } catch (error) {
+        base = "";
+      }
+      this.serverNotice = base ? `地址：${base}` : "地址：读不到";
 
       try {
         api
           .fetchHealth()
           .then(() => {
             this.serverState = `通 · ${Date.now() - started}ms`;
-            this.serverNotice = '';
           })
           .catch((error) => {
-            const message =
-              error && error.message ? String(error.message) : String(error);
             this.serverState = `失败 · ${Date.now() - started}ms`;
             /*
-             * 原样显示，不做美化 —— 这一步是给排查用的，
-             * 把「解析不到 / 超时 / 证书」这些区别抹平了就没意义了。
+             * 错误对象有时候是空的（message 为空串），
+             * 那样界面上只会显示「失败」，什么都查不出来。
+             * 所以把 name / message / 原始字符串都拼上。
              */
-            this.serverNotice = message.slice(0, 220);
+            let detail = "";
+            try {
+              if (error && error.message) detail = String(error.message);
+              else if (error && error.name) detail = String(error.name);
+              else detail = String(error);
+              if (!detail || detail === "[object Object]") {
+                detail = JSON.stringify(error).slice(0, 200);
+              }
+            } catch (nested) {
+              detail = "（错误信息读不出来）";
+            }
+            this.serverNotice = `${base || "?"} → ${detail}`.slice(0, 240);
           });
       } catch (error) {
-        this.serverState = '失败';
-        this.serverNotice =
-          '发不出请求：' +
-          (error && error.message ? error.message : String(error)).slice(0, 200);
+        this.serverState = "失败";
+        this.serverNotice = `${base || "?"} → 发不出请求：${String(error)}`.slice(0, 240);
       }
     },
-
     onBack() {
       goBack('/');
     },
