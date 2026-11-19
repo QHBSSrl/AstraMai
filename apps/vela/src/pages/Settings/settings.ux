@@ -113,6 +113,21 @@
         <text class="row__label">设备信息</text>
         <text class="row__mark">{{ deviceInfoOpen ? '收起' : '查看' }}</text>
       </div>
+
+      <!--
+        测试服务器连接。
+
+        为什么必须有这一行：上面那个「测试连接」是给**网桥**用的，
+        包在 `if="{{ bridgeNeeded }}"` 里 —— 手表上整块「网络」都不显示，
+        所以手表用户遇到「连不上」时**没有任何可以点的地方**。
+
+        这里直接打一次 /api/health：成功报状态码和耗时，
+        失败把原始错误显示出来，方便判断卡在哪一步。
+      -->
+      <div class="row" @click="testServer">
+        <text class="row__label">测试服务器</text>
+        <text class="row__mark">{{ serverState }}</text>
+      </div>
     </div>
 
     <text class="hint" if="{{ forceBridgeNotice }}">{{ forceBridgeNotice }}</text>
@@ -306,6 +321,10 @@
       bridgeState: '',
       /** 网桥测试的详细结果 / 失败原因。 */
       bridgeNotice: '',
+      /** 「测试服务器」那一行的状态文本。 */
+      serverState: '点此测试',
+      /** 失败时的原始错误，排查用，不做美化。 */
+      serverNotice: '',
       /** 传输方式的显示文本（「完整」/「分片」）。 */
       bridgeModeLabel: '',
       /** 网桥的固定提示。手环上才显示，说明这东西是干什么的。 */
@@ -712,6 +731,42 @@
      */
     goAbout() {
       push('/about');
+    },
+
+    /**
+     * 直接打一次 /api/health，把结果摊开给人看。
+     *
+     * 和 `testBridge` 的区别：那个测的是**网桥通道**，只在手环上出现；
+     * 这个测的是**普通网络请求**，任何设备都能用，是排查「连不上」的入口。
+     */
+    testServer() {
+      const started = Date.now();
+      this.serverState = '测试中…';
+      this.serverNotice = '';
+
+      try {
+        api
+          .fetchHealth()
+          .then(() => {
+            this.serverState = `通 · ${Date.now() - started}ms`;
+            this.serverNotice = '';
+          })
+          .catch((error) => {
+            const message =
+              error && error.message ? String(error.message) : String(error);
+            this.serverState = `失败 · ${Date.now() - started}ms`;
+            /*
+             * 原样显示，不做美化 —— 这一步是给排查用的，
+             * 把「解析不到 / 超时 / 证书」这些区别抹平了就没意义了。
+             */
+            this.serverNotice = message.slice(0, 220);
+          });
+      } catch (error) {
+        this.serverState = '失败';
+        this.serverNotice =
+          '发不出请求：' +
+          (error && error.message ? error.message : String(error)).slice(0, 200);
+      }
     },
 
     onBack() {
