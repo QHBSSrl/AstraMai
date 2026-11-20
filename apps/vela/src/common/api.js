@@ -12,7 +12,7 @@
  */
 
 import { LxnsClient } from './astramai-core.js';
-import { DEFAULT_SERVER_BASE, FALLBACK_BASE, getApiToken, getServerBase } from './config.js';
+import { getApiToken, getServerBase } from './config.js';
 import { readSetting } from './store.js';
 import { createBridgeFetch, isBridgeFetchAvailable } from './bridge-fetch.js';
 import { createVelaFetch } from './vela-fetch.js';
@@ -119,8 +119,6 @@ let cachedBase = null;
 let cachedToken = null;
 /** 上次建客户端时 forceBridge 的值 —— 变了必须重建。 */
 let cachedForce = null;
-/** 已经回退过一次了吗 —— 避免每次都白等一次超时。 */
-let cachedFallbackDone = false;
 
 /** 取一个绑定到当前配置的客户端（地址或令牌变了会自动重建）。 */
 export function getClient(base) {
@@ -212,54 +210,6 @@ function needCompact() {
  * 所以：第一次失败就记下来（`markNativeFetchBroken`），之后一律走网桥，
  * 并且**立刻用网桥重试这一次** —— 用户不该为了这个重新点一次查询。
  */
-/**
- * 发请求，**域名失败时自动换裸 IP 重试一次**。
- *
- * 为什么需要：有些运行时（实测 Vela 模拟器）**解析不了域名**，
- * 但裸 IP 能连。表现是 12 秒超时，什么错误都不给。
- *
- * 所以：先用配置里的地址（正式环境是域名），网络层失败就换
- * FALLBACK_BASE（甲骨文 IP）再试一次，成功就记下来，
- * 本次会话后续请求直接用它 —— 不让他每次都白等 12 秒。
- *
- * ⚠️ 只在**网络层失败**时换。4xx/5xx 是服务端的答复，
- * 说明地址是通的，换 IP 没意义还可能查出别人的数据。
- */
-function req(path) {
-  return runWithFallback((base) => getClient(base).request(path));
-}
-
-/**
- * 带候选地址的执行器。
- *
- * @param {(base?: string) => Promise<any>} run 接收 base 的执行函数
- */
-function runWithFallback(run) {
-  return run().catch((error) => {
-    /*
-     * 判断是不是「网络层」失败。
-     *
-     * 我们的客户端把 HTTP 错误也包在 message 里，所以要排除掉
-     * 那些带状态码的 —— 它们说明服务器有响应。
-     */
-    const message = error && error.message ? String(error.message) : "";
-    const status = error && typeof error.status === "number" ? error.status : 0;
-    const isNetwork = status === 0 && /网络|timeout|超时|Failed|ECONN|ENOTFOUND|host/i.test(message);
-
-    if (!isNetwork || cachedFallbackDone) throw error;
-
-    /*
-     * 用户手动改过地址就尊重他的选择，不要自作主张换。
-     * 只有用的是默认地址（域名）时才回退。
-     */
-    const current = getServerBase();
-    if (current !== DEFAULT_SERVER_BASE) throw error;
-
-    cachedFallbackDone = true;
-    return run(FALLBACK_BASE);
-  });
-}
-
 function requestWithFallback(run) {
   return run().catch((error) => {
     // 已经是网桥了，或者压根没有网桥 —— 没得降级
@@ -274,11 +224,11 @@ function requestWithFallback(run) {
 export function fetchB50(friendCode) {
   return requestWithFallback(() => {
     if (needCompact()) {
-      return req(
+      return getClient().request(
         `/api/v1/maimai/b50/compact?code=${encodeURIComponent(friendCode)}`,
       );
     }
-    return req(`/api/maimai/b50/${friendCode}`);
+    return getClient().request(`/api/maimai/b50/${friendCode}`);
   });
 }
 
@@ -286,9 +236,9 @@ export function fetchB50(friendCode) {
 export function fetchB50ByQq(qq) {
   return requestWithFallback(() => {
     if (needCompact()) {
-      return req(`/api/v1/maimai/b50/compact?qq=${encodeURIComponent(qq)}`);
+      return getClient().request(`/api/v1/maimai/b50/compact?qq=${encodeURIComponent(qq)}`);
     }
-    return req(`/api/maimai/b50/qq/${qq}`);
+    return getClient().request(`/api/maimai/b50/qq/${qq}`);
   });
 }
 
@@ -301,14 +251,14 @@ export function fetchB50ByQq(qq) {
  */
 export function fetchChunithmBests(friendCode) {
   return requestWithFallback(() =>
-    req(`/api/v1/chunithm/bests?code=${friendCode}`),
+    getClient().request(`/api/v1/chunithm/bests?code=${friendCode}`),
   );
 }
 
 /** 中二节奏成绩，按 QQ 号。 */
 export function fetchChunithmBestsByQq(qq) {
   return requestWithFallback(() =>
-    req(`/api/v1/chunithm/bests?qq=${qq}`),
+    getClient().request(`/api/v1/chunithm/bests?qq=${qq}`),
   );
 }
 
@@ -320,7 +270,7 @@ export function fetchChunithmBestsByQq(qq) {
  */
 export function searchSongs(keyword, limit = 30) {
   const query = encodeURIComponent(keyword);
-  return req(`/api/maimai/search?q=${query}&limit=${limit}`);
+  return getClient().request(`/api/maimai/search?q=${query}&limit=${limit}`);
 }
 
 /**
@@ -332,7 +282,7 @@ export function searchSongs(keyword, limit = 30) {
  */
 export function searchChunithmSongs(keyword, limit = 30) {
   const query = encodeURIComponent(keyword);
-  return req(`/api/v1/chunithm/search?q=${query}&limit=${limit}`);
+  return getClient().request(`/api/v1/chunithm/search?q=${query}&limit=${limit}`);
 }
 
 /**
@@ -345,7 +295,7 @@ export function searchChunithmSongs(keyword, limit = 30) {
  * 舞萌两个都有。调用方统一用 `title || genre`。
  */
 export function fetchGenres(gameId) {
-  return req(`/api/v1/${gameId}/genres`);
+  return getClient().request(`/api/v1/${gameId}/genres`);
 }
 
 /**
@@ -355,14 +305,14 @@ export function fetchGenres(gameId) {
  * 渲染、分页、详情跳转都不用为「浏览」另写一套。
  */
 export function searchByGenre(gameId, genreId, limit = 100) {
-  return req(
+  return getClient().request(
     `/api/v1/${gameId}/search?genre=${encodeURIComponent(genreId)}&limit=${limit}`,
   );
 }
 
 /** 服务端健康检查，用来判断地址填对没有。 */
 export function fetchHealth() {
-  return req('/api/health');
+  return getClient().request('/api/health');
 }
 
 /** 换地址或令牌后调用，清掉缓存。 */
