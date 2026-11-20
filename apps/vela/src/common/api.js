@@ -212,6 +212,28 @@ function needCompact() {
  */
 function requestWithFallback(run) {
   return run().catch((error) => {
+    /*
+     * ⚠️ 先分清「通道坏了」和「服务端有答复」。
+     *
+     * 踩过的大坑：这里原来**任何**失败都会 markNativeFetchBroken()，
+     * 包括 404 / 400 这种正常答复。结果查分页只要报一次「查不到这个玩家」，
+     * 原生 fetch 就被永久标记为坏，之后所有请求改走网桥 ——
+     * 模拟器没有网桥，于是一路 15 秒超时。
+     *
+     * 表现就是用户描述的那样：
+     *   测试服务器 → 正常
+     *   切到查分页 → 报「连不上服务器」
+     *   再回去测 → 15000ms
+     */
+    const status = error && typeof error.status === "number" ? error.status : 0;
+    const kind = error && error.kind ? String(error.kind) : "";
+    const serverAnswered =
+      status > 0 || kind === "bad-request" || kind === "not-found"
+      || kind === "unauthorized" || kind === "forbidden" || kind === "rate-limited";
+
+    // 服务端给了答复 → 通道是好的，别把 fetch 判死
+    if (serverAnswered) throw error;
+
     // 已经是网桥了，或者压根没有网桥 —— 没得降级
     if (!getFetchModule() || nativeFetchBroken) throw error;
     if (!isBridgeFetchAvailable()) throw error;
@@ -320,6 +342,13 @@ export function resetClient() {
   cachedClient = null;
   cachedBase = null;
   cachedToken = null;
+  /*
+   * 同时复位「原生 fetch 坏了」这个标记。
+   *
+   * 那个标记一旦置上，之后所有请求都改走网桥（没有网桥就是 15 秒超时）。
+   * 用户在设置里换线路，本来就该给它一次重新证明自己的机会。
+   */
+  nativeFetchBroken = false;
 }
 
 // ── 设备配对 ────────────────────────────────────────────────────────────
