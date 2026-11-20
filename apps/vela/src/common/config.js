@@ -39,23 +39,23 @@ import { readSetting } from './store.js';
  *   - `http://192.168.x.x:8787` —— 电脑上直连同一局域网的服务端
  */
 /*
- * ⚠️ 手表端用 **HTTP**，手机端用 HTTPS。
+ * 服务端地址。手表端也用 HTTPS。
  *
- * 不是偷懒，是设备限制：Vela 运行时的 TLS 栈是裁剪过的，和我们的
- * 证书握手会直接卡死 —— 实测 HTTP 能通、HTTPS 15 秒超时，
- * 而且拿不到任何错误信息。
+ * ── 曾经踩过的坑 ──────────────────────────────────────────────────
  *
- * 换 CA（Let's Encrypt → RSA → ZeroSSL）都试过，问题不在证书，
- * 在那套运行时的 TLS 实现本身。
+ * 一开始 Caddy 默认签的是 **ECDSA P-256 + SHA-384** 证书，
+ * Vela 运行时的 TLS 栈和它握手会**直接卡死** —— 表现是 15 秒超时，
+ * 不给任何错误信息。HTTP 反而能通，一度让我误判成「网络问题」。
  *
- * 所以手表走 80 端口的明文入口（同一个域名，不是裸 IP）：
- *   · 换服务器只改 DNS，客户端不用动
- *   · 手表只查成绩、不带凭证，泄露面有限
+ * 改成 `key_type rsa2048` 之后，同一条 HTTPS 请求 846ms 就通了。
+ * 所以不是设备的 TLS 有问题，是 **ECDSA 握手那套它不支持**。
  *
- * 手机端（Flutter）的 TLS 栈是 Android 那套，HTTPS 完全正常，
- * 所以那边继续用 https://。
+ * 这条经验记在这：**给嵌入式/穿戴设备发证书，优先 RSA2048。**
+ *
+ * 线上 Caddy 配置里必须保留 `key_type rsa2048`，否则重新签发时
+ * 又会拿到 ECDSA，手表端再次连不上。
  */
-export const DEFAULT_SERVER_BASE = 'http://api-orhythm.astranexus.cn';
+export const DEFAULT_SERVER_BASE = 'https://api-orhythm.astranexus.cn';
 
 /**
  * 兜底地址：甲骨文 IP + 80。
