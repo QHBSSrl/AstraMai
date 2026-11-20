@@ -314,6 +314,8 @@
  */
 const LINE_OFFICIAL = 'https://api-orhythm.astranexus.cn';
 const LINE_ALIYUN = 'http://101.132.148.117:8787';
+/* 甲骨文 IP + 80 端口：不经过 DNS，用来区分「解析坏了」和「路由不通」。 */
+const LINE_ORACLE_IP = 'http://161.33.15.92';
 const { api, community, config, diag, fetchbridge, fontScale, games, navigation, screenSize, store } = global.AstraMai;
 
   /** 手表上的 toast。用 try/require 是因为有些设备不提供。 */
@@ -779,7 +781,10 @@ const { api, community, config, diag, fetchbridge, fontScale, games, navigation,
         current = "";
       }
 
-      const nextBase = /^https:/i.test(current) ? LINE_ALIYUN : LINE_OFFICIAL;
+      /* 三条线路轮换：正式 HTTPS → 阿里云明文 → 甲骨文 IP */
+      let nextBase = LINE_OFFICIAL;
+      if (/^https:/i.test(current)) nextBase = LINE_ALIYUN;
+      else if (/101\.132\.148\.117/.test(current)) nextBase = LINE_ORACLE_IP;
       try {
         store.writeSetting("serverBase", nextBase);
         api.resetClient();
@@ -799,7 +804,9 @@ const { api, community, config, diag, fetchbridge, fontScale, games, navigation,
       } catch (error) {
         current = "";
       }
-      this.lineLabel = /^https:/i.test(current) ? "正式" : "阿里云";
+      if (/^https:/i.test(current)) this.lineLabel = "正式(HTTPS)";
+      else if (/161\.33\.15\.92/.test(current)) this.lineLabel = "甲骨文IP";
+      else this.lineLabel = "阿里云";
     },
 
     testServer() {
