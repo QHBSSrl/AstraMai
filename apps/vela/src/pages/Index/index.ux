@@ -396,8 +396,21 @@
         this.rows = this.layout(items);
         this.hasItems = items.length > 0;
 
-        // 顶部卡片：能读到缓存就显示分数
-        this.loadScoreCard(game.id, value);
+        /*
+         * 顶部卡片：能读到缓存就显示分数。
+         *
+         * ⚠️ 必须先 warmUp 这个**动态键**。
+         *
+         * `store.readSetting` 只读内存缓存，而内存只有 `warmUp()`
+         * 预热过的键 —— 没预热的一律返回兜底值。
+         * `b50Cache:maimai:3687236844` 是拼出来的键，
+         * onInit 里那份固定列表里不可能有它，
+         * 所以之前永远读到空、卡片永远显示「未查过成绩」。
+         */
+        const cacheKey = keys.b50CacheKey(game.id, value);
+        warmUp(value ? [cacheKey] : []).then(() => {
+          this.loadScoreCard(game.id, value);
+        });
       } catch (error) {
         console.error('[ORhythm] Index refresh 失败：', error);
       }

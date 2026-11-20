@@ -1096,6 +1096,24 @@
      * @returns 有没有可用缓存（true 表示已经把缓存画出来了）
      */
     showCache(code, reason) {
+      /*
+       * ⚠️ 缓存键是**动态拼的**，必须先把内存缓存预热再读。
+       *
+       * `store.readSetting` 只读内存，而内存只有 `warmUp()` 预热过的键。
+       * onInit 里那份固定列表不可能包含 `b50Cache:maimai:3687236844`，
+       * 所以以前这里永远读到空 —— **离线缓存跨重启根本没生效过**，
+       * 只是本次运行内 `writeSetting` 顺手写了内存，看起来像是好的。
+       */
+      const hit = this.renderCache(code, reason);
+      if (!hit) {
+        // 内存里没有，说明是「重启后第一次」—— 预热完再试一次
+        warmUp([this.cacheKey(code), `${this.cacheKey(code)}:at`])
+          .then(() => this.renderCache(code, reason))
+          .catch(() => {});
+      }
+      return hit;
+    },
+    renderCache(code, reason) {
       let cached = null;
       let at = 0;
 
