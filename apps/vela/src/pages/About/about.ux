@@ -39,20 +39,20 @@
       </div>
       <div class="row" @click="copyGroup">
         <text class="row__label">交流群</text>
-        <text class="row__mark">{{ qqGroup }} · 点此复制</text>
+        <text class="row__mark">{{ qqGroup }}</text>
       </div>
     </div>
 
     <!-- ── 使用 ─────────────────────────────────────────────────── -->
     <text class="section">使用</text>
     <div class="rows">
-      <div class="row" @click="replayOnboarding">
-        <text class="row__label">重看新手引导</text>
-        <text class="row__mark">›</text>
-      </div>
       <div class="row" @click="showTerms">
-        <text class="row__label">用户协议与隐私</text>
-        <text class="row__mark">›</text>
+        <text class="row__label">用户协议</text>
+        <text class="row__mark">orhythm.astranexus.cn/terms</text>
+      </div>
+      <div class="row" @click="showPrivacy">
+        <text class="row__label">隐私政策</text>
+        <text class="row__mark">orhythm.astranexus.cn/privacy</text>
       </div>
     </div>
 
@@ -77,11 +77,37 @@
 <script>
   import { getServerBase } from '../../common/config.js';
   import { QQ_GROUP, QQ_GROUP_URL, hasCommunity } from '../../common/community.js';
-  import { TERMS_POINTS, TERMS_FOOTNOTE } from '../../common/legal.js';
+  import { PRIVACY_POINTS, TERMS_POINTS } from '../../common/legal.js';
 
   /** 版本号。和 manifest.json 的 versionName 保持一致。 */
   const VERSION_NAME = '0.1.4';
   const VERSION_CODE = 10400;
+
+  /*
+   * 协议和隐私的地址。
+   *
+   * ⚠️ 页面还没写完，所以**不在手表上打开浏览器**（手表也打不开）。
+   * 点击只弹一个提示框把域名显示出来，用户自己去电脑上访问。
+   * 等网站传上去之后，这两行文字不用改，链接自然就有效了。
+   */
+  const TERMS_URL = 'orhythm.astranexus.cn/terms';
+  const PRIVACY_URL = 'orhythm.astranexus.cn/privacy';
+
+  /**
+   * 把要点数组拼成可读的几行。
+   *
+   * ⚠️ TERMS_POINTS / PRIVACY_POINTS 的元素是 { title, body } **对象**，
+   * 直接 .join('\n') 会输出 [object Object] —— 之前那版就是这么错的，
+   * 界面上只会看到一串 [object Object]。
+   *
+   * 只取前 3 条：手表弹窗放不下更多，完整版在官网。
+   */
+  function formatPoints(points) {
+    return points
+      .slice(0, 3)
+      .map((item) => item.title + '：' + item.body)
+      .join('\n');
+  }
 
   export default {
     /*
@@ -138,13 +164,48 @@
       router.replace({ uri: '/welcome' });
     },
 
+    /**
+     * 用户协议。
+     *
+     * 手表上没有浏览器，所以不跳转 —— 弹一个提示框把地址显示出来，
+     * 用户自己去电脑上访问。
+     */
     showTerms() {
-      /*
-       * 协议内容是纯文本，手表上排版长文很难看。
-       * 所以这里只弹前几条的要点，完整版在官网。
-       */
-      const preview = TERMS_POINTS.slice(0, 3).join('\n');
-      this.toast(preview || TERMS_FOOTNOTE);
+      this.alert(
+        '用户协议',
+        '完整条款在：' + TERMS_URL + '\n\n' + formatPoints(TERMS_POINTS),
+      );
+    },
+
+    /** 隐私政策。同样只弹地址，不跳转。 */
+    showPrivacy() {
+      this.alert(
+        '隐私政策',
+        '完整内容在：' + PRIVACY_URL + '\n\n' + formatPoints(PRIVACY_POINTS),
+      );
+    },
+
+    /**
+     * 弹一个只有「知道了」的提示框。
+     *
+     * ⚠️ 优先用 `prompt.showDialog`（真正的对话框，能看长一点的内容），
+     * 设备不支持就退回 toast —— 绝不能因为弹窗失败什么都不显示。
+     */
+    alert(title, message) {
+      try {
+        const prompt = require('@system.prompt');
+        if (prompt && typeof prompt.showDialog === 'function') {
+          prompt.showDialog({
+            title,
+            message,
+            buttons: [{ text: '知道了', color: '#ff5f9e' }],
+          });
+          return;
+        }
+      } catch (error) {
+        // 没有对话框就往下走，用 toast 兜底
+      }
+      this.toast(title + '：' + message);
     },
 
     toast(message) {

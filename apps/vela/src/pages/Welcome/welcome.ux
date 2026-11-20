@@ -11,7 +11,7 @@
       <div class="content">
         <!-- ── 1. 欢迎 ─────────────────────────────────────────── -->
         <block if="{{ page === 'welcome' }}">
-          <text class="hero">AstraMai</text>
+          <text class="hero">ORhythm</text>
           <text class="lead">帮你在手表上看音游成绩</text>
           <text class="body">舞萌 · 中二 · Phigros</text>
         </block>
