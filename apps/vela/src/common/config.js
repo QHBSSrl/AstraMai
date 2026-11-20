@@ -57,6 +57,17 @@ import { readSetting } from './store.js';
  */
 export const DEFAULT_SERVER_BASE = 'http://api-orhythm.astranexus.cn';
 
+/**
+ * 兜底地址：甲骨文 IP + 80。
+ *
+ * ⚠️ 为什么需要：有些运行时**解析不了域名**（实测 Vela 模拟器就是），
+ * 但裸 IP 能连。表现是请求 12 秒超时、不给任何错误。
+ *
+ * 所以 api.js 在「域名 + 网络层失败」时会自动换这个地址重试一次。
+ * 用户手动改过地址就尊重他的选择，不回退。
+ */
+export const FALLBACK_BASE = 'http://161.33.15.92';
+
 /** 模拟器专用的服务端地址，便于本地联调时切回来。 */
 export const EMULATOR_SERVER_BASE = 'http://10.0.2.2:8787';
 
