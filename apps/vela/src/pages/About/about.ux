@@ -77,8 +77,7 @@
 <script>
   import { getServerBase } from '../../common/config.js';
   import { QQ_GROUP, QQ_GROUP_URL, hasCommunity } from '../../common/community.js';
-  import { PRIVACY_POINTS, TERMS_POINTS } from '../../common/legal.js';
-
+  
   /** 版本号。和 manifest.json 的 versionName 保持一致。 */
   const VERSION_NAME = '0.1.4';
   const VERSION_CODE = 10400;
@@ -92,22 +91,6 @@
    */
   const TERMS_URL = 'orhythm.astranexus.cn/terms';
   const PRIVACY_URL = 'orhythm.astranexus.cn/privacy';
-
-  /**
-   * 把要点数组拼成可读的几行。
-   *
-   * ⚠️ TERMS_POINTS / PRIVACY_POINTS 的元素是 { title, body } **对象**，
-   * 直接 .join('\n') 会输出 [object Object] —— 之前那版就是这么错的，
-   * 界面上只会看到一串 [object Object]。
-   *
-   * 只取前 3 条：手表弹窗放不下更多，完整版在官网。
-   */
-  function formatPoints(points) {
-    return points
-      .slice(0, 3)
-      .map((item) => item.title + '：' + item.body)
-      .join('\n');
-  }
 
   export default {
     /*
@@ -164,25 +147,14 @@
       router.replace({ uri: '/welcome' });
     },
 
-    /**
-     * 用户协议。
-     *
-     * 手表上没有浏览器，所以不跳转 —— 弹一个提示框把地址显示出来，
-     * 用户自己去电脑上访问。
-     */
+    /** 用户协议。手表上没有浏览器，只把地址显示出来。 */
     showTerms() {
-      this.alert(
-        '用户协议',
-        '完整条款在：' + TERMS_URL + '\n\n' + formatPoints(TERMS_POINTS),
-      );
+      this.alert('用户协议', '详见：' + TERMS_URL);
     },
 
-    /** 隐私政策。同样只弹地址，不跳转。 */
+    /** 隐私政策。同上。 */
     showPrivacy() {
-      this.alert(
-        '隐私政策',
-        '完整内容在：' + PRIVACY_URL + '\n\n' + formatPoints(PRIVACY_POINTS),
-      );
+      this.alert('隐私政策', '详见：' + PRIVACY_URL);
     },
 
     /**
