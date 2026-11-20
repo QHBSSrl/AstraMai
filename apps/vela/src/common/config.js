@@ -38,7 +38,24 @@ import { readSetting } from './store.js';
  *     模拟器填局域网 IP 或 localhost 都连不上。
  *   - `http://192.168.x.x:8787` —— 电脑上直连同一局域网的服务端
  */
-export const DEFAULT_SERVER_BASE = 'https://api-orhythm.astranexus.cn';
+/*
+ * ⚠️ 手表端用 **HTTP**，手机端用 HTTPS。
+ *
+ * 不是偷懒，是设备限制：Vela 运行时的 TLS 栈是裁剪过的，和我们的
+ * 证书握手会直接卡死 —— 实测 HTTP 能通、HTTPS 15 秒超时，
+ * 而且拿不到任何错误信息。
+ *
+ * 换 CA（Let's Encrypt → RSA → ZeroSSL）都试过，问题不在证书，
+ * 在那套运行时的 TLS 实现本身。
+ *
+ * 所以手表走 80 端口的明文入口（同一个域名，不是裸 IP）：
+ *   · 换服务器只改 DNS，客户端不用动
+ *   · 手表只查成绩、不带凭证，泄露面有限
+ *
+ * 手机端（Flutter）的 TLS 栈是 Android 那套，HTTPS 完全正常，
+ * 所以那边继续用 https://。
+ */
+export const DEFAULT_SERVER_BASE = 'http://api-orhythm.astranexus.cn';
 
 /** 模拟器专用的服务端地址，便于本地联调时切回来。 */
 export const EMULATOR_SERVER_BASE = 'http://10.0.2.2:8787';

@@ -24,6 +24,21 @@
 api-orhythm.astranexus.cn {
 	encode gzip
 
+# ⚠️ 强制 RSA2048 证书。
+
+# 默认签出来是 ECDSA P-256 + SHA-384，链是
+#   YE2 → ISRG Root YE → X2 → X1
+# 这套 2026 年才启用的新根，**老的信任库根本没有**。
+
+# 手表 / 手环这类设备的 TLS 栈是裁剪过的 BoringSSL / mbedTLS，
+# 表现就是：HTTP 通、HTTPS 握手卡死到超时，看不出任何错误。
+
+# RSA2048 走的是 R10/R11 → ISRG Root X1（2015 年就在
+# Windows / Android 信任库里），兼容性最好。
+	tls {
+		key_type rsa2048
+	}
+
 	# ── frp 隧道入口 ────────────────────────────────────────────────
 	# 机房的 frpc 通过 wss://api-orhythm.astranexus.cn/tunnel 连进来。
 	#
@@ -48,6 +63,29 @@ api-orhythm.astranexus.cn {
 		output file /var/log/caddy/orhythm-api.log {
 			roll_size 10MiB
 			roll_keep 3
+		}
+	}
+}
+# ============================================================================
+# 纯 HTTP 入口（给手表 / 手环用）
+#
+# 为什么需要：Vela 运行时的 TLS 栈是裁剪过的，和我们证书握手会卡死
+# （HTTP 通、HTTPS 超时）。这不是服务端配置能修的。
+#
+# 用**同一个域名**的 80 端口，好处是：
+#   · 不用把裸 IP 写进客户端（换服务器改 DNS 就行）
+#   · 80 端口本来就在安全组里开着，不用再动防火墙
+#   · 手机端仍然走 HTTPS，只有手表这条腿降级
+#
+# ⚠️ 内容是明文。手表只查成绩、不带凭证，泄露面有限；
+#    真在意的话等设备 TLS 问题查清楚再把这条关掉。
+# ============================================================================
+http://api-orhythm.astranexus.cn {
+	reverse_proxy 127.0.0.1:8788 {
+		header_up X-Real-IP {remote_host}
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 45s
 		}
 	}
 }
