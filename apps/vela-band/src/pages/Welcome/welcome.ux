@@ -1,0 +1,364 @@
+<template>
+  <div class="page-root">
+    <div class="page">
+      <text class="progress">{{ step + 1 }} / {{ total }}</text>
+
+      <!--
+        内容区：**flex: 1，垂直居中**。
+        不用 <scroll>、不用 margin-top: auto ——
+        这两个是上一版布局炸掉最可能的原因（scroll 没高度、auto margin 不生效）。
+      -->
+      <div class="content">
+        <!-- ── 1. 欢迎 ─────────────────────────────────────────── -->
+        <block if="{{ page === 'welcome' }}">
+          <text class="hero">ORhythm</text>
+          <text class="lead">帮你在手表上看音游成绩</text>
+          <text class="body">舞萌 · 中二 · Phigros</text>
+        </block>
+
+        <!-- ── 2. 协议 ─────────────────────────────────────────── -->
+        <block if="{{ page === 'terms' }}">
+          <text class="lead">几句话说清楚</text>
+          <div class="points">
+            <div class="point" for="{{ termsPoints }}">
+              <text class="point__title">{{ $item.title }}</text>
+              <text class="point__body">{{ $item.body }}</text>
+            </div>
+          </div>
+          <text class="body body--dim">{{ termsFootnote }}</text>
+        </block>
+
+        <!-- ── 3. 联网 ─────────────────────────────────────────── -->
+        <!--
+          这里原来写着「那个功能还在做」—— 网桥已经做完了，
+          文案必须跟上，否则用户会以为手环没法用。
+        -->
+        <block if="{{ page === 'pairing' }}">
+          <text class="lead">你的设备能自己上网吗？</text>
+          <text class="body">手表（Watch 系列）自带联网，这一步不用管。</text>
+          <text class="body">手环（Pro 系列）没有网络模块，要靠手机中转：手机上装 ORhythm，打开「我的 → 手机网桥」。</text>
+          <text class="body body--dim">没装手机 App 也能看离线缓存的上次成绩。</text>
+        </block>
+
+        <!-- ── 4. 群 ───────────────────────────────────────────── -->
+        <block if="{{ page === 'community' }}">
+          <text class="lead">如遇问题欢迎加入交流群！</text>
+          <!--
+            二维码必须白底黑码，深色底上扫不出来。
+            没配链接时这一块不渲染，只显示群号。
+          -->
+          <div class="qr-wrap" if="{{ groupQr }}">
+            <div class="qr">
+              <qrcode value="{{ groupQr }}"></qrcode>
+            </div>
+          </div>
+          <text class="group">{{ groupNumber }}</text>
+        </block>
+
+        <!-- ── 5. 完成 ─────────────────────────────────────────── -->
+        <block if="{{ page === 'done' }}">
+          <text class="lead">好，可以开始了</text>
+          <text class="body">去首页点「Best 50」，填一次好友码或 QQ 号。</text>
+          <text class="body body--dim">填过就记住了，下次直接看。</text>
+        </block>
+      </div>
+
+      <!-- 按钮固定在底部：父容器列方向 + 固定高度，不靠 auto margin -->
+      <div class="actions">
+        <div class="action" @click="next">
+          <text class="action__text action__text--filled">{{ primaryLabel }}</text>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 首次启动引导。五步，没有跳过键。
+   *
+   * ── 布局只有三层，尽量少用不被支持的特性 ──────────────────────
+   *
+   *   .page-root  全幅
+   *   .page       列方向
+   *   .content    flex: 1（内容居中）
+   *   .actions    固定高度（按钮在底部）
+   *
+   * **刻意没用 `<scroll>`**：没有明确高度时它会把父容器撑开，
+   * 上一版就是这里炸的。现在每屏内容都短到一屏放得下。
+   */
+
+  .page-root {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
+
+  .page {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    padding: 18px 26px 22px;
+    background-color: @ui-surface;
+  }
+
+  .progress {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-muted;
+    text-align: center;
+    lines: 1;
+  }
+
+  /* 内容区：吃掉剩余高度，内容垂直居中 */
+  .content {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .hero {
+    font-size: 40px;
+    font-weight: bold;
+    color: @ui-primary;
+    text-align: center;
+    lines: 1;
+  }
+
+  .lead {
+    font-size: @ui-font-headline;
+    color: @ui-on-surface;
+    text-align: center;
+    margin-top: @ui-space-2;
+    lines: 2;
+  }
+
+  .body {
+    font-size: @ui-font-label;
+    color: @ui-on-surface-variant;
+    text-align: center;
+    margin-top: @ui-space-2;
+    lines: 3;
+  }
+
+  .body--dim {
+    color: @ui-on-surface-muted;
+  }
+
+  /* 协议三条 */
+  .points {
+    flex-direction: column;
+    width: 100%;
+    margin-top: @ui-space-2;
+  }
+
+  .point {
+    flex-direction: column;
+    margin-bottom: @ui-space-2;
+  }
+
+  .point__title {
+    font-size: @ui-font-label;
+    font-weight: bold;
+    color: @ui-primary;
+    text-align: center;
+    lines: 1;
+  }
+
+  .point__body {
+    font-size: @ui-font-caption;
+    color: @ui-on-surface-variant;
+    text-align: center;
+    margin-top: 1px;
+    lines: 2;
+  }
+
+  .group {
+    font-size: @ui-font-title;
+    font-weight: bold;
+    color: @ui-primary;
+    text-align: center;
+    margin-top: @ui-space-2;
+    lines: 1;
+  }
+
+  /*
+   * 二维码：白底 + 静区，**尺寸给足**。
+   *
+   * 群分享链接有 439 个字符，二维码会到 65×65 模块左右。
+   * 容器 160px 时每个模块只剩约 2px —— **手机基本扫不出来**。
+   * 260px（减去 10px 静区 = 240px）大约是 3.7px/模块，是能扫的下限。
+   *
+   * 如果实测还是扫不出来，换短链：
+   *   https://qm.qq.com/cgi-bin/qm/qr?k=<authKey>
+   * 只有约 110 字符，模块数少一半，扫起来稳得多。
+   *
+   * ── 为什么外面再包一层 .qr-wrap ────────────────────────────────
+   * 上一版用 `align-self: center` 让二维码居中，**实机上没居中** ——
+   * 说明这个属性在这台设备上不可靠。
+   * 改成外层行容器 + `justify-content: center`，这是确定生效的写法。
+   */
+  .qr-wrap {
+    width: 100%;
+    flex-direction: row;
+    justify-content: center;
+    margin-top: @ui-space-1;
+  }
+
+  .qr {
+    width: 260px;
+    height: 260px;
+    padding: 10px;
+    border-radius: @ui-radius-md;
+    background-color: #ffffff;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: row;
+    justify-content: center;
+    height: 72px;
+  }
+
+  /*
+   * 按钮。
+   *
+   * ⚠️ **这两个类必须在每个页面里各定义一次。**
+   * Vela 的样式是**页面级**的，B50 页里定义的 `.action` / `.action__text`
+   * 在这一页不存在——之前就漏了，结果「开始吧」只有一个没有背景的文字。
+   *
+   * 以后如果要把它们抽成公共样式，得靠组件或者构建期注入，
+   * 不能指望跨页面生效。
+   */
+  .action {
+    height: 64px;
+    padding: 0 40px;
+    border-radius: @ui-radius-full;
+    background-color: @ui-primary;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action__text {
+    font-size: @ui-font-body;
+    color: @ui-on-primary;
+  }
+
+  /* 圆屏：左右再往里收，避免内容和屏幕边缘相切被裁 */
+  @media (shape: circle) {
+    .page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+</style>
+
+<script>
+  const { community, games, legal, navigation, store } = global.AstraMai;
+  const { groupNumber, groupUrl } = community;
+  const { TERMS_POINTS, TERMS_FOOTNOTE, TERMS_VERSION, TERMS_KEY } = legal;
+  const { readCurrentGame, writeCurrentGame } = games;
+  const { push } = navigation;
+  const { readSetting, warmUp, writeSetting } = store;
+
+  /**
+   * 五步，顺序写死。
+   *
+   * 上一版按「有没有配群号」动态增减步骤，结果不同用户看到的流程不一样，
+   * 出问题时很难判断他在第几步。现在固定。
+   */
+  const STEPS = ['welcome', 'terms', 'pairing', 'community', 'done'];
+
+  /**
+   * ⚠️ **引导"弹过"的标记，不是"走完"的标记。**
+   *
+   * 上一版只在最后一步才写 `oobeDone`，用户中途退出就白写了，
+   * 于是**每次启动都弹** —— 这是我上一版犯的错。
+   *
+   * 现在在 `onInit` 里第一件事就写 `oobeShown`，
+   * 语义是「已经给他看过引导了」，而不是「他看完了」。
+   */
+  const SHOWN_KEY = 'oobeShown';
+
+  /** 走完了的标记，只用于统计。 */
+  const COMPLETED_KEY = 'oobeCompleted';
+
+  /** 每步的按钮文案：都带动作，不是状态确认。 */
+  const PRIMARY_LABELS = {
+    welcome: '开始吧',
+    terms: '没问题',
+    pairing: '知道了',
+    community: '进群看看',
+    done: '开始用',
+  };
+
+  export default {
+    private: {
+      step: 0,
+      total: STEPS.length,
+      page: STEPS[0],
+      selected: 'maimai',
+      groupNumber: '',
+      groupQr: '',
+      termsPoints: TERMS_POINTS,
+      termsFootnote: TERMS_FOOTNOTE,
+      primaryLabel: PRIMARY_LABELS.welcome,
+    },
+
+    onInit() {
+      console.debug('[AstraMai] Welcome onInit');
+
+      /*
+       * **第一件事就写下"已经看过"。**
+       * 放在任何异步之前——这样即使用户三秒后杀掉进程，下次也不会再弹。
+       */
+      try {
+        writeSetting(SHOWN_KEY, '1');
+      } catch (error) {
+        console.warn('[AstraMai] 写引导标记失败：', error);
+      }
+
+      warmUp(['currentGame'])
+        .then(() => {
+          this.selected = readCurrentGame(readSetting);
+          this.groupNumber = groupNumber();
+          this.groupQr = groupUrl();
+        })
+        .catch((error) => console.error('[AstraMai] Welcome 初始化失败：', error));
+    },
+
+    next() {
+      // 在协议页点「没问题」时把版本号记下来
+      if (this.page === 'terms') {
+        try {
+          writeSetting(TERMS_KEY, TERMS_VERSION);
+        } catch (error) {
+          console.warn('[AstraMai] 写协议标记失败：', error);
+        }
+      }
+
+      if (this.step >= STEPS.length - 1) {
+        this.finish();
+        return;
+      }
+
+      this.step += 1;
+      this.page = STEPS[this.step];
+      this.primaryLabel = PRIMARY_LABELS[this.page] || '继续';
+    },
+
+    finish() {
+      try {
+        writeSetting(COMPLETED_KEY, '1');
+        writeCurrentGame(writeSetting, this.selected);
+      } catch (error) {
+        console.warn('[AstraMai] 保存引导结果失败：', error);
+      }
+      push('/');
+    },
+  };
+</script>

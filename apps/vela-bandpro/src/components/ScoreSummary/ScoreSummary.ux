@@ -1,0 +1,213 @@
+<template>
+  <!--
+    成绩卡（摘要模块）。
+    **高度是固定的**，见下面样式里的 `.summary { height }`。
+
+    这样做的理由：
+      三个游戏塞进来的内容行数不一样（Phigros 的大数字要拆整数/小数两段），
+      如果高度由内容撑开，切一次游戏整块卡片就会变高变矮，
+      **把下面的列表挤到看不见**。
+
+      固定高度之后，页面只负责往固定的槽位里填东西，
+      **不管数据长什么样，布局都不会动**。
+  -->
+  <!--
+    ⚠️ **高度必须跟着字号一起放大。**
+
+    `.summary` 是固定 132px，里面按「字号 + 行距」排了 5 行。
+    如果只把字号放大而高度不动，5 行会溢出卡片、压到下面的列表上。
+
+    所以这里把高度和字号都绑到 `style` 上 —— 内联样式优先级高于类，
+    类里那份只当默认值和文档。
+  -->
+  <div class="summary" style="height: {{ boxHeight }}">
+    <div class="summary__main">
+      <text class="player" style="font-size: {{ fs.player }}" if="{{ name }}">{{ name }}</text>
+
+      <!--
+        大数字。两种形态：
+          · 有小数（Phigros 的 RKS）→ 整数大、小数小，靠底对齐
+          · 没小数（舞萌 rating / osu pp）→ 单行
+        **两种形态的主行高度一样**（都是 40px），所以卡片高度不变。
+      -->
+      <div class="rating-group" if="{{ valueDecimal }}">
+        <text class="rating" style="font-size: {{ fs.rating }}">{{ value }}</text>
+        <text class="rating-dec" style="font-size: {{ fs.ratingDec }}">{{ valueDecimal }}</text>
+      </div>
+      <text class="rating" style="font-size: {{ fs.rating }}" if="{{ !valueDecimal }}">{{ value }}</text>
+
+      <text class="tier" style="font-size: {{ fs.tier }}" if="{{ caption }}">{{ caption }}</text>
+    </div>
+
+    <div class="summary__side">
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line1 }}">{{ line1 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line2 }}">{{ line2 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line3 }}">{{ line3 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line4 }}">{{ line4 }}</text>
+      <text class="line" style="font-size: {{ fs.line }}" if="{{ line5 }}">{{ line5 }}</text>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * ⚠️ **高度固定 132px，不要改成 auto。**
+   *
+   * 可用高度 = 132 - 32（上下内边距）= **100px**。
+   *
+   * ── 一行到底占多高 ──────────────────────────────────────────────
+   *
+   * 原来 4 行 × (18px 字号 + 4px 间距) 能放下，说明**一行实际约占 22px**
+   * （字号 18 的行盒比 18 高，还要加 4px 间距）。
+   *
+   * 所以放 5 行时：5 × 22 = 110 > 100 —— **会溢出 10px**。
+   *
+   * 现在这个 132px 是按「标准字号」算的基准值；实际高度由
+   * script 里的 `boxHeight` 按同一个倍率算出来绑到 style 上。
+   */
+
+  .summary {
+    flex-direction: row;
+    justify-content: space-between;
+    height: 132px;
+    padding: 16px;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .summary__main {
+    flex-direction: column;
+    justify-content: center;
+    width: 150px;
+  }
+
+  .player {
+    font-size: 20px;
+    color: @ui-on-surface-variant;
+    margin-bottom: 4px;
+    max-lines: 1;
+  }
+
+  .rating-group {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  .rating {
+    font-size: 40px;
+    color: @ui-on-surface;
+  }
+
+  /*
+    小数部分。
+    `margin-bottom: 4px` 是补偿字号差的基线偏移——
+    不补的话小数点会贴到卡片底边。
+  */
+  .rating-dec {
+    font-size: 22px;
+    color: @ui-on-surface-variant;
+    margin-bottom: 4px;
+  }
+
+  .tier {
+    font-size: 18px;
+    color: @ui-on-surface-variant;
+  }
+
+  .summary__side {
+    flex-direction: column;
+    justify-content: center;
+    margin-left: 12px;
+  }
+
+  .line {
+    font-size: 16px;
+    color: @ui-on-surface-variant;
+    margin-bottom: 2px;
+    max-lines: 1;
+  }
+</style>
+
+<script>
+  /**
+   * 成绩卡。
+   *
+   * **只负责显示，不取数据、不算业务**——数据由页面算好再传进来。
+   * 这样 Web 端、以后的 Android 端都能用同一套「槽位约定」。
+   */
+  const { fontScale, store } = global.AstraMai;
+
+  /** 各槽位在「标准档」下的字号。和上面样式里的数值保持一致。 */
+  const BASE_FONT = {
+    player: 20,
+    rating: 40,
+    ratingDec: 22,
+    tier: 18,
+    line: 16,
+  };
+
+  /** 卡片在标准档下的高度，和 `.summary` 的 132px 对应。 */
+  const BASE_HEIGHT = 132;
+
+  export default {
+    props: {
+      /** 玩家名。空则不占位。 */
+      name: { default: '' },
+      /** 大数字（舞萌 rating / osu pp / Phigros 的整数部分）。 */
+      value: { default: '' },
+      /** 大数字的小数部分，带小数点，如 `.7888`。空则显示单行形态。 */
+      valueDecimal: { default: '' },
+      /** 大数字下方的小标签（段位 / 全球排名）。 */
+      caption: { default: '' },
+      /** 右侧统计行，最多 5 行。 */
+      line1: { default: '' },
+      line2: { default: '' },
+      line3: { default: '' },
+      line4: { default: '' },
+      line5: { default: '' },
+    },
+
+    private: {
+      /** 算好的字号，直接绑到 style 上。 */
+      fs: {},
+      /** 算好的卡片高度。 */
+      boxHeight: `${BASE_HEIGHT}px`,
+    },
+
+    onInit() {
+      this.applyFontScale();
+    },
+
+    /**
+     * 按字号档位算出这组槽位的实际 px。
+     *
+     * ⚠️ **高度和字号用同一个倍率** —— 只放大字号会把 5 行文字撑出卡片，
+     * 压到下面的列表上。
+     */
+    applyFontScale() {
+      try {
+        const mode = fontScale.current((key, d) => store.readSetting(key, d));
+        const k = fontScale.scaleOf(mode);
+
+        const fs = {};
+        Object.keys(BASE_FONT).forEach((key) => {
+          // 四舍五入到 0.5，避免 21.959999px 这种
+          fs[key] = `${Math.round(BASE_FONT[key] * k * 2) / 2}px`;
+        });
+
+        this.fs = fs;
+        this.boxHeight = `${Math.round(BASE_HEIGHT * k)}px`;
+      } catch (error) {
+        // 算不出来就用样式里的默认值，别让卡片渲染失败
+        const fs = {};
+        Object.keys(BASE_FONT).forEach((key) => {
+          fs[key] = `${BASE_FONT[key]}px`;
+        });
+        this.fs = fs;
+        this.boxHeight = `${BASE_HEIGHT}px`;
+      }
+    },
+  };
+</script>

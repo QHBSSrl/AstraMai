@@ -1,0 +1,116 @@
+{
+  "package": "com.nowmes.orhythm.band",
+  "name": "ORhythm 手环",
+  "icon": "/common/icon.png",
+  "versionName": "0.1.4",
+  "versionCode": 10400,
+  "minAPILevel": 2,
+  "deviceTypeList": [
+    "band"
+  ],
+  "features": [
+    {
+      "name": "system.fetch"
+    },
+    {
+      "name": "system.prompt"
+    },
+    {
+      "name": "system.storage"
+    },
+    {
+      "name": "system.file"
+    },
+    {
+      "name": "system.vibrator"
+    },
+    {
+      "name": "system.router"
+    },
+    {
+      "name": "system.device"
+    },
+    {
+      "name": "system.audio"
+    },
+    {
+      "name": "system.interconnect"
+    },
+    {
+      "name": "system.clipboard"
+    }
+  ],
+  "config": {
+    "designWidth": 192,
+    "logLevel": "log"
+  },
+  "display": {
+    "backgroundColor": "#070b16"
+  },
+  "router": {
+    "entry": "pages/Index",
+    "pages": {
+      "pages/Index": {
+        "component": "index",
+        "path": "/"
+      },
+      "pages/Qr": {
+        "component": "qr",
+        "path": "/qr"
+      },
+      "pages/B50": {
+        "component": "b50",
+        "path": "/b50"
+      },
+      "pages/Search": {
+        "component": "search",
+        "path": "/search"
+      },
+      "pages/Song": {
+        "component": "song",
+        "path": "/song"
+      },
+      "pages/Settings": {
+        "component": "settings",
+        "path": "/settings"
+      },
+      "pages/PhigrosLogin": {
+        "component": "phigros-login",
+        "path": "/phigros-login"
+      },
+      "pages/Welcome": {
+        "component": "welcome",
+        "path": "/welcome"
+      },
+      "pages/Push": {
+        "component": "push",
+        "path": "/push"
+      },
+      "pages/Diff": {
+        "component": "diff",
+        "path": "/diff"
+      },
+      "pages/Plan": {
+        "component": "plan",
+        "path": "/plan"
+      },
+      "pages/About": {
+        "component": "about",
+        "path": "/about"
+      }
+    }
+  },
+  "permissions": [
+    {
+      "name": "hapjs.permission.DEVICE_INFO"
+    }
+  ],
+  "packageInfo": {
+    "toolkit": "2.0.5",
+    "timeStamp": "2026-11-20T14:53:59.102Z",
+    "node": "v22.14.0",
+    "platform": "win32",
+    "arch": "x64",
+    "component": true
+  }
+}

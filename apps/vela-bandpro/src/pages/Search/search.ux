@@ -1,0 +1,747 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+
+<template>
+  <div class="page-root">
+    <div class="search-page">
+    <div class="query">
+      <text class="query__text">{{ keyword ? keyword : '输入曲名 / 别名 / 艺术家' }}</text>
+      <text class="query__hint">{{ statusText }}</text>
+    </div>
+
+    <!--
+      返回键放在按钮行里，不额外占竖直空间——下面是全屏输入法键盘，
+      页面可用高度本来就紧。
+      存在的理由：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势。
+    -->
+    <div class="actions">
+      <div class="action action--ghost" @click="onBack">
+        <text class="action__text action__text--ghost">‹ 返回</text>
+      </div>
+      <div class="action {{ keyword ? '' : 'action--disabled' }}" @click="runSearch">
+        <text class="action__text {{ keyword ? 'action__text--filled' : 'action__text--disabled' }}">搜索</text>
+      </div>
+      <div class="action action--ghost" @click="clearAll">
+        <text class="action__text action__text--ghost">清空</text>
+      </div>
+      <!-- Phigros 平台没有分类概念，按钮对它隐藏 -->
+      <div class="action action--ghost" if="{{ gameId !== 'phigros' }}" @click="toggleGenres">
+        <text class="action__text action__text--ghost">{{ mode === 'genre' ? '曲目' : '分类' }}</text>
+      </div>
+      <div class="action action--ghost" @click="toggleKeyboard">
+        <text class="action__text action__text--ghost">{{ keyboardHidden ? '输入' : '收起' }}</text>
+      </div>
+    </div>
+
+    <!-- <list> 必须显式给高度（官方文档要求），否则高度为 0、一条都画不出来 -->
+    <!--
+      分类列表。和曲目列表互斥显示——手表屏幕小，两个列表同屏放不下。
+      点一个分类就直接列出该类曲目（复用同一个搜索接口）。
+    -->
+    <list class="list" if="{{ mode === 'genre' }}">
+      <list-item class="cat" type="item" for="{{ genreRows }}" @click="pickGenre($idx)">
+        <text class="cat__name">{{ $item.label }}</text>
+        <text class="cat__mark">▸</text>
+      </list-item>
+    </list>
+
+    <list class="list" if="{{ mode === 'songs' && results.length > 0 }}" onscrollbottom="onScrollBottom">
+      <list-item class="row" type="item" for="{{ results }}">
+        <image class="row__cover" src="{{ $item.jacketUrl }}"></image>
+        <div class="row__main">
+          <text class="row__title">{{ $item.title }}</text>
+          <text class="row__sub">{{ $item.sub }}</text>
+          <text class="row__version">{{ $item.versionLine }}</text>
+
+          <!--
+            定数逐难度列出，用游戏内的难度配色。
+            之前只显示定数最高的那条，而最高的永远是 MST / Re:M，
+            等于把 BASIC / ADV / EXP 全遮住了。
+            STD 与 DX 各一行——同一首歌两套谱面的定数经常不一样。
+          -->
+          <!--
+            两行难度定数。标签与内容都按游戏动态给：
+            舞萌是 STD / DX 两套谱面；中二只有一套、但有 6 档（含 WORLD'S END）。
+            写死 STD/DX 的话中二玩家会看到两个不存在的分类。
+          -->
+          <div class="row__set" if="{{ $item.set1Cells.length > 0 }}">
+            <text class="set__label">{{ $item.set1Label }}</text>
+            <text class="set__cell" for="{{ cell in $item.set1Cells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
+          </div>
+          <div class="row__set" if="{{ $item.set2Cells.length > 0 }}">
+            <text class="set__label">{{ $item.set2Label }}</text>
+            <text class="set__cell" for="{{ cell in $item.set2Cells }}" style="color: {{ cell.color }}">{{ cell.text }}</text>
+          </div>
+        </div>
+
+        <!-- ▸ 进详情：试听 + 完整谱面（定数 / 物量 / 谱师） -->
+        <div class="row__more" if="{{ !$item.noDetail }}" @click="openSong($idx)">
+          <text class="row__more-text">▸</text>
+        </div>
+      </list-item>
+    </list>
+
+    <!--
+      完整输入法：支持中文拼音、英文、日文罗马字。
+      日文是刚需——maimai 的曲名大量是日文，没有它就搜不了歌。
+    -->
+    </div>
+
+    <!-- 键盘提到根容器下：它靠 position:absolute 的 left:0/width:100% 定位，
+         父容器一旦有 padding 就会缩进去，真机上右边留一条缝。 -->
+    <input-method
+      hide="{{ keyboardHidden }}"
+      keyboardtype="QWERTY"
+      screentype="rect"
+      vibratemode="short"
+      maxlength="5"
+      @complete="onComplete"
+      @delete="onDelete"
+    ></input-method>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 页面根容器：**全幅、零内边距**。
+   * 输入法是它的直接子元素，靠 position:absolute 的 left:0/width:100% 定位，
+   * 父容器有内边距的话键盘就会跟着缩进去——真机上右边会留一条缝。
+   * 所以内边距放在内层的 .search-page 上，这一层专门给键盘当定位基准。
+   */
+  .page-root {
+    /*
+     * ⚠️ **必须显式写 flex-direction: column。**
+     * Vela 的 div 默认是 `flex-direction: row`（不是网页里的 block），
+     * 不写就会把内层页面和键盘摆成横向一排——内层被压窄，
+     * 而它内部是纵向布局，结果所有内容挤在一起重叠。
+     */
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: @ui-surface;
+  }
+
+  .search-page {
+    /* 吃掉剩余高度、横轴拉满——键盘是 absolute，不占流式空间 */
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    padding: 14px;
+    background-color: @ui-surface;
+  }
+
+  .query {
+    flex-direction: column;
+    align-items: center;
+    padding: 14px;
+    border-radius: 14px;
+    background-color: @ui-surface-card;
+  }
+
+  .query__text {
+    font-size: 28px;
+    color: @ui-on-surface;
+    text-align: center;
+  }
+
+  .query__hint {
+    font-size: 16px;
+    color: @ui-on-surface-variant;
+    margin-top: 6px;
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 12px;
+  }
+
+  /* 一行要放下 4 个按钮（返回 / 搜索 / 清空 / 收起），所以做得紧凑些 */
+  .action {
+    height: 60px;
+    padding: 0 16px;
+    margin: 0 4px;
+    border-radius: 30px;
+    background-color: @ui-primary;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .action--ghost {
+    background-color: @ui-surface-container;
+  }
+
+  .action--disabled {
+    background-color: @ui-outline;
+  }
+
+  .action__text {
+    /* 只留尺寸。**颜色必须拆到变体类上**——
+       写在基类里会和变体规则打架，谁赢取决于编译顺序。 */
+    font-size: 21px;
+  }
+
+  /* 主按钮上的文字：深色，压在粉色底上 */
+  .action__text--filled {
+    color: @ui-on-surface;
+  }
+
+  /* 次要按钮上的文字：浅色，压在深色底上 */
+  .action__text--ghost {
+    color: @ui-on-surface;
+  }
+
+  /* 禁用态：中间灰。**不再借用 opacity**，手表上小字号容易糊 */
+  .action__text--disabled {
+    color: @ui-on-surface-variant;
+  }
+
+
+
+  /*
+   * 分类行。
+   * 比曲目行矮（曲目行带封面和两行定数），整行可点。
+   */
+  .cat {
+    flex-direction: row;
+    align-items: center;
+    height: 72px;
+    margin-bottom: 8px;
+    padding: 0 20px;
+    border-radius: 14px;
+    background-color: @ui-surface-card;
+  }
+
+  .cat__name {
+    flex: 1;
+    font-size: 24px;
+    color: @ui-on-surface;
+  }
+
+  .cat__mark {
+    font-size: 22px;
+    color: @ui-on-surface-variant;
+  }
+
+  .list {
+    width: 100%;
+    /* <list> 必须显式给高度，否则高度为 0，一条都画不出来。
+       320px 是按 432x514 的屏幕倒推的：去掉页边距、查询框、按钮行之后的余量。
+       搜索完成后键盘会自动收起，这块地方能整个用上。 */
+    height: 320px;
+    margin-top: 12px;
+  }
+
+  .row {
+    flex-direction: row;
+    align-items: center;
+    /* 最多 5 行内容：曲名 / 别名 / 版本 / STD / DX。
+       定死高度，避免列表项高度随内容变化而抖动。 */
+    height: 128px;
+    padding: 6px 8px;
+  }
+
+  /* 封面。定死尺寸，避免图片加载前后布局跳动。 */
+  .row__cover {
+    width: 68px;
+    height: 68px;
+    background-color: @ui-surface-container;
+  }
+
+  .row__main {
+    flex: 1;
+    flex-direction: column;
+    margin-left: 10px;
+  }
+
+  /* 一行定数：STD / DX + 各难度定数（颜色由数据带过来） */
+  .row__set {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 3px;
+  }
+
+  .set__label {
+    width: 34px;
+    font-size: 14px;
+    color: @ui-on-surface-variant;
+  }
+
+  .set__cell {
+    font-size: 18px;
+    margin-right: 8px;
+    font-weight: bold;
+  }
+
+  /* ▸ 进详情的入口。做够大，手表上要好点。 */
+  .row__more {
+    width: 44px;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .row__more-text {
+    font-size: 28px;
+    color: @ui-on-surface-variant;
+  }
+
+  .row__title {
+    font-size: 21px;
+    color: @ui-on-surface;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
+
+  .row__sub {
+    font-size: 16px;
+    color: @ui-on-surface-variant;
+  }
+
+  /* 版本单独一行并带标签。之前混在副标题里，用户反馈「版本显示呢」——
+     实际是有的，只是认不出来。 */
+  .row__version {
+    font-size: 16px;
+    color: @ui-warning;
+    margin-top: 2px;
+  }
+
+  /*
+   * ── 圆形屏适配 ─────────────────────────────────────────────────
+   * 依据官方《多屏适配 · 页面标题栏》：
+   *   「在圆屏、胶囊屏等存在边缘剪切的设备上，标题栏会使用多行设计，
+   *     保证顶部的展示内容长度不会超出屏幕；而在矩形屏幕上则做单行左右布局。」
+   *
+   * 圆屏四角是物理裁掉的：466×466 的屏，顶栏中心 y≈44 处可用宽度只有约 272px，
+   * 而「标题在左 + 设置在右」需要整幅 466px，两端必然被切。
+   * 所以这里改竖排居中，并加左右内边距把内容压进圆内接矩形。
+   *
+   * **只影响 shape: circle**，矩形屏样式与行为完全不变。
+   */
+  @media (shape: circle) {
+    .search-page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+</style>
+
+<script>
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { api, core, diag, games, navigation, store } = global.AstraMai;
+  const { mark } = diag;
+  const { fetchGenres, searchByGenre, searchChunithmSongs, searchPhigrosSongs, searchSongs } = api;
+  const { chunithmDifficultyColor, phigrosDifficultyColor } = core;
+  const { gameById, readCurrentGame } = games;
+
+  /**
+   * 原始搜索结果。
+   *
+   * 刻意放在脚本作用域而不是 viewModel：这是纯数据、不需要响应式，
+   * 塞进 viewModel 只会白白多一层 observer 和数据代理
+   * （官方《内存优化》第 1 条）。
+   */
+  let rawResults = [];
+
+  /**
+   * 每页条数。
+   * 官方《常用业务优化》：list 内容超过 10 条建议分页渲染。
+   */
+  const PAGE_SIZE = 10;
+
+  /** 已转换好的展示行（纯数据，同样不进 viewModel）。 */
+  let rowCache = [];
+  let shownCount = 0;
+  const { goBack, push } = navigation;
+  const { readSetting, warmUp, writeSetting } = store;
+
+  /**
+   * 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。
+   *
+   * 用颜色而不是文字区分难度，是因为手表一行放不下「BASIC 7.0 ADVANCED 10.5 …」，
+   * 而定数本身才是玩家要看的数字，难度靠颜色一眼就能认出来。
+   */
+  const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
+
+  /** 定数展示：整数不带小数（5 而不是 5.0），小数保留一位。 */
+  function formatConstant(value) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
+
+  /**
+   * 把一组谱面转成可直接渲染的单元格。
+   *
+   * 只保留有定数的谱面（上游偶尔缺），并按难度序号排序，
+   * 保证显示顺序恒为 BAS → Re:M。
+   */
+  function toCells(charts, isChunithm) {
+    return (charts || [])
+      .filter((chart) => typeof chart.level_value === 'number')
+      .sort((a, b) => a.difficulty - b.difficulty)
+      .map((chart) => ({
+        text: formatConstant(chart.level_value),
+        // 中二是 6 档，而且 ULTIMA 官方是黑、WE 是特殊谱面，
+        // 配色规则和舞萌完全不同，必须用各自的函数而不是共用一张表
+        color: isChunithm
+          ? chunithmDifficultyColor(chart.difficulty)
+          : DIFFICULTY_COLOR[chart.difficulty] || '#9bacd0',
+      }));
+  }
+
+  /**
+   * 把「版本」和「分类」拼成一行。
+   *
+   * 分类可能缺（接口没给、或这个游戏没有分类概念），
+   * 缺了就不显示，**不留一个孤零零的分隔符**。
+   */
+  function joinMeta(version, genre) {
+    const v = String(version || '').trim();
+    const g = String(genre || '').trim();
+    if (v && g) return '版本 ' + v + ' · ' + g;
+    if (v) return '版本 ' + v;
+    if (g) return g;
+    return '版本 未知';
+  }
+
+  /** 副标题：只放别名（没别名就用艺术家）。
+   *  版本单独一行并带标签，混在这里会看不出来。 */
+  function buildSub(item) {
+    return item.aliases && item.aliases.length > 0
+      ? item.aliases.slice(0, 3).join(' / ')
+      : item.artist;
+  }
+
+  /** 详情数据由曲目搜索页写进本地存储，详情页读出来渲染。 */
+  const STORAGE_KEY = 'songDetail';
+
+  export default {
+    private: {
+      keyword: '',
+      keyboardHidden: true,
+      /** 当前游戏 id。决定查哪个接口、用哪套难度配色。 */
+      gameId: 'maimai',
+      statusText: '支持日文曲名、中文别名与罗马音',
+      results: [],
+      /** 'songs' 看曲目，'genre' 看分类列表。 */
+      mode: 'songs',
+      /** 分类列表的行（已按游戏整理好中文名）。 */
+      genreRows: [],
+    },
+
+    onReady() {
+      mark('Search:onReady');
+    },
+
+    /**
+     * 每次回到这个页面都重新对一次当前游戏。
+     *
+     * 不这么做的话：用户进搜索页 → 去设置换游戏 → 回来，
+     * 页面被复用、`onInit` 不重跑，就还在拿旧游戏查。
+     */
+    onShow() {
+      this.syncGame();
+    },
+
+    onInit() {
+      mark('Search:onInit');
+      console.debug('[AstraMai] Search onInit');
+
+      // ⚠️ 顺序很关键，这里踩过坑：
+      //
+      // `readSetting` 在**没预热时直接返回 fallback**，不报错。
+      // 原来是在 warmUp 之前就读 `currentGame`，而且 warmUp 列表里根本没有它，
+      // 于是永远拿到 '' → gameById 回退到默认游戏 →
+      // **不管你在设置里选了哪个游戏，搜索页都当自己是舞萌 DX**。
+      // 用户报的「中二节奏的乐曲源还是舞萌的、搜不到中二曲子」就是这个。
+      //
+      // 所以改成：**先预热、再读**。
+      warmUp([STORAGE_KEY, 'currentGame'])
+        .then(() => this.syncGame())
+        .catch((error) => {
+          console.warn('[AstraMai] 存储预热失败：', error);
+          // 预热失败也要定一次游戏，否则 gameId 停在初始值
+          this.syncGame();
+        });
+    },
+
+    /**
+     * 从存储同步当前游戏。
+     *
+     * 单独抽出来是因为 `onShow` 也要调：页面可能被复用，
+     * 用户去设置里换了游戏再回来时不会重跑 `onInit`，
+     * 不重读就会继续用旧游戏查。
+     */
+    syncGame() {
+      const id = gameById(readCurrentGame(readSetting)).id;
+      if (id !== this.gameId) {
+        console.debug('[AstraMai] Search 切换游戏：', this.gameId, '→', id);
+        this.gameId = id;
+        // 换了游戏，上一次的结果就不属于当前游戏了，清掉免得误导
+        this.results.length = 0;
+        this.statusText = '支持日文曲名、中文别名与罗马音';
+      } else {
+        this.gameId = id;
+      }
+    },
+
+    /**
+     * 打开曲目详情。
+     *
+     * 详情数据走本地存储而不是路由参数：一是路由只能带字符串，
+     * 二是手表上再发一次请求拿同样的数据不划算。
+     * 用下标而不是整个对象，避免把大对象塞进事件参数。
+     */
+    openSong(index) {
+      const song = rawResults[index];
+      if (!song) return;
+      try {
+        // 把当前游戏一并带过去：详情页要用对应那套难度配色
+        writeSetting(STORAGE_KEY, JSON.stringify({ ...song, game: this.gameId }));
+      } catch (error) {
+        console.error('[AstraMai] 写入曲目数据失败：', error);
+        return;
+      }
+      push('/song');
+    },
+
+    /** 返回上一页。 */
+    onBack() {
+      goBack('/');
+    },
+
+    /**
+     * 只监听 complete。
+     *
+     * keyDown 在拼音 / 罗马字模式下会把「正在输入的字母」也报上来，
+     * 两个都监听会导致重复输入；complete 才是真正提交的文本。
+     */
+    onComplete(evt) {
+      const content = evt && evt.detail ? evt.detail.content : '';
+      if (!content) return;
+      this.keyword += content;
+      this.statusText = `${this.keyword.length} 字 · 点「搜索」`;
+    },
+
+    onDelete() {
+      this.keyword = this.keyword.slice(0, -1);
+      this.statusText = this.keyword ? `${this.keyword.length} 字 · 点「搜索」` : '支持日文曲名、中文别名与罗马音';
+    },
+
+    /**
+     * 切到 / 切回分类列表。
+     *
+     * 第一次点才去拉分类（缓存住，来回切不重复请求）。
+     */
+    toggleGenres() {
+      if (this.mode === 'genre') {
+        this.mode = 'songs';
+        this.statusText = '支持日文曲名、中文别名与罗马音';
+        return;
+      }
+      this.keyboardHidden = true;
+      this.mode = 'genre';
+      this.statusText = '按分类浏览';
+
+      if (this.genreRows.length > 0) return;
+
+      this.statusText = '正在获取分类…';
+      fetchGenres(this.gameId)
+        .then((data) => {
+          const genres = (data && data.genres) || [];
+          // ⚠️ 中二的分类**没有 title 字段**，只有 genre（本身已是中文）
+          this.genreRows = genres.map((g) => ({
+            id: String(g.id),
+            label: g.title || g.genre || ('分类 ' + g.id),
+          }));
+          this.statusText = this.genreRows.length > 0 ? '按分类浏览' : '这个游戏没有分类数据';
+        })
+        .catch((error) => {
+          console.error('[AstraMai] 获取分类失败：', error);
+          this.statusText = error && error.message ? error.message : '获取分类失败';
+          this.mode = 'songs';
+        });
+    },
+
+    /** 点了某个分类：直接列出该类曲目，复用已有的行渲染与分页。 */
+    pickGenre(index) {
+      const row = this.genreRows[index];
+      if (!row) return;
+
+      this.mode = 'songs';
+      this.keyboardHidden = true;
+      this.statusText = '正在加载「' + row.label + '」…';
+
+      searchByGenre(this.gameId, row.id)
+        .then((payload) => {
+          this.renderResults((payload && payload.results) || [], row.label);
+        })
+        .catch((error) => {
+          console.error('[AstraMai] 按分类加载失败：', error);
+          this.statusText = error && error.message ? error.message : '加载失败';
+          this.results.length = 0;
+        });
+    },
+
+    clearAll() {
+      this.keyword = '';
+      this.results = [];
+      this.statusText = '支持日文曲名、中文别名与罗马音';
+    },
+
+    toggleKeyboard() {
+      this.keyboardHidden = !this.keyboardHidden;
+    },
+
+    runSearch() {
+      const keyword = this.keyword.trim();
+      if (!keyword) return;
+
+      this.keyboardHidden = true;
+      this.statusText = '搜索中…';
+
+      const isChunithm = this.gameId === 'chunithm';
+      const isPhigros = this.gameId === 'phigros';
+      // 三分支。之前只分了中二，**Phigros 会掉进舞萌分支**——
+      // 表现是「用 Phigros 曲名去查舞萌曲库」，永远 0 条且不报错。
+      const search = isChunithm
+        ? searchChunithmSongs
+        : isPhigros
+          ? searchPhigrosSongs
+          : searchSongs;
+      search(keyword, 30)
+        .then((payload) => {
+          // 结果形状**已在 api.js 里统一成 `{ results }`**（Phigros 那边是 `{ items }`，
+          // 在源头转过了）。这里只负责把数组交给渲染。
+          this.renderResults((payload && payload.results) || [], keyword);
+        })
+        .catch((error) => {
+          this.results.length = 0;
+          rowCache = [];
+          shownCount = 0;
+          this.statusText = error && error.message ? error.message : '搜索失败';
+          this.keyboardHidden = false;
+        });
+    },
+
+    /**
+     * 把结果数组转成可渲染的行并显示。
+     *
+     * 抽出来的理由：**关键词搜索和按分类浏览返回的是同一种形状**
+     * （分类浏览就是给搜索接口加了个 `genre` 参数），
+     * 渲染、分页、详情跳转都该共用一份，不然改一处漏一处。
+     *
+     * @param list  曲目数组
+     * @param label 用于结果文案——关键词或分类名
+     */
+    renderResults(list, label) {
+      const isChunithm = this.gameId === 'chunithm';
+      const isPhigros = this.gameId === 'phigros';
+
+      // 详情页要用完整字段，所以原始结果单独留一份
+      rawResults = list;
+
+
+          // 先转换成一页能用的行，其余等触底再取
+          // （官方《常用业务优化》：超过 10 条建议分页渲染）
+          // Phigros 的搜索结果形状和前两个都不一样：
+          // 没有 difficulties 数组，定数在 chartConstants 里（ez/hd/in/at）
+          if (isPhigros) {
+            rowCache = list.map((item) => {
+              const constants = item.chartConstants || {};
+              // 四档定数转成单元格。AT 很多歌没有（为 null），跳过而不是显示空白
+              const cells = [];
+              for (const [key, index] of [['ez', 0], ['hd', 1], ['in', 2], ['at', 3]]) {
+                const value = constants[key];
+                if (typeof value !== 'number') continue;
+                cells.push({
+                  text: formatConstant(value),
+                  color: phigrosDifficultyColor(['EZ', 'HD', 'IN', 'AT'][index]),
+                });
+              }
+              return {
+                title: item.name || item.id || '',
+                // Phigros 没有别名，副标题用曲师
+                sub: item.composer || '',
+                // 也没有版本；插画师是这个接口里唯一多出来的信息
+                versionTitle: item.illustrator ? '插画 ' + item.illustrator : '',
+                // Phigros 平台没有分类概念，这行只有版本
+                versionLine: item.illustrator ? '插画 ' + item.illustrator : '',
+                set1Label: '定数',
+                set1Cells: cells,
+                set2Label: '',
+                set2Cells: [],
+                // 平台不提供曲绘
+                jacketUrl: '',
+                // Phigros 不给详情页入口，理由见文件头
+                noDetail: true,
+              };
+            });
+          } else {
+          rowCache = list.map((item) => {
+            const charts = item.difficulties || [];
+
+            if (isChunithm) {
+              // 中二只有一套谱面（没有 standard/dx 之分），6 档全排一行。
+              // WE 靠金色区分，不单独拆出来——它本来就是同一张谱面列表里的一项。
+              return {
+                title: item.title,
+                sub: buildSub(item),
+                versionTitle: item.versionTitle || '未知',
+                // 版本 + 分类同一行——分类是找曲子的主要线索之一
+                versionLine: joinMeta(item.versionTitle || '未知', item.genreTitle),
+                set1Label: '定数',
+                set1Cells: toCells(charts, true),
+                set2Label: '',
+                set2Cells: [],
+                jacketUrl: item.jacketUrl || '',
+              };
+            }
+
+            return {
+              title: item.title,
+              sub: buildSub(item),
+              // 版本单独占一行，并带「版本」二字——混在副标题里认不出来
+              versionTitle: item.versionTitle || '未知',
+              // 版本 + 分类同一行。分类是中文——服务端已经把舞萌那份
+              // 日文原始值（ゲームバラエティ）映射过了，直接显示看不懂
+              versionLine: joinMeta(item.versionTitle || '未知', item.genreTitle),
+              set1Label: 'STD',
+              set1Cells: toCells(charts.filter((chart) => chart.type === 'standard'), false),
+              set2Label: 'DX',
+              set2Cells: toCells(charts.filter((chart) => chart.type === 'dx'), false),
+              jacketUrl: item.jacketUrl || '',
+            };
+          });
+          }
+
+          // 原地清空再追加，不整份重新赋值（官方《内存优化》第 2 条）
+          this.results.length = 0;
+          shownCount = 0;
+          this.appendPage();
+
+          // 结果对象较多，主动回收一次（官方《内存优化》建议的手动触发点）
+          if (typeof global.runGC === 'function') global.runGC();
+
+
+          this.statusText =
+            list.length === 0
+              ? `「${label}」下没有曲目`
+              : `${list.length} 条 · ${label}`;
+    },
+
+    /** 追加一页。触底时也会调这里。 */
+    appendPage() {
+      const next = rowCache.slice(shownCount, shownCount + PAGE_SIZE);
+      for (const item of next) this.results.push(item);
+      shownCount += next.length;
+    },
+
+    /** 触底加载下一页。 */
+    onScrollBottom() {
+      if (shownCount < rowCache.length) this.appendPage();
+    },
+  };
+</script>
