@@ -55,10 +55,6 @@
         "component": "index",
         "path": "/"
       },
-      "pages/Qr": {
-        "component": "qr",
-        "path": "/qr"
-      },
       "pages/B50": {
         "component": "b50",
         "path": "/b50"
@@ -108,7 +104,7 @@
   ],
   "packageInfo": {
     "toolkit": "2.0.5",
-    "timeStamp": "2026-11-21T15:55:14.731Z",
+    "timeStamp": "2026-11-21T15:57:16.513Z",
     "node": "v22.14.0",
     "platform": "win32",
     "arch": "x64",

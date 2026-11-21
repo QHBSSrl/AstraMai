@@ -55,10 +55,6 @@
         "component": "index",
         "path": "/"
       },
-      "pages/Qr": {
-        "component": "qr",
-        "path": "/qr"
-      },
       "pages/B50": {
         "component": "b50",
         "path": "/b50"

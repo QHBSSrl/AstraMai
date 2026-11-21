@@ -171,7 +171,6 @@
 
   export default {
     private: {
-      qrSummary: '未导入',
       gameLabel: '',
       /** 单列列表：[{ key, title }]，设置不在里面（模板里写死到最后） */
       items: [],
@@ -186,7 +185,7 @@
 
     onInit() {
       mark('Index:onInit');
-      warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame', 'oobeShown'])
+      warmUp(['serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame', 'oobeShown'])
         .then(() => {
           this.refresh();
           if (!readSetting('oobeShown', '')) push('/welcome');
@@ -205,29 +204,15 @@
 
         const showB50 = gameHasFeature(game, 'b50');
         const showSearch = gameHasFeature(game, 'search');
-        const showQr = gameHasFeature(game, 'qr');
 
         const kind = readSetting('queryKind', 'friendCode') === 'qq' ? 'qq' : 'friendCode';
         const value = readSetting('queryValue', '') || readSetting('friendCode', '');
 
-        const saved = readSetting('qrInput', '');
-        if (!saved) {
-          this.qrSummary = '未导入';
-        } else {
-          const payload = parseWahlapQrPayload(saved);
-          if (!payload || !payload.content) this.qrSummary = '内容无法识别';
-          else if (!payload.recognized) this.qrSummary = '已导入';
-          else {
-            const validity = describeValidity(payload);
-            this.qrSummary = validity.state === 'valid' ? '有效' : '已过期';
-          }
-        }
 
         // 手环只有一列，说明文字统统不要，只留主标题
         const items = [];
         if (showB50) items.push({ key: 'b50', title: 'Best 50' });
         if (showSearch) items.push({ key: 'search', title: '曲目搜索' });
-        if (showQr) items.push({ key: 'qr', title: '二维码' });
 
         this.items = items;
 
