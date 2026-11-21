@@ -1,292 +1,256 @@
 <template>
   <!--
-    首页 —— 和手机端同一套设计语言。
+    首页 · 小米 Watch（圆形 466×466）
 
-    版式（用户定的）：
+    ── 为什么用 <list> 滚动 ──────────────────────────────────────────
+    圆屏的可用宽度随高度剧烈变化（实测）：
 
-      左上 ORhythm           右上 设置
-      ┌──────────────────────────┐
-      │  当前游戏（卡片）          │
-      └──────────────────────────┘
-      快捷功能（一行两个；窄屏设备一行一个）
+        y=16    170px      y=100   383px
+        y=44    273px      y=150   435px
+        y=60    312px      y=233   466px   ← 圆心最宽
 
-    ── 为什么要改 ───────────────────────────────────────────────────
-    旧版在圆屏上把顶栏改成了**竖排居中**（标题在上、按钮在下），
-    因为「标题左 + 按钮右」在 466 圆屏的顶部会被物理裁掉两端。
+    想在一屏里塞下「品牌 + 分数卡 + 4 个入口」，顶部那一行必然被裁。
+    所以整页做成可滚动 —— 顶部内容在窄处只放居中的品牌字（约 120px，
+    y=16 都放得下），越往下越宽。
 
-    但实机看下来这个妥协更糟：标题被切掉一部分、设置按钮既贴边又小，
-    很难点到。用户的原话是「被屏幕边框裁了一小部分」「设置按钮比较难点」。
+    用 `<list>` 而不是 `<scroll>`：`welcome.ux` 里记过，
+    `<scroll>` 没有明确高度会把父容器撑开；`<list>` 配 `.list { flex: 1 }`
+    自动吃剩余高度，而且 `b50.ux` 已经在用它。
 
-    现在改成：
-      · 顶栏**保持单行左右布局**（用户要的），
-      · 靠**足够大的左右内边距**把内容压进圆内接矩形，
-      · 设置按钮加大到 60×60 的点击区域。
+    ── 底部彩蛋 ─────────────────────────────────────────────────────
+    滚动到底时，圆形屏幕下方还剩一块弧形空白。放一张看板娘图把它填掉，
+    视觉上「到此为止是有意的」，而不是内容没写完。
 
-    ── 一行几个怎么决定 ────────────────────────────────────────────
-    Vela 的 flex-wrap 支持不确定，所以**不靠 CSS 换行**，
-    而是在 JS 里按屏幕宽度算出每行几个，再把数据排成「行」渲染。
-    这样在手表（宽）和手环（窄）上都能得到确定的版式。
+    图是 `/common/mascot.png`。**团队真图做好后直接覆盖同名文件即可**，
+    不用改代码。要求透明背景、内容居中留白（圆屏四角会被裁）。
+
+    现在放的是占位图（先拿 icon.png 顶替），所以要看清版式还得换真图。
   -->
   <div class="page">
-    <div class="topbar">
-      <text class="brand">ORhythm</text>
-      <div class="settings-btn" @click="goSettings">
-        <text class="settings-btn__text">设置</text>
-      </div>
-    </div>
+    <list class="list">
+      <!-- 品牌：圆屏最窄处也只放这一行，居中，宽度约 120px -->
+      <list-item class="brand-item" type="item">
+        <text class="brand">ORhythm</text>
+      </list-item>
 
-    <!--
-      顶部卡片：有成绩缓存就显示分数，没有就显示游戏名。
-
-      和手机端首页的 head 卡片对齐（游戏名 / Rating / 旧曲新曲 / 平均定数）。
-      数据直接读 B50 页写下的缓存，**首页不发请求** —— 第一次查过之后就
-      一直有得看，没查过就提示去查一次。
-    -->
-    <div class="game" @click="onGameCardTap">
-      <div class="game__head">
-        <text class="game__name">{{ gameLabel }}</text>
-        <text class="game__tier" if="{{ tier }}">{{ tier }}</text>
-      </div>
-      <text class="game__rating" if="{{ hasScore }}">{{ ratingText }}</text>
-      <text class="game__rating-label" if="{{ hasScore }}">DX Rating</text>
-      <text class="game__hint" if="{{ !hasScore }}">还没查过成绩 · 点此切换游戏</text>
-      <div class="game__stats" if="{{ hasScore }}">
-        <text class="game__stat">{{ standardCount }} 旧曲</text>
-        <text class="game__stat">{{ dxCount }} 新曲</text>
-        <text class="game__stat">{{ avgLevel }} 平均定数</text>
-      </div>
-    </div>
-
-    <text class="section" if="{{ hasItems }}">快捷</text>
-
-    <!-- 快捷功能：每行最多两个 -->
-    <div class="grid" if="{{ hasItems }}">
-      <div class="grid__row" for="{{ rows }}">
-        <div class="card {{ $item.full }}" @click="go($item.a.key)">
-          <text class="card__title">{{ $item.a.title }}</text>
-          <text class="card__sub">{{ $item.a.sub }}</text>
+      <!-- 分数卡片。整块可点：有成绩去 Best 50，没成绩去设置 -->
+      <list-item class="card-item" type="item">
+        <div class="game" @click="onGameCardTap">
+          <div class="game__head">
+            <text class="game__name">{{ gameLabel }}</text>
+            <text class="game__tier" if="{{ tier }}">{{ tier }}</text>
+          </div>
+          <text class="game__rating" if="{{ hasScore }}">{{ ratingText }}</text>
+          <text class="game__rating-label" if="{{ hasScore }}">DX Rating</text>
+          <text class="game__hint" if="{{ !hasScore }}">还没查过成绩 · 点此去设置</text>
+          <text class="game__stats" if="{{ hasScore }}">{{ statsText }}</text>
         </div>
-        <div class="card card--half" if="{{ $item.b }}" @click="go($item.b.key)">
-          <text class="card__title">{{ $item.b.title }}</text>
-          <text class="card__sub">{{ $item.b.sub }}</text>
-        </div>
-      </div>
-    </div>
+      </list-item>
 
-    <text class="empty" if="{{ !hasItems }}">这个游戏还没有可用功能</text>
+      <list-item class="section-item" type="item">
+        <text class="section">快捷</text>
+      </list-item>
+
+      <list-item class="entry-item" type="item" for="{{ items }}" @click="go($item.key)">
+        <div class="item">
+          <text class="item__title">{{ $item.title }}</text>
+          <text class="item__arrow">›</text>
+        </div>
+      </list-item>
+
+      <list-item class="entry-item" type="item" @click="goSettings">
+        <div class="item">
+          <text class="item__title">设置</text>
+          <text class="item__arrow">›</text>
+        </div>
+      </list-item>
+
+      <!-- 彩蛋：填掉圆形底部那块弧 -->
+      <list-item class="egg-item" type="item">
+        <div class="egg">
+          <image class="egg__art" src="/common/mascot.png"></image>
+          <text class="egg__hint">ORhythm · NowMes Software</text>
+        </div>
+      </list-item>
+    </list>
   </div>
 </template>
 
 <style lang="less">
   @import '../../common/theme-tokens.less';
 
-  /*
-   * ⚠️ 内边距是这一版的重点。
-   *
-   * 手表是圆角屏幕，内容贴着边缘会被物理裁掉。左右留足 26px，
-   * 圆屏再额外加宽到 40px —— 这样顶栏的标题和设置按钮都落在
-   * 圆内接矩形里，实机上不会再被切掉一角。
-   */
   .page {
     flex-direction: column;
     width: 100%;
-    padding: 18px 26px 22px;
+    height: 100%;
     background-color: @ui-surface;
   }
 
-  /* ── 顶栏：标题左、设置在右 ─────────────────────────────────── */
-  .topbar {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+  /*
+   * 滚动容器吃满剩余高度。
+   *
+   * 左右内边距 40px 是给圆屏留的 —— 内容区 386px。
+   * 注意这个宽度在 y<100 的区域仍然超出屏幕，所以顶部只放窄内容。
+   */
+  .list {
+    flex: 1;
     width: 100%;
-    min-height: 60px;
+    padding: 0 40px;
+  }
+
+  /* ── 品牌 ──────────────────────────────────────────────────── */
+  /*
+   * 顶部内边距 34px：让品牌字的**中心**落到 y≈60 附近。
+   * 那里可用宽度 312px，放 120px 的文字绰绰有余。
+   * 贴到 y=16 就只有 170px 了。
+   */
+  .brand-item {
+    width: 100%;
+    padding-top: 34px;
+    padding-bottom: 10px;
+    justify-content: center;
+    align-items: center;
   }
 
   .brand {
-    font-size: @ui-font-display;
+    font-size: 32px;
     font-weight: bold;
     color: @ui-primary;
   }
 
-  /*
-   * 设置按钮：点击区域 60×60。
-   *
-   * 旧版只有 padding 8/16 的小胶囊，实机上手指根本压不准 ——
-   * 用户明确抱怨过。圆角用 full，视觉上仍然是胶囊。
-   */
-  .settings-btn {
-    align-items: center;
-    justify-content: center;
-    min-width: 88px;
-    height: 60px;
-    padding: 0 @ui-space-5;
-    border-radius: @ui-radius-full;
-    background-color: @ui-surface-container;
+  /* ── 分数卡片 ──────────────────────────────────────────────── */
+  .card-item {
+    width: 100%;
   }
 
-  .settings-btn__text {
-    font-size: @ui-font-body;
-    color: @ui-on-surface;
-  }
-
-  /* ── 当前游戏卡 ────────────────────────────────────────────── */
   .game {
     flex-direction: column;
     width: 100%;
-    padding: @ui-space-4 @ui-space-5;
-    margin-top: @ui-space-2;
+    padding: 16px 20px;
     border-radius: @ui-radius-card;
     background-color: @ui-surface-emphasis;
   }
 
-  .game__name {
-    font-size: @ui-font-title;
-    font-weight: bold;
-    color: @ui-on-surface;
-  }
-
-  .game__hint {
-    font-size: @ui-font-label;
-    color: @ui-on-surface;
-    opacity: 0.72;
-    margin-top: 2px;
-  }
-
-  /* ── 分数卡片（有缓存时）────────────────────────────────────── */
   .game__head {
     flex-direction: row;
     align-items: center;
   }
 
+  .game__name {
+    font-size: 26px;
+    font-weight: bold;
+    color: @ui-on-surface;
+  }
+
   .game__tier {
-    font-size: @ui-font-caption;
+    font-size: 15px;
     color: @ui-on-surface;
     opacity: 0.7;
-    margin-left: @ui-space-2;
+    margin-left: 8px;
     padding: 2px 10px;
     border-radius: @ui-radius-full;
     background-color: @ui-surface-container;
   }
 
-  /* Rating 是这张卡的主角：display 字号 + 主色 */
   .game__rating {
     font-size: 46px;
     font-weight: bold;
     color: @ui-primary;
-    margin-top: @ui-space-1;
+    margin-top: 4px;
   }
 
   .game__rating-label {
-    font-size: @ui-font-caption;
+    font-size: 15px;
     color: @ui-on-surface-variant;
     margin-top: -2px;
   }
 
   .game__stats {
-    flex-direction: row;
-    margin-top: @ui-space-3;
-  }
-
-  .game__stat {
-    font-size: @ui-font-caption;
+    font-size: 13px;
     color: @ui-on-surface-variant;
-    margin-right: @ui-space-4;
+    margin-top: 8px;
   }
 
-  /* ── 快捷区 ────────────────────────────────────────────────── */
-  .section {
-    font-size: @ui-font-label;
-    color: @ui-on-surface-variant;
-    margin-top: @ui-space-5;
-    margin-bottom: @ui-space-2;
-  }
-
-  .grid {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .grid__row {
-    flex-direction: row;
-    justify-content: space-between;
-    width: 100%;
-    margin-bottom: 14px;
-  }
-
-  /*
-   * 卡片宽度。
-   *
-   * ⚠️ 不要用 `:last-child` 去清右边距 —— Vela 的 Less 编译器
-   * 不支持伪类，会直接报 "Selector type unsupport PseudoClassSelector"。
-   *
-   * 改成：行用 space-between 平铺，卡片自己定宽。
-   *   双列 → card--half 占 48%，中间自然留出间隙
-   *   单列 → card--full 占 100%
-   */
-  .card {
-    flex-direction: column;
-    justify-content: center;
-    padding: @ui-space-4;
-    border-radius: @ui-radius-card;
-    background-color: @ui-surface-card;
-  }
-
-  /*
-   * 双列卡片。
-   *
-   * ⚠️ 不要用百分比宽度 + space-between 去「凑」间距 ——
-   * 百分比在不同容器里解析出来的实测间隙和计算值对不上，
-   * 结果就是用户看到的「横向比纵向窄」。
-   *
-   * 改成：两张都 flex:1 平分，只在**左边那张**加固定右边距。
-   * 这样横向间隙恒等于 14px，和纵向的 row 间距一致。
-   */
-  .card--half {
-    flex: 1;
-  }
-
-  /* 只给左卡加右边距，右卡不加 —— 否则整行会往左偏 */
-  .card--left {
-    margin-right: 14px;
-  }
-
-  .card--full {
-    width: 100%;
-  }
-
-  .card__title {
-    font-size: @ui-font-headline;
-    color: @ui-on-surface;
-  }
-
-  .card__sub {
-    font-size: @ui-font-caption;
+  .game__hint {
+    font-size: 15px;
     color: @ui-on-surface-variant;
     margin-top: 4px;
   }
 
-  .empty {
-    font-size: @ui-font-body;
-    color: @ui-on-surface-variant;
-    text-align: center;
-    margin-top: @ui-space-5;
+  /* ── 快捷 ──────────────────────────────────────────────────── */
+  .section-item {
+    width: 100%;
+    padding-top: 18px;
+    padding-bottom: 8px;
   }
 
-  /* 圆屏：把内容进一步往内收 */
-  @media (shape: circle) {
-    .page {
-      padding-left: 40px;
-      padding-right: 40px;
-    }
+  .section {
+    font-size: 15px;
+    color: @ui-on-surface-variant;
+  }
+
+  .entry-item {
+    width: 100%;
+  }
+
+  .item {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 60px;
+    padding: 0 20px;
+    margin-bottom: 10px;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .item__title {
+    font-size: 24px;
+    color: @ui-on-surface;
+  }
+
+  .item__arrow {
+    font-size: 26px;
+    color: @ui-on-surface-muted;
+  }
+
+  /* ── 彩蛋 ──────────────────────────────────────────────────── */
+  /*
+   * 高度给足 200px —— 它要盖住圆形底部那段弧。
+   * 内容全部居中，长文本会被圆角裁掉，所以只放一行短的。
+   */
+  .egg-item {
+    width: 100%;
+  }
+
+  .egg {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 200px;
+    padding-bottom: 30px;
+  }
+
+  /* 96×96：够显眼，又不会被圆角切到 */
+  .egg__art {
+    width: 96px;
+    height: 96px;
+    border-radius: @ui-radius-full;
+  }
+
+  .egg__hint {
+    font-size: 13px;
+    color: @ui-on-surface-muted;
+    margin-top: 10px;
+    text-align: center;
   }
 </style>
 
 <script>
-  // 刻意**不** import api.js：首页不需要网络，
-  // 而 api.js 会连上 @system.fetch，拖进来只会让首页多一个初始化失败的可能。
-  // 共享模块从 global 取，不再 import（官方内存优化建议）。
-  const { core, diag, games, keys, navigation, screenSize, store, validate } = global.AstraMai;
+  // 首页不需要网络，刻意不 import api.js。
+  const { core, diag, games, keys, navigation, store, validate } = global.AstraMai;
   const { describeValidity, parseWahlapQrPayload } = core;
   const { mark } = diag;
   const { gameById, gameHasFeature, readCurrentGame } = games;
@@ -294,29 +258,17 @@
   const { readSetting, warmUp } = store;
   const { summarizeTarget } = validate;
 
-  /**
-   * 多宽算「窄屏」。
-   *
-   * 466 是设计基准（手表）。手环普遍在 400 以下，
-   * 那个宽度上一行放两张卡会挤成一团，所以退成单列。
-   */
-  const NARROW_WIDTH = 400;
-
   export default {
     private: {
       qrSummary: '未导入',
-      targetSummary: '未保存，点击输入',
+      targetSummary: '',
       gameLabel: '',
-      /** 排好的行：[{ key, title, sub }] 的数组的数组 */
-      rows: [],
-      hasItems: false,
+      items: [],
       /* ── 顶部分数卡片 ── */
       hasScore: false,
       ratingText: '',
       tier: '',
-      standardCount: 0,
-      dxCount: 0,
-      avgLevel: '',
+      statsText: '',
     },
 
     onReady() {
@@ -328,84 +280,52 @@
       warmUp(['qrInput', 'serverBase', 'queryKind', 'queryValue', 'friendCode', 'currentGame', 'oobeShown'])
         .then(() => {
           this.refresh();
-          /*
-           * 首次启动进引导。
-           *
-           * ⚠️ 判断的是 **`oobeShown`（弹过没）**，不是「走完没」。
-           * 用 `oobeDone` 的话用户中途退出就白写了，于是每次启动都弹。
-           */
           if (!readSetting('oobeShown', '')) push('/welcome');
         })
         .catch((error) => console.error('[ORhythm] Index 初始化失败：', error));
     },
 
-    // 从设置或其它页面返回时刷新（切换游戏后菜单要跟着变）
     onShow() {
       this.refresh();
     },
 
-    /**
-     * 刷新页面数据。
-     *
-     * 分两步：
-     *   1. 按当前游戏算出**有哪些功能**
-     *   2. 按屏幕宽度把它们**排成行**（一行一个或两个）
-     */
     refresh() {
       try {
         const game = gameById(readCurrentGame(readSetting));
         this.gameLabel = game.label;
 
-        // 按游戏的能力开关入口：中二还没接查分，就不显示 Best 50，
-        // **宁可少显示，也别让玩家点进去报错**
         const showB50 = gameHasFeature(game, 'b50');
         const showSearch = gameHasFeature(game, 'search');
         const showQr = gameHasFeature(game, 'qr');
 
-        // 已保存的查分目标——展示出来让用户知道不用再输一遍
         const kind = readSetting('queryKind', 'friendCode') === 'qq' ? 'qq' : 'friendCode';
         const value = readSetting('queryValue', '') || readSetting('friendCode', '');
-        this.targetSummary = summarizeTarget(kind, value) || '未保存，点击输入';
+        this.targetSummary = summarizeTarget(kind, value) || '';
 
         const saved = readSetting('qrInput', '');
         if (!saved) {
           this.qrSummary = '未导入';
         } else {
           const payload = parseWahlapQrPayload(saved);
-          if (!payload || !payload.content) {
-            this.qrSummary = '内容无法识别';
-          } else if (!payload.recognized) {
-            this.qrSummary = '已导入（非机台二维码）';
-          } else {
+          if (!payload || !payload.content) this.qrSummary = '内容无法识别';
+          else if (!payload.recognized) this.qrSummary = '已导入';
+          else {
             const validity = describeValidity(payload);
-            this.qrSummary =
-              validity.state === 'valid'
-                ? '有效 · ' + validity.text
-                : validity.state === 'expired'
-                  ? '已过期，需重新导入'
-                  : '已导入';
+            this.qrSummary = validity.state === 'valid' ? '有效' : '已过期';
           }
         }
 
-        // ── 组装卡片 ──
         const items = [];
-        if (showB50) items.push({ key: 'b50', title: 'Best 50', sub: this.targetSummary });
-        if (showSearch) items.push({ key: 'search', title: '曲目搜索', sub: '日文 · 别名 · 罗马音' });
-        if (showQr) items.push({ key: 'qr', title: '二维码', sub: this.qrSummary });
-
-        this.rows = this.layout(items);
-        this.hasItems = items.length > 0;
+        if (showB50) items.push({ key: 'b50', title: 'Best 50' });
+        if (showSearch) items.push({ key: 'search', title: '曲目搜索' });
+        if (showQr) items.push({ key: 'qr', title: '二维码' });
+        this.items = items;
 
         /*
-         * 顶部卡片：能读到缓存就显示分数。
+         * 顶部卡片要先 warmUp 这个**动态键**。
          *
-         * ⚠️ 必须先 warmUp 这个**动态键**。
-         *
-         * `store.readSetting` 只读内存缓存，而内存只有 `warmUp()`
-         * 预热过的键 —— 没预热的一律返回兜底值。
-         * `b50Cache:maimai:3687236844` 是拼出来的键，
-         * onInit 里那份固定列表里不可能有它，
-         * 所以之前永远读到空、卡片永远显示「未查过成绩」。
+         * `store.readSetting` 只读内存，而内存只有 `warmUp()` 预热过的键；
+         * `b50Cache:maimai:3687236844` 是拼出来的，固定列表里不可能有它。
          */
         const cacheKey = keys.b50CacheKey(game.id, value);
         warmUp(value ? [cacheKey] : []).then(() => {
@@ -416,24 +336,11 @@
       }
     },
 
-    /**
-     * 读 B50 缓存，算出顶部分数卡片的内容。
-     *
-     * ⚠️ **首页绝不发请求。** 数据全部来自 B50 页查完写下的那份缓存
-     * （键见 `common/keys.js` 的 `b50CacheKey`）。第一次查过之后就一直有，
-     * 没查过就退回显示游戏名 —— 用户点一下就去查了。
-     *
-     * 缓存格式是 B50View：`player.rating` 是总 Rating，
-     * `stats.standardCount` / `dxCount` / `averageLevelValue` 是分项。
-     */
     loadScoreCard(gameId, code) {
       this.hasScore = false;
       this.ratingText = '';
       this.tier = '';
-      this.standardCount = 0;
-      this.dxCount = 0;
-      this.avgLevel = '';
-
+      this.statsText = '';
       if (!code) return;
 
       try {
@@ -447,47 +354,25 @@
         const rating = Number(player.rating) || 0;
         if (rating <= 0) return;
 
-        this.hasScore = true;
-        this.ratingText = String(rating);
-        this.tier = player.tier ? String(player.tier) : '';
-        this.standardCount = Number(stats.standardCount) || 0;
-        this.dxCount = Number(stats.dxCount) || 0;
-        this.avgLevel =
+        const oldCount = Number(stats.standardCount) || 0;
+        const newCount = Number(stats.dxCount) || 0;
+        const avg =
           typeof stats.averageLevelValue === 'number'
             ? stats.averageLevelValue.toFixed(2)
             : '';
+
+        this.hasScore = true;
+        this.ratingText = String(rating);
+        this.tier = player.tier ? String(player.tier) : '';
+        this.statsText = oldCount + ' 旧曲 ' + newCount + ' 新曲' + (avg ? ' ' + avg + ' 平均定数' : '');
       } catch (error) {
-        // 缓存坏了就当没有，绝不能因此让首页白屏
         this.hasScore = false;
       }
     },
 
-    /**
-     * 把卡片排成行。
-     *
-     * 一行两个还是两个，取决于屏幕宽度 —— 手表两列、手环一列。
-     * 单列时也保留 `b: null`，模板那边靠它决定要不要渲染占位卡。
-     */
-    layout(items) {
-      let perRow = 2;
-      try {
-        const width = screenSize.screenWidth();
-        if (width && width < NARROW_WIDTH) perRow = 1;
-      } catch (error) {
-        // 拿不到宽度就按两列排，手表是主流
-      }
-
-      const rows = [];
-      for (let i = 0; i < items.length; i += perRow) {
-        const b = perRow === 2 && items[i + 1] ? items[i + 1] : null;
-        rows.push({
-          a: items[i],
-          b,
-          // 单列（或这行只剩一张）时给整宽
-          full: b ? 'card--half card--left' : 'card--full',
-        });
-      }
-      return rows;
+    onGameCardTap() {
+      if (this.hasScore) push('/b50');
+      else push('/settings');
     },
 
     go(name) {
@@ -496,23 +381,6 @@
 
     goSettings() {
       push('/settings');
-    },
-
-    /**
-     * 顶部卡片的点击行为。
-     *
-     * ⚠️ 不在模板里写三元表达式 —— Vela 的 `@click` 只接受方法名，
-     * 写成 `@click="{{ a ? ''x'' : ''y'' }}"` 会直接报
-     * `Unsupported Event value`。
-     *
-     * 有成绩就去 Best 50（用户想看细节），没成绩就去设置（十有八九是还没绑码）。
-     */
-    onGameCardTap() {
-      if (this.hasScore) {
-        push('/b50');
-      } else {
-        push('/settings');
-      }
     },
   };
 </script>
