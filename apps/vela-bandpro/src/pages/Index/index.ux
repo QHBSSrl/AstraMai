@@ -16,7 +16,7 @@
     <div class="topbar">
       <text class="brand">ORhythm</text>
       <div class="settings-btn" @click="goSettings">
-        <text class="settings-btn__text">⚙</text>
+        <text class="settings-btn__text">设置</text>
       </div>
     </div>
 
@@ -68,23 +68,24 @@
   }
 
   .brand {
-    font-size: 40px;
+    font-size: 38px;
     font-weight: bold;
-    color: @ui-on-surface;
+    color: @ui-primary;
   }
 
   /* 点击区域 64×64，长方屏上更好压 */
   .settings-btn {
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
+    min-width: 88px;
+    height: 56px;
+    padding: 0 18px;
     border-radius: @ui-radius-full;
     background-color: @ui-surface-container;
   }
 
   .settings-btn__text {
-    font-size: 34px;
+    font-size: 22px;
     color: @ui-on-surface;
   }
 
