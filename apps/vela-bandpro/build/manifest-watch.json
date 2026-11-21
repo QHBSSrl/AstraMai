@@ -1,6 +1,6 @@
 {
-  "package": "com.nowmes.orhythm.watch",
-  "name": "ORhythm Watch",
+  "package": "com.nowmes.orhythm.bandpro",
+  "name": "ORhythm 手环 Pro",
   "icon": "/common/icon.png",
   "versionName": "0.1.4",
   "versionCode": 10400,
@@ -35,9 +35,6 @@
       "name": "system.audio"
     },
     {
-      "name": "system.crypto"
-    },
-    {
       "name": "system.interconnect"
     },
     {
@@ -45,7 +42,7 @@
     }
   ],
   "config": {
-    "designWidth": 466,
+    "designWidth": 336,
     "logLevel": "log"
   },
   "display": {
@@ -73,10 +70,6 @@
       "pages/Song": {
         "component": "song",
         "path": "/song"
-      },
-      "pages/Sync": {
-        "component": "sync",
-        "path": "/sync"
       },
       "pages/Settings": {
         "component": "settings",

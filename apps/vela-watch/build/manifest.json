@@ -6,8 +6,7 @@
   "versionCode": 10400,
   "minAPILevel": 2,
   "deviceTypeList": [
-    "watch",
-    "band"
+    "watch"
   ],
   "features": [
     {
@@ -115,7 +114,7 @@
   ],
   "packageInfo": {
     "toolkit": "2.0.5",
-    "timeStamp": "2026-11-21T15:24:51.628Z",
+    "timeStamp": "2026-11-21T15:28:36.501Z",
     "node": "v22.14.0",
     "platform": "win32",
     "arch": "x64",

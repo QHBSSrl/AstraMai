@@ -6,8 +6,7 @@
   "versionCode": 10400,
   "minAPILevel": 2,
   "deviceTypeList": [
-    "watch",
-    "band"
+    "watch"
   ],
   "features": [
     {
