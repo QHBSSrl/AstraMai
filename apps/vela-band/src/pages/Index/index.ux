@@ -2,48 +2,67 @@
   <!--
     首页 · 小米手环（跑道型 192×490）
 
-    ── 和手表版的区别 ───────────────────────────────────────────────
-    手环屏幕太窄（192px），手表那套「一行两个卡片」在这里会挤成一团。
-    所以这版：
+    ── 版式（用户的设计稿）──────────────────────────────────────────
+             ORhythm                  ← 居中，不靠边
+        ┌──────────────────────┐
+        │ 舞萌 DX               │
+        │ 12533                │
+        │ DX Rating            │
+        └──────────────────────┘
+        快捷
+        ┌──────────────────────┐
+        │ Best 50              │
+        └──────────────────────┘
+        ┌──────────────────────┐
+        │ 曲目搜索              │
+        └──────────────────────┘
+        ┌──────────────────────┐
+        │ 设置                  │
+        └──────────────────────┘
 
-      · **竖向单列**，每个入口一整行，右边一个箭头
-      · **选项下面不放说明文字**（用户明确要求）——
-        说明文字在 192px 上只能排一两行、字号还得缩到 12，
-        结果就是主标题和说明一样大，谁也看不清。全给主标题。
-      · 行高 56，是手指能压准的尺寸
-      · 游戏卡片保留分数，但排版压扁：名字、Rating、一行统计
+    ── 三个和手表版不同的决定 ───────────────────────────────────────
+    ① **品牌居中，右上角不放设置按钮**
+       跑道屏顶上是个半圆，左右两端是弧线 —— 右边放按钮会压到弧上，
+       而且 192px 宽放大标题 + 按钮本来就挤。居中反而稳。
+
+    ② **设置做成列表的最后一行**
+       既然右上角不放了，就收进快捷列表。它本来也是「不常用但要有」，
+       放最后正合适。
+
+    ③ **卡片里不放「旧曲/新曲/平均定数」那行**
+       那行有 20 多个字符，192px 上必然折成两行，把卡片撑得老高。
+       分数卡留三项就够：游戏名、Rating、单位。要看细分去 Best 50。
+
+    ── 颜色 ─────────────────────────────────────────────────────────
+    设计稿里品牌是白的，但用户说过「那只是演示，没给部分文字上主题色」——
+    所以按设计语言走 `@ui-primary`（#ff5f9e 粉），和 Rating 数字呼应。
 
     ── 数据 ─────────────────────────────────────────────────────────
-    和手表版完全一样（共用 src/common）：缓存读的是 B50 页写下的那份，
-    首页不发请求。动态键必须先 warmUp，否则 readSetting 读到空。
+    和手表版共用 src/common：缓存读 B50 页写下的那份，首页不发请求。
+    动态键必须先 warmUp，否则 readSetting 读到空。
   -->
   <div class="page">
-    <div class="topbar">
-      <text class="brand">ORhythm</text>
-      <div class="settings-btn" @click="goSettings">
-        <text class="settings-btn__text">设置</text>
-      </div>
-    </div>
+    <text class="brand">ORhythm</text>
 
-    <!-- 分数卡片。整块可点：有成绩去 Best 50，没成绩去设置 -->
     <div class="game" @click="onGameCardTap">
       <text class="game__name">{{ gameLabel }}</text>
       <text class="game__rating" if="{{ hasScore }}">{{ ratingText }}</text>
       <text class="game__rating-label" if="{{ hasScore }}">DX Rating</text>
       <text class="game__hint" if="{{ !hasScore }}">还没查过成绩</text>
-      <text class="game__stats" if="{{ hasScore }}">{{ statsText }}</text>
     </div>
 
-    <text class="section" if="{{ hasItems }}">快捷</text>
+    <text class="section">快捷</text>
 
-    <div class="list" if="{{ hasItems }}">
+    <div class="list">
       <div class="item" for="{{ items }}" @click="go($item.key)">
         <text class="item__title">{{ $item.title }}</text>
-        <text class="item__arrow">›</text>
+      </div>
+
+      <!-- 设置固定放最后 -->
+      <div class="item" @click="goSettings">
+        <text class="item__title">设置</text>
       </div>
     </div>
-
-    <text class="empty" if="{{ !hasItems }}">这个游戏还没有可用功能</text>
   </div>
 </template>
 
@@ -51,47 +70,24 @@
   @import '../../common/theme-tokens.less';
 
   /*
-   * 手环的可用宽度只有 192px（designWidth 也是 192，所以这里写的 px
-   * 就是屏上的实际比例）。左右各留 14px，内容区 164px。
+   * 跑道屏（192×490）：左右两端是半圆弧，内容必须往里收。
    *
-   * 跑道屏的左右两端是圆弧，贴边会被切，所以内边距不能省。
+   * 上下也多留一些 —— 顶部是圆头，贴边会被切。
    */
   .page {
     flex-direction: column;
     width: 100%;
-    padding: 14px;
+    padding: 24px 14px;
     background-color: @ui-surface;
   }
 
-  /* ── 顶栏 ──────────────────────────────────────────────────── */
-  .topbar {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    height: 44px;
-  }
-
+  /* 品牌居中。跑道屏上靠左会顶到弧线，居中才稳 */
   .brand {
-    font-size: 24px;
+    width: 100%;
+    text-align: center;
+    font-size: 26px;
     font-weight: bold;
     color: @ui-primary;
-  }
-
-  /* 设置按钮：正方形，点击区域 44×44 —— 手环上手指压不准，不能太小 */
-  .settings-btn {
-    align-items: center;
-    justify-content: center;
-    min-width: 52px;
-    height: 40px;
-    padding: 0 10px;
-    border-radius: @ui-radius-full;
-    background-color: @ui-surface-container;
-  }
-
-  .settings-btn__text {
-    font-size: 15px;
-    color: @ui-on-surface;
   }
 
   /* ── 分数卡片 ──────────────────────────────────────────────── */
@@ -99,7 +95,7 @@
     flex-direction: column;
     width: 100%;
     padding: 14px;
-    margin-top: 8px;
+    margin-top: 14px;
     border-radius: @ui-radius-md;
     background-color: @ui-surface-emphasis;
   }
@@ -111,32 +107,26 @@
 
   /* Rating 是这张卡唯一的主角，字号拉开 */
   .game__rating {
-    font-size: 42px;
+    font-size: 44px;
     font-weight: bold;
     color: @ui-primary;
     margin-top: 2px;
   }
 
   .game__rating-label {
-    font-size: 13px;
+    font-size: 14px;
     color: @ui-on-surface-variant;
-  }
-
-  .game__stats {
-    font-size: 12px;
-    color: @ui-on-surface-variant;
-    margin-top: 6px;
   }
 
   .game__hint {
-    font-size: 14px;
+    font-size: 15px;
     color: @ui-on-surface-variant;
     margin-top: 4px;
   }
 
   /* ── 快捷列表 ──────────────────────────────────────────────── */
   .section {
-    font-size: 13px;
+    font-size: 14px;
     color: @ui-on-surface-variant;
     margin-top: 14px;
     margin-bottom: 6px;
@@ -148,17 +138,16 @@
   }
 
   /*
-   * 一行一个入口。
+   * 一行一个入口，**不放箭头**（设计稿里没有）。
    *
-   * 行高 56：Vela 的手环可用触摸区建议不小于 48，56 留了点余量。
-   * 标题统一 22px，**下面不放说明** —— 用户要求的。
+   * 行高 52：手环上手指压不准，Vela 建议不小于 48，这里留点余量。
+   * 标题 20px —— 比手表版的 24 小一点，因为 192px 宽要放下 5 个字。
    */
   .item {
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
     width: 100%;
-    height: 56px;
+    height: 52px;
     padding: 0 14px;
     margin-bottom: 8px;
     border-radius: @ui-radius-md;
@@ -166,45 +155,29 @@
   }
 
   .item__title {
-    font-size: 22px;
+    font-size: 20px;
     color: @ui-on-surface;
-  }
-
-  .item__arrow {
-    font-size: 24px;
-    color: @ui-on-surface-muted;
-  }
-
-  .empty {
-    font-size: 15px;
-    color: @ui-on-surface-variant;
-    text-align: center;
-    margin-top: 20px;
   }
 </style>
 
 <script>
   // 和手表版一样：首页不需要网络，刻意不 import api.js。
-  const { core, diag, games, keys, navigation, store, validate } = global.AstraMai;
+  const { core, diag, games, keys, navigation, store } = global.AstraMai;
   const { describeValidity, parseWahlapQrPayload } = core;
   const { mark } = diag;
   const { gameById, gameHasFeature, readCurrentGame } = games;
   const { push } = navigation;
   const { readSetting, warmUp } = store;
-  const { summarizeTarget } = validate;
 
   export default {
     private: {
       qrSummary: '未导入',
-      targetSummary: '',
       gameLabel: '',
-      /** 单列列表：[{ key, title }] */
+      /** 单列列表：[{ key, title }]，设置不在里面（模板里写死到最后） */
       items: [],
-      hasItems: false,
       /* ── 顶部分数卡片 ── */
       hasScore: false,
       ratingText: '',
-      statsText: '',
     },
 
     onReady() {
@@ -236,7 +209,6 @@
 
         const kind = readSetting('queryKind', 'friendCode') === 'qq' ? 'qq' : 'friendCode';
         const value = readSetting('queryValue', '') || readSetting('friendCode', '');
-        this.targetSummary = summarizeTarget(kind, value) || '';
 
         const saved = readSetting('qrInput', '');
         if (!saved) {
@@ -258,7 +230,6 @@
         if (showQr) items.push({ key: 'qr', title: '二维码' });
 
         this.items = items;
-        this.hasItems = items.length > 0;
 
         /*
          * 顶部卡片要先 warmUp 这个**动态键**。
@@ -278,7 +249,6 @@
     loadScoreCard(gameId, code) {
       this.hasScore = false;
       this.ratingText = '';
-      this.statsText = '';
       if (!code) return;
 
       try {
@@ -287,21 +257,11 @@
 
         const view = JSON.parse(raw);
         const player = (view && view.player) || {};
-        const stats = (view && view.stats) || {};
-
         const rating = Number(player.rating) || 0;
         if (rating <= 0) return;
 
-        const oldCount = Number(stats.standardCount) || 0;
-        const newCount = Number(stats.dxCount) || 0;
-        const avg =
-          typeof stats.averageLevelValue === 'number'
-            ? stats.averageLevelValue.toFixed(2)
-            : '';
-
         this.hasScore = true;
         this.ratingText = String(rating);
-        this.statsText = oldCount + ' 旧曲 ' + newCount + ' 新曲' + (avg ? ' ' + avg + ' 平均定数' : '');
       } catch (error) {
         this.hasScore = false;
       }
