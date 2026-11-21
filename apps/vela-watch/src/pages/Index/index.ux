@@ -2,40 +2,41 @@
   <!--
     首页 · 小米 Watch（圆形 466×466）
 
-    ── 为什么用 <list> 滚动 ──────────────────────────────────────────
-    圆屏的可用宽度随高度剧烈变化（实测）：
+    ── 为什么用 <scroll> 而不是 <list> ──────────────────────────────
+    试过 `<list>` + `<list-item>`，实机上**整页空白**。
+    对照下来两个可疑点：
 
-        y=16    170px      y=100   383px
-        y=44    273px      y=150   435px
-        y=60    312px      y=233   466px   ← 圆心最宽
+      ① b50.ux 的 `<list-item>` 每一个都是**固定高度**（.row height: 82px），
+         而我这几项高度各不相同（品牌/卡片/标题/入口/彩蛋）
+      ② `<list>` 在 APILevel 2 上对 flex 高度的支持不可靠
 
-    想在一屏里塞下「品牌 + 分数卡 + 4 个入口」，顶部那一行必然被裁。
-    所以整页做成可滚动 —— 顶部内容在窄处只放居中的品牌字（约 120px，
-    y=16 都放得下），越往下越宽。
+    `<scroll>` 是 InputMethod 组件里实机验证过的写法：
 
-    用 `<list>` 而不是 `<scroll>`：`welcome.ux` 里记过，
-    `<scroll>` 没有明确高度会把父容器撑开；`<list>` 配 `.list { flex: 1 }`
-    自动吃剩余高度，而且 `b50.ux` 已经在用它。
+        <scroll scroll-y="{{true}}" style="width:100%;height:100%">
 
-    ── 底部彩蛋 ─────────────────────────────────────────────────────
-    滚动到底时，圆形屏幕下方还剩一块弧形空白。放一张看板娘图把它填掉，
-    视觉上「到此为止是有意的」，而不是内容没写完。
+    **必须给明确高度**，否则它会把父容器撑开（welcome.ux 里记过这个坑）。
 
-    图是 `/common/mascot.png`。**团队真图做好后直接覆盖同名文件即可**，
-    不用改代码。要求透明背景、内容居中留白（圆屏四角会被裁）。
+    ── 圆屏几何 ─────────────────────────────────────────────────────
+    可用宽度随高度剧变（实测 466 圆）：
 
-    现在放的是占位图（先拿 icon.png 顶替），所以要看清版式还得换真图。
+        y=16  170px    y=60  312px    y=150  435px
+        y=44  273px    y=100 383px    y=233  466px
+
+    所以顶部只放居中的品牌字（约 120px，y=16 都放得下），
+    越往下越宽，卡片保持方的，不跟弧度变形。
+    滚到底用看板娘图填掉下方那块弧。
+
+    ── 彩蛋 ─────────────────────────────────────────────────────────
+    `/common/mascot.png` —— **团队真图做好后直接覆盖同名文件**，不用改代码。
+    要求透明背景、内容居中留白（圆屏四角会被裁）。
   -->
   <div class="page-root">
-    <div class="page-body">
-    <list class="list">
-      <!-- 品牌：圆屏最窄处也只放这一行，居中，宽度约 120px -->
-      <list-item class="brand-item" type="item">
+    <scroll class="scroll" scroll-y="{{true}}">
+      <div class="inner">
+        <!-- 品牌：圆屏最窄处也只放这一行，居中 -->
         <text class="brand">ORhythm</text>
-      </list-item>
 
-      <!-- 分数卡片。整块可点：有成绩去 Best 50，没成绩去设置 -->
-      <list-item class="card-item" type="item">
+        <!-- 分数卡片。整块可点：有成绩去 Best 50，没成绩去设置 -->
         <div class="game" @click="onGameCardTap">
           <div class="game__head">
             <text class="game__name">{{ gameLabel }}</text>
@@ -46,112 +47,81 @@
           <text class="game__hint" if="{{ !hasScore }}">还没查过成绩 · 点此去设置</text>
           <text class="game__stats" if="{{ hasScore }}">{{ statsText }}</text>
         </div>
-      </list-item>
 
-      <list-item class="section-item" type="item">
         <text class="section">快捷</text>
-      </list-item>
 
-      <list-item class="entry-item" type="item" for="{{ items }}" @click="go($item.key)">
-        <div class="item">
+        <div class="item" for="{{ items }}" @click="go($item.key)">
           <text class="item__title">{{ $item.title }}</text>
           <text class="item__arrow">›</text>
         </div>
-      </list-item>
 
-      <list-item class="entry-item" type="item" @click="goSettings">
-        <div class="item">
+        <div class="item" @click="goSettings">
           <text class="item__title">设置</text>
           <text class="item__arrow">›</text>
         </div>
-      </list-item>
 
-      <!-- 彩蛋：填掉圆形底部那块弧 -->
-      <list-item class="egg-item" type="item">
+        <!-- 彩蛋：填掉圆形底部那块弧 -->
         <div class="egg">
           <image class="egg__art" src="/common/mascot.png"></image>
           <text class="egg__hint">ORhythm · NowMes Software</text>
         </div>
-      </list-item>
-    </list>
+      </div>
+    </scroll>
   </div>
-    </div>
 </template>
 
 <style lang="less">
-  @import '../../common/theme-tokens.less';
 
   /*
-   * 三层结构与 `b50.ux` 保持一致 —— 它的 `<list>` 在实机上是好的。
+   * 三层：page-root（撑满）→ scroll（明确高度）→ inner（内容列）
    *
-   *   .page-root  显式 height: 100%（Vela 的 div 默认是 row，必须写 column）
-   *   .page-body  flex: 1 吃掉剩余高度
-   *   .list       flex: 1 + **min-height** 兜底
-   *
-   * ⚠️ `min-height` 不能省。上一版我只写了 flex: 1，如果父级高度没定死，
-   * 列表会被压成 0 —— 表现就是整页空白，一条都画不出来。
+   * ⚠️ Vela 的 div 默认是 `flex-direction: row`，每一层都要显式写 column，
+   * 否则内容会被摆成横向一排。
    */
   .page-root {
     flex-direction: column;
     width: 100%;
     height: 100%;
     padding: 0;
-  }
-
-  .page-body {
-    flex: 1;
-    width: 100%;
-    flex-direction: column;
-    background-color: @ui-surface;
+    background-color: #070b16;
   }
 
   /*
-   * 滚动容器。
+   * 滚动容器必须是明确高度。
    *
-   * ⚠️ **不在 <list> 上写 padding** —— b50.ux 的列表没写，实机正常；
-   * 给列表加内边距在 Vela 上行为不确定。左右的 40px 改到每个 item 上。
+   * `height: 100%` 在这里能解析，因为父级 .page-root 有 height: 100%
+   * 而再上一层是页面根节点（满屏）。InputMethod 里也是这么写的。
    */
-  .list {
-    flex: 1;
-    min-height: 120px;
+  .scroll {
     width: 100%;
+    height: 100%;
+  }
+
+  /* 内容列。左右 40px 给圆屏留白 —— 内容区 386px */
+  .inner {
+    flex-direction: column;
+    width: 100%;
+    padding: 34px 40px 40px;
   }
 
   /* ── 品牌 ──────────────────────────────────────────────────── */
-  /*
-   * 顶部内边距 34px：让品牌字的**中心**落到 y≈60 附近。
-   * 那里可用宽度 312px，放 120px 的文字绰绰有余。
-   * 贴到 y=16 就只有 170px 了。
-   */
-  .brand-item {
-    padding-left: 40px;
-    padding-right: 40px;
-    width: 100%;
-    padding-top: 34px;
-    padding-bottom: 10px;
-    justify-content: center;
-    align-items: center;
-  }
-
+  /* 顶部 34px：让品牌字中心落到 y≈60，那里可用宽度 312px，放 120px 很宽裕 */
   .brand {
+    width: 100%;
+    text-align: center;
     font-size: 32px;
     font-weight: bold;
-    color: @ui-primary;
+    color: #ff5f9e;
+    margin-bottom: 14px;
   }
 
   /* ── 分数卡片 ──────────────────────────────────────────────── */
-  .card-item {
-    padding-left: 40px;
-    padding-right: 40px;
-    width: 100%;
-  }
-
   .game {
     flex-direction: column;
     width: 100%;
     padding: 16px 20px;
-    border-radius: @ui-radius-card;
-    background-color: @ui-surface-emphasis;
+    border-radius: 20px;
+    background-color: #223050;
   }
 
   .game__head {
@@ -162,62 +132,51 @@
   .game__name {
     font-size: 26px;
     font-weight: bold;
-    color: @ui-on-surface;
+    color: #e8eefc;
   }
 
   .game__tier {
     font-size: 15px;
-    color: @ui-on-surface;
+    color: #e8eefc;
     opacity: 0.7;
     margin-left: 8px;
     padding: 2px 10px;
-    border-radius: @ui-radius-full;
-    background-color: @ui-surface-container;
+    border-radius: 999px;
+    background-color: #1c2740;
   }
 
   .game__rating {
     font-size: 46px;
     font-weight: bold;
-    color: @ui-primary;
+    color: #ff5f9e;
     margin-top: 4px;
   }
 
   .game__rating-label {
     font-size: 15px;
-    color: @ui-on-surface-variant;
+    color: #9bacd0;
     margin-top: -2px;
   }
 
   .game__stats {
     font-size: 13px;
-    color: @ui-on-surface-variant;
+    color: #9bacd0;
     margin-top: 8px;
   }
 
   .game__hint {
     font-size: 15px;
-    color: @ui-on-surface-variant;
+    color: #9bacd0;
     margin-top: 4px;
   }
 
   /* ── 快捷 ──────────────────────────────────────────────────── */
-  .section-item {
-    padding-left: 40px;
-    padding-right: 40px;
-    width: 100%;
-    padding-top: 18px;
-    padding-bottom: 8px;
-  }
-
   .section {
-    font-size: 15px;
-    color: @ui-on-surface-variant;
-  }
-
-  .entry-item {
-    padding-left: 40px;
-    padding-right: 40px;
     width: 100%;
+    font-size: 15px;
+    color: #9bacd0;
+    margin-top: 18px;
+    margin-bottom: 8px;
   }
 
   .item {
@@ -228,31 +187,22 @@
     height: 60px;
     padding: 0 20px;
     margin-bottom: 10px;
-    border-radius: @ui-radius-card;
-    background-color: @ui-surface-card;
+    border-radius: 20px;
+    background-color: #141d30;
   }
 
   .item__title {
     font-size: 24px;
-    color: @ui-on-surface;
+    color: #e8eefc;
   }
 
   .item__arrow {
     font-size: 26px;
-    color: @ui-on-surface-muted;
+    color: #6d7fa3;
   }
 
   /* ── 彩蛋 ──────────────────────────────────────────────────── */
-  /*
-   * 高度给足 200px —— 它要盖住圆形底部那段弧。
-   * 内容全部居中，长文本会被圆角裁掉，所以只放一行短的。
-   */
-  .egg-item {
-    padding-left: 40px;
-    padding-right: 40px;
-    width: 100%;
-  }
-
+  /* 高度 200px 盖住圆形底部那段弧；内容全居中，只放一行短文本 */
   .egg {
     flex-direction: column;
     align-items: center;
@@ -262,16 +212,15 @@
     padding-bottom: 30px;
   }
 
-  /* 96×96：够显眼，又不会被圆角切到 */
   .egg__art {
     width: 96px;
     height: 96px;
-    border-radius: @ui-radius-full;
+    border-radius: 999px;
   }
 
   .egg__hint {
     font-size: 13px;
-    color: @ui-on-surface-muted;
+    color: #6d7fa3;
     margin-top: 10px;
     text-align: center;
   }
