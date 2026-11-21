@@ -1,0 +1,477 @@
+<template>
+  <div class="sync-page">
+    <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
+    <text class="title">同步</text>
+    <text class="lead">{{ leadText }}</text>
+
+    <!-- 配对码：显示在手表上，让用户在电脑上输 -->
+    <div class="code-box" if="{{ code }}">
+      <text class="code-box__label">配对码</text>
+      <text class="code-box__value">{{ code }}</text>
+      <text class="code-box__label">密码</text>
+      <text class="code-box__value">{{ pin }}</text>
+      <text class="code-box__ttl">10 分钟内有效</text>
+    </div>
+
+    <text class="status" style="color: {{ statusColor }}" if="{{ statusText }}">{{ statusText }}</text>
+    <text class="hint" if="{{ hint }}">{{ hint }}</text>
+
+    <!-- 生成之前：让用户自己设一个 4 位密码 -->
+    <div class="pin-box" if="{{ needPin }}">
+      <text class="pin-box__label">设一个 4 位密码</text>
+      <text class="pin-box__value">{{ pinInput || '____' }}</text>
+      <text class="pin-box__hint">待会在电脑上要输同一个</text>
+      <div class="keys">
+        <div class="key" for="{{ d in digits }}" @click="tapDigit(d)">
+          <text class="key__text">{{ d }}</text>
+        </div>
+        <div class="key key--wide" @click="tapBack">
+          <text class="key__text">←</text>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <div class="action" if="{{ canCreate }}" @click="onCreate">
+        <text class="action__text">{{ creating ? '正在生成…' : (needPin ? '用这个密码生成配对码' : '生成配对码') }}</text>
+      </div>
+
+      <div class="action action--primary" if="{{ canFetch }}" @click="onFetch">
+        <text class="action__text">{{ fetching ? '正在取回…' : '取回数据' }}</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * 同步页 —— 方向是 **电脑 → 手表**。
+   *
+   * 手表上没有好用的输入法，让人在表盘上敲 15 位好友码很难受。
+   * 所以：手表出一个配对码，在电脑上把数据填好，手表取回。
+   *
+   * ⚠️ 配对码必须由**手表**生成 —— 这样手表自己就知道码，
+   *    取回时不需要输入任何东西。让网页生成码、手表再手输，
+   *    等于把最痛的那一步留在了手表上。
+   *
+   * Vela 的硬限制（都踩过，别改回去）：
+   *   · 样式是**页面级**的 —— 别的页面的 .action 在这里不存在
+   *   · 没有后代选择器隔离
+   *   · div 默认 flex-direction: row
+   *   · margin-top: auto / align-self 都不生效
+   */
+
+  .sync-page {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 14px 20px;
+    background-color: @ui-surface;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 56px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: @ui-surface-container;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: @ui-on-surface;
+  }
+
+  .title {
+    font-size: 30px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    margin-top: 4px;
+    lines: 1;
+  }
+
+  .lead {
+    font-size: 16px;
+    color: @ui-on-surface-variant;
+    margin-top: 8px;
+    lines: 3;
+  }
+
+  /* 配对码要让人能一眼抄到电脑上：大、字距拉开、居中 */
+  .code-box {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 12px;
+    padding: 12px 0;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .code-box__label {
+    font-size: 14px;
+    color: @ui-on-surface-muted;
+    lines: 1;
+  }
+
+  .code-box__value {
+    font-size: 34px;
+    font-weight: bold;
+    color: @ui-primary;
+    letter-spacing: 4px;
+    margin-bottom: 4px;
+    lines: 1;
+  }
+
+  .code-box__ttl {
+    font-size: 13px;
+    color: @ui-on-surface-muted;
+    lines: 1;
+  }
+
+  .status {
+    width: 100%;
+    font-size: 16px;
+    margin-top: 12px;
+    text-align: center;
+    lines: 3;
+  }
+
+  .hint {
+    width: 100%;
+    font-size: 13px;
+    color: @ui-on-surface-muted;
+    margin-top: 8px;
+    lines: 4;
+  }
+
+  /* 密码输入区 */
+  .pin-box {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 12px;
+    padding: 12px 0;
+    border-radius: @ui-radius-card;
+    background-color: @ui-surface-card;
+  }
+
+  .pin-box__label {
+    font-size: 14px;
+    color: @ui-on-surface-variant;
+    lines: 1;
+  }
+
+  .pin-box__value {
+    font-size: 34px;
+    font-weight: bold;
+    color: @ui-primary;
+    letter-spacing: 10px;
+    margin: 2px 0;
+    lines: 1;
+  }
+
+  .pin-box__hint {
+    font-size: 12px;
+    color: @ui-on-surface-muted;
+    lines: 1;
+  }
+
+  /* 数字键盘：3 列，0 单独一行再退格 */
+  .keys {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  .key {
+    width: 84px;
+    height: 54px;
+    margin: 4px;
+    border-radius: 12px;
+    background-color: @ui-surface-container;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .key__text {
+    font-size: 24px;
+    color: @ui-on-surface;
+    lines: 1;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
+    margin-top: 14px;
+  }
+
+  .action {
+    width: 100%;
+    height: 60px;
+    border-radius: @ui-radius-full;
+    background-color: @ui-surface-container;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  /* 主操作突出一点 */
+  .action--primary {
+    background-color: @ui-primary;
+  }
+
+  .action__text {
+    font-size: 18px;
+    color: @ui-on-surface;
+    lines: 1;
+  }
+
+  /* 圆屏：左右再往里收，避免内容和屏幕边缘相切被裁 */
+  @media (shape: circle) {
+    .page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+</style>
+
+<script>
+  const { core, keys, navigation, store, syncAes, syncClient, syncPayload } = global.AstraMai;
+  const { goBack, push } = navigation;
+  const { readSetting, writeSetting, warmUp } = store;
+  /*
+   * ⚠️ **`decryptSyncPayload` 必须从 `syncAes` 取，不能从 `core` 取。**
+   *
+   * core 里那个是 `sync/aes-web.ts`（WebCrypto 实现），打包进手表时
+   * 被替换成了空实现（见 scripts/bundle-core.mjs）—— 在手表上调用它
+   * 只会得到「只在网页端可用」。
+   *
+   * 手表真正的 AES 在 `common/sync-aes.js`（用 @system.crypto）。
+   * 两者签名一样，所以取错了**不会有类型错误**，只在运行时炸。
+   */
+  const { deriveIvBase64, deriveKeyBase64, decodeSyncPayload } = core;
+  const { isSyncCryptoAvailable, decryptSyncPayload } = syncAes;
+  const { candidateBases, createSyncCode, getSyncPayload } = syncClient;
+  const { parseSyncPayload, storageWritesFor, describePayload } = syncPayload;
+
+  export default {
+    private: {
+      leadText: '',
+      code: '',
+      pin: '',
+      statusText: '',
+      statusColor: '#9bacd0',
+      hint: '',
+      canCreate: true,
+      canFetch: false,
+      creating: false,
+      fetching: false,
+      bases: [],
+      /** 失败时用来定位是哪一步。 */
+      stage: '',
+      /** 还没生成配对码时，先让用户自己设 4 位密码。 */
+      needPin: true,
+      pinInput: '',
+      digits: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+    },
+
+    onInit() {
+      console.debug('[AstraMai] Sync onInit');
+      warmUp([keys.QUERY_KIND_KEY, keys.QUERY_VALUE_KEY])
+        .then(() => this.begin())
+        .catch((error) => {
+          console.error('[AstraMai] Sync 初始化失败：', error);
+          this.leadText = '初始化失败';
+          this.statusText = '存储不可用，无法同步';
+          this.statusColor = '#f2564b';
+        });
+    },
+
+    begin() {
+      this.bases = candidateBases(readSetting);
+
+      if (!isSyncCryptoAvailable()) {
+        this.leadText = '这台设备不支持同步';
+        this.statusText = '缺少 AES 加密能力';
+        this.statusColor = '#f2564b';
+        this.hint = '手环系列不支持 AES。Watch S3 及以后、REDMI Watch 5/6 才行。';
+        this.canCreate = false;
+        return;
+      }
+
+      this.leadText = '在电脑上填好友码，手表取过来';
+      this.hint = '点「生成配对码」，然后在电脑上打开网页「同步」，输入这组号码。';
+    },
+
+    /** 点一个数字。 */
+    tapDigit(value) {
+      if (this.pinInput.length >= 4) return;
+      this.pinInput = this.pinInput + String(value);
+    },
+
+    /** 退一位。 */
+    tapBack() {
+      this.pinInput = this.pinInput.slice(0, -1);
+    },
+
+    /**
+     * 生成配对码 —— 码由手表出，这样取回时不用输入任何东西。
+     *
+     * **密码由用户自己设**，不随机生成：随机的话用户还得从手表抄到电脑，
+     * 等于把麻烦又搬回来了。设一个自己记得住的，两边输同一个就行。
+     */
+    onCreate() {
+      if (this.creating) return;
+
+      const pin = this.pinInput;
+      if (pin.length !== 4) {
+        this.statusText = '先设一个 4 位密码';
+        this.statusColor = '#ffb020';
+        this.hint = '点上面的数字键，输满 4 位。待会在电脑上要输同一个。';
+        return;
+      }
+      this.creating = true;
+      this.statusText = '正在生成…';
+      this.statusColor = '#9bacd0';
+
+      this.withFallback((base) => createSyncCode(base, pin))
+        .then((created) => {
+          this.creating = false;
+          this.code = String(created.code);
+          this.pin = pin;
+          this.canCreate = false;
+          this.canFetch = true;
+          this.needPin = false;
+          this.statusText = '配对码已生成';
+          this.statusColor = '#3ddc84';
+          this.hint = '现在到电脑上输入上面的配对码和密码，填好好友码后回到这里点「取回数据」。';
+        })
+        .catch((error) => {
+          this.creating = false;
+          this.statusText = error && error.message ? error.message : '生成失败';
+          this.statusColor = '#f2564b';
+          this.hint = '连不上同步服务。检查网络后重试。';
+        });
+    },
+
+    /**
+     * 取回数据并落地到本地存储。
+     *
+     * 落地用的是 `storageWritesFor` —— 它写的键（queryKind / queryValue /
+     * friendCode / qrInput）正是 B50 页读的那几个。写完直接跳过去查分，
+     * 用户不用再想"数据去哪儿了"。
+     */
+    onFetch() {
+      if (this.fetching || !this.code) return;
+
+      this.fetching = true;
+      this.statusText = '正在取回…';
+      this.statusColor = '#9bacd0';
+
+      const code = this.code;
+      const pin = this.pin;
+
+      /*
+       * 每一步打一个阶段标记，catch 时把阶段名带上。
+       *
+       * 之前报了个光秃秃的 `not a function`，完全看不出是哪一行 ——
+       * 手表上又没法看堆栈。这次让它自己说出阶段。
+       */
+      this.stage = '拉取';
+
+      this.withFallback((base) => getSyncPayload(base, code, pin))
+        .then((body) => {
+          this.stage = '解密';
+          return decryptSyncPayload(body.payload, deriveKeyBase64(pin, code), deriveIvBase64(code));
+        })
+        .then((plaintext) => {
+          this.stage = '解码';
+          const decoded = decodeSyncPayload(plaintext);
+          const payload = parseSyncPayload(JSON.stringify(decoded.view));
+
+          if (!payload) throw new Error('收到的数据看不懂');
+
+          this.stage = '落地' ;
+          const writes = storageWritesFor(payload);
+          if (writes.length === 0) throw new Error('收到的数据是空的');
+
+          for (const item of writes) {
+            writeSetting(item.key, item.value);
+          }
+
+          this.fetching = false;
+          this.stage = '完成';
+          this.statusText = '已同步：' + describePayload(payload);
+          this.statusColor = '#3ddc84';
+          this.hint = '跳到 B50 页就能用这份数据查分了。';
+
+          // 稍等一下让用户看到提示，再跳
+          setTimeout(() => push('/b50'), 700);
+        })
+        .catch((error) => {
+          this.fetching = false;
+          const message = error && error.message ? error.message : '取回失败';
+          // 带上阶段名 —— 光一个 "not a function" 在手表上没法查
+          this.statusText = this.stage + '失败：' + message;
+          this.statusColor = '#ffb020';
+          /*
+           * 「电脑上还没点提交」和「密码错了」在客户端看起来很像
+           * （都是 not_uploaded 或解密失败）。所以提示要把两种可能都说出来，
+           * 别让用户以为坏了。
+           */
+          this.hint = '电脑上还没点「送到手表」，或者密码不对。再试一次。';
+        });
+    },
+
+    /**
+     * 按候选地址依次尝试。
+     *
+     * 手表走的是自己的 WiFi/蓝牙链路，和电脑不同，我无法在这里验证它
+     * 到 Cloudflare 通不通。所以先试直连（快），不通换大陆反代（慢但确定到）。
+     */
+    withFallback(run) {
+      const bases = this.bases && this.bases.length > 0 ? this.bases : [''];
+      let lastError = null;
+
+      const attempt = (index) => {
+        if (index >= bases.length) {
+          return Promise.reject(lastError || new Error('连不上同步服务'));
+        }
+
+        return run(bases[index]).then(
+          (result) => {
+            this.bases = [bases[index]];
+            return result;
+          },
+          (error) => {
+            lastError = error;
+            console.warn('[AstraMai] 同步地址失败：', bases[index], error && error.message);
+            return attempt(index + 1);
+          },
+        );
+      };
+
+      return attempt(0);
+    },
+
+    onBack() {
+      goBack('/');
+    },
+  };
+</script>

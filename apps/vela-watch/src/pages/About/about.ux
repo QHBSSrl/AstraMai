@@ -1,0 +1,319 @@
+<template>
+  <!--
+    关于软件 —— 所有「关于这个 App」的东西都在这一个页面里。
+
+    ── 为什么要独立成页 ─────────────────────────────────────────────
+    以前这些东西散落在「设置 → 关于」里，和游戏切换、网络、调试混在一起。
+    用户想找版本号或官网得在设置里翻半天，而且设置页越堆越长。
+
+    现在设置里只留**一个入口**「关于软件 ›」，点进来就是这一页。
+    以后再加任何「关于」性质的内容（许可、致谢、协议更新）都往这里放，
+    不要再往设置里加行。
+
+    ── 版式 ─────────────────────────────────────────────────────────
+    顶栏（返回）+ 标题 + 应用信息卡 + 分组行 + 页脚。
+    和设置页同一套 row / section 样式，视觉上是一家人。
+  -->
+  <div class="page">
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
+    <text class="title">关于软件</text>
+
+    <!-- ── 应用信息 ─────────────────────────────────────────────── -->
+    <div class="hero">
+      <text class="hero__name">ORhythm</text>
+      <text class="hero__desc">街机与多平台音游查分工具</text>
+      <text class="hero__ver">版本 {{ versionName }}（{{ versionCode }}）</text>
+    </div>
+
+    <!-- ── 链接 ─────────────────────────────────────────────────── -->
+    <text class="section">链接</text>
+    <div class="rows">
+      <div class="row" @click="openWebsite">
+        <text class="row__label">官网 / 下载</text>
+        <text class="row__mark">orhythm.astranexus.cn</text>
+      </div>
+      <div class="row" @click="copyGroup">
+        <text class="row__label">交流群</text>
+        <text class="row__mark">{{ qqGroup }}</text>
+      </div>
+    </div>
+
+    <!-- ── 使用 ─────────────────────────────────────────────────── -->
+    <text class="section">使用</text>
+    <div class="rows">
+      <div class="row" @click="showTerms">
+        <text class="row__label">用户协议</text>
+        <text class="row__mark">orhythm.astranexus.cn/terms</text>
+      </div>
+      <div class="row" @click="showPrivacy">
+        <text class="row__label">隐私政策</text>
+        <text class="row__mark">orhythm.astranexus.cn/privacy</text>
+      </div>
+    </div>
+
+    <!-- ── 致谢 ─────────────────────────────────────────────────── -->
+    <text class="section">致谢</text>
+    <div class="rows">
+      <div class="row">
+        <text class="row__label">数据来源</text>
+        <text class="row__mark">落雪 / osu! 官方</text>
+      </div>
+      <div class="row">
+        <text class="row__label">开源组件</text>
+        <text class="row__mark">见官网</text>
+      </div>
+    </div>
+
+    <text class="foot">ORhythm · 街机音游工具</text>
+    <text class="foot foot--dim">Developed by NowMes Software</text>
+  </div>
+</template>
+
+<script>
+  import { getServerBase } from '../../common/config.js';
+  import { QQ_GROUP, QQ_GROUP_URL, hasCommunity } from '../../common/community.js';
+  
+  /** 版本号。和 manifest.json 的 versionName 保持一致。 */
+  const VERSION_NAME = '0.1.4';
+  const VERSION_CODE = 10400;
+
+  /*
+   * 协议和隐私的地址。
+   *
+   * ⚠️ 页面还没写完，所以**不在手表上打开浏览器**（手表也打不开）。
+   * 点击只弹一个提示框把域名显示出来，用户自己去电脑上访问。
+   * 等网站传上去之后，这两行文字不用改，链接自然就有效了。
+   */
+  const TERMS_URL = 'orhythm.astranexus.cn/terms';
+  const PRIVACY_URL = 'orhythm.astranexus.cn/privacy';
+
+  export default {
+    /*
+     * 页面状态放 private 而不是 data。
+     *
+     * Vela 两者都能用，但这个仓库的约定（和 ux-binding 测试）是 private ——
+     * 模板里引用的东西必须在这里声明，否则测试直接挂。
+     */
+    private: {
+      versionName: VERSION_NAME,
+      versionCode: VERSION_CODE,
+      qqGroup: '',
+      /** 官网地址。手表上打不开浏览器，所以只是显示 + 复制。 */
+      website: 'orhythm.astranexus.cn',
+    },
+
+    onInit() {
+      this.qqGroup = hasCommunity() ? QQ_GROUP : '';
+    },
+
+    onBack() {
+      router.back();
+    },
+
+    openWebsite() {
+      // 手表上没有浏览器，只能复制出来
+      this.copyText(this.website, '官网地址已复制');
+    },
+
+    copyGroup() {
+      if (!this.qqGroup) {
+        this.toast('没有配置交流群');
+        return;
+      }
+      this.copyText(this.qqGroup, '群号已复制');
+    },
+
+    /** 复制到剪贴板。失败就只弹个 toast 把内容显示出来，用户能自己记。 */
+    copyText(text, okMessage) {
+      try {
+        const clipboard = require('@system.clipboard');
+        clipboard.set({
+          text,
+          success: () => this.toast(okMessage),
+          fail: () => this.toast(text),
+        });
+      } catch (error) {
+        // 这台设备没有剪贴板模块，直接把内容显示出来
+        this.toast(text);
+      }
+    },
+
+    replayOnboarding() {
+      router.replace({ uri: '/welcome' });
+    },
+
+    /** 用户协议。手表上没有浏览器，只把地址显示出来。 */
+    showTerms() {
+      this.alert('用户协议', '详见：' + TERMS_URL);
+    },
+
+    /** 隐私政策。同上。 */
+    showPrivacy() {
+      this.alert('隐私政策', '详见：' + PRIVACY_URL);
+    },
+
+    /**
+     * 弹一个只有「知道了」的提示框。
+     *
+     * ⚠️ 优先用 `prompt.showDialog`（真正的对话框，能看长一点的内容），
+     * 设备不支持就退回 toast —— 绝不能因为弹窗失败什么都不显示。
+     */
+    alert(title, message) {
+      try {
+        const prompt = require('@system.prompt');
+        if (prompt && typeof prompt.showDialog === 'function') {
+          prompt.showDialog({
+            title,
+            message,
+            buttons: [{ text: '知道了', color: '#ff5f9e' }],
+          });
+          return;
+        }
+      } catch (error) {
+        // 没有对话框就往下走，用 toast 兜底
+      }
+      this.toast(title + '：' + message);
+    },
+
+    toast(message) {
+      try {
+        const prompt = require('@system.prompt');
+        if (prompt && typeof prompt.showToast === 'function') {
+          prompt.showToast({ message, duration: 3000 });
+        }
+      } catch (error) {
+        // 提示失败就算了
+      }
+    },
+  };
+</script>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  /*
+   * ⚠️ 内边距给足。
+   *
+   * 手表是圆角屏幕，实机上紧贴边缘的内容会被**裁掉一部分** ——
+   * 之前顶部标题和「设置」按钮就是这样被切掉一角，而且因为贴着边
+   * 很难点到。所以左右各留 24px、上下留 18px 起步。
+   */
+  .page {
+    flex-direction: column;
+    width: 100%;
+    padding: 18px 26px 22px;
+    background-color: @ui-surface;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    height: 52px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: @ui-surface-container;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: @ui-on-surface;
+  }
+
+  .title {
+    font-size: 30px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    margin-top: 4px;
+  }
+
+  /* ── 应用信息卡 ─────────────────────────────────────────────── */
+  .hero {
+    flex-direction: column;
+    width: 100%;
+    padding: 20px 22px;
+    margin-top: 16px;
+    border-radius: @ui-radius-md;
+    background-color: @ui-surface-card;
+  }
+
+  .hero__name {
+    font-size: 34px;
+    font-weight: bold;
+    color: @ui-on-surface;
+  }
+
+  .hero__desc {
+    font-size: 18px;
+    color: @ui-on-surface-variant;
+    margin-top: 6px;
+  }
+
+  .hero__ver {
+    font-size: 16px;
+    color: @ui-on-surface-muted;
+    margin-top: 10px;
+  }
+
+  /* ── 分组 ───────────────────────────────────────────────────── */
+  .section {
+    font-size: 16px;
+    color: @ui-on-surface-variant;
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+
+  .rows {
+    flex-direction: column;
+    width: 100%;
+    border-radius: @ui-radius-md;
+    background-color: @ui-surface-card;
+  }
+
+  .row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 64px;
+    padding: 0 18px;
+  }
+
+  .row__label {
+    font-size: 20px;
+    color: @ui-on-surface;
+  }
+
+  .row__mark {
+    font-size: 17px;
+    color: @ui-on-surface-muted;
+  }
+
+  .foot {
+    font-size: 15px;
+    color: @ui-on-surface-muted;
+    margin-top: 26px;
+    text-align: center;
+  }
+
+  .foot--dim {
+    color: @ui-outline;
+    margin-top: 6px;
+  }
+
+  /* 圆屏：左右再往里收，避免内容和屏幕边缘相切被裁 */
+  @media (shape: circle) {
+    .page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+</style>

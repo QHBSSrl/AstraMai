@@ -1,0 +1,331 @@
+<template>
+  <div class="page">
+    <!--
+      显式返回键。手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势；
+      不知道的人会到处找按钮，找不到就只能大退应用重进。
+    -->
+    <div class="topbar">
+      <div class="back" @click="onBack">
+        <text class="back__text">‹ 返回</text>
+      </div>
+    </div>
+
+    <text class="title">机台二维码</text>
+
+    <!-- 有内容：交给原生 qrcode 组件画 -->
+    <block if="{{ hasCode }}">
+      <div class="code-wrap">
+        <qrcode class="code" value="{{ content }}"></qrcode>
+      </div>
+
+      <text class="validity {{ validityClass }}">{{ validityText }}</text>
+      <text class="hint">对准机台扫描处即可登入</text>
+
+      <div class="actions">
+        <input class="btn" type="button" value="重新导入" onclick="focusInput" />
+        <input class="btn btn--ghost" type="button" value="清除" onclick="clearInput" />
+      </div>
+    </block>
+
+    <!-- 没内容：给一个输入框。手表上打长链接很痛苦，
+         真机上应当改由手机侧的配置下发，见 README。 -->
+    <block else>
+      <text class="hint">
+        粘贴机台二维码的链接或那串短码。
+        手表输入体验很差，正式版应当改由手机侧配置下发。
+      </text>
+      <input
+        class="input"
+        type="text"
+        value="{{ draft }}"
+        placeholder="wq.wahlap.net/... 或 SGWC..."
+        onchange="onDraftChange"
+      />
+      <input class="btn" type="button" value="保存并生成" onclick="saveInput" />
+      <text class="error" if="{{ errorText }}">{{ errorText }}</text>
+    </block>
+  </div>
+</template>
+
+<style lang="less">
+  @import '../../common/theme-tokens.less';
+
+  .page {
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 26px 22px;
+    background-color: @ui-surface;
+  }
+
+  .title {
+    font-size: 26px;
+    color: @ui-on-surface;
+    margin-bottom: 12px;
+  }
+
+  .code-wrap {
+    padding: 14px;
+    border-radius: 14px;
+    background-color: #ffffff;
+  }
+
+  /* 正确内容只有 33×33 左右，留足尺寸才能在手表上扫得出来。
+     静区不要照抄官方：官方 PNG 的静区只有 1px，规范要求 4 个模块。 */
+  .code {
+    width: 340px;
+    height: 340px;
+    color: @ui-surface;
+    background-color: #ffffff;
+  }
+
+  .validity {
+    font-size: 20px;
+    margin-top: 14px;
+    color: @ui-on-surface-variant;
+    text-align: center;
+  }
+
+  .validity--valid {
+    color: @ui-success;
+  }
+
+  .validity--expired {
+    color: @ui-error;
+  }
+
+  .validity--unknown {
+    color: @ui-warning;
+  }
+
+  .hint {
+    font-size: 17px;
+    color: @ui-on-surface-variant;
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  .actions {
+    flex-direction: row;
+    margin-top: 18px;
+  }
+
+  /* 返回键。做够大，手表上要好点。 */
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+    margin-bottom: 4px;
+  }
+
+  .back {
+    padding: 8px 20px;
+    border-radius: 22px;
+    background-color: @ui-surface-container;
+  }
+
+  .back__text {
+    font-size: 22px;
+    color: @ui-on-surface;
+  }
+
+  .btn {
+    height: 64px;
+    padding: 0 26px;
+    margin: 0 6px;
+    border-radius: 32px;
+    background-color: @ui-primary;
+    color: @ui-on-primary;
+    font-size: 22px;
+    text-align: center;
+  }
+
+  .btn--ghost {
+    background-color: @ui-surface-container;
+    color: @ui-on-surface;
+  }
+
+  .input {
+    width: 100%;
+    height: 72px;
+    padding: 0 16px;
+    margin-top: 12px;
+    border-radius: 12px;
+    background-color: @ui-surface;
+    color: @ui-on-surface;
+    font-size: 18px;
+  }
+
+  .error {
+    font-size: 18px;
+    color: @ui-error;
+    margin-top: 10px;
+  }
+
+  /*
+   * ── 圆形屏适配 ─────────────────────────────────────────────────
+   * 依据官方《多屏适配 · 页面标题栏》：
+   *   「在圆屏、胶囊屏等存在边缘剪切的设备上，标题栏会使用多行设计，
+   *     保证顶部的展示内容长度不会超出屏幕；而在矩形屏幕上则做单行左右布局。」
+   *
+   * 圆屏四角是物理裁掉的：466×466 的屏，顶栏中心 y≈44 处可用宽度只有约 272px，
+   * 而「标题在左 + 设置在右」需要整幅 466px，两端必然被切。
+   * 所以这里改竖排居中，并加左右内边距把内容压进圆内接矩形。
+   *
+   * **只影响 shape: circle**，矩形屏样式与行为完全不变。
+   */
+  @media (shape: circle) {
+    .page {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+
+    /* 顶栏改竖排居中：单行左右布局在圆屏上两端必被裁 */
+    .topbar {
+      flex-direction: column;
+      align-items: center;
+      height: auto;
+    }
+
+    /* 返回键/标题不再靠边，改为居中并留出上下间距 */
+    .back {
+      margin-bottom: 8px;
+    }
+  }
+</style>
+
+<script>
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { core, diag, navigation, store } = global.AstraMai;
+  const { describeValidity, parseWahlapQrPayload } = core;
+  const { mark } = diag;
+  const { goBack } = navigation;
+  const { clearSetting, readSetting, warmUp, writeSetting } = store;
+  const STORAGE_KEY = 'qrInput'
+
+  export default {
+    private: {
+      /** 用户原始粘贴的内容（链接或短码），用于展示与重新编辑。 */
+      rawInput: '',
+      /** 真正要喂给 qrcode 组件的内容。 */
+      content: '',
+      hasCode: false,
+      draft: '',
+      errorText: '',
+      validityText: '',
+      validityClass: '',
+      timer: null,
+    },
+
+    /** 返回上一页。 */
+    onBack() {
+      goBack('/')
+    },
+
+    onReady() {
+      mark('Qr:onReady');
+    },
+
+    onInit() {
+      mark('Qr:onInit');
+      console.debug('[AstraMai] Qr onInit')
+      warmUp([STORAGE_KEY])
+        .then(() => this.load())
+        .catch((error) => console.error('[AstraMai] Qr 初始化失败：', error))
+    },
+
+    onShow() {
+      this.load()
+    },
+
+    onHide() {
+      this.stopTimer()
+    },
+
+    onDestroy() {
+      this.stopTimer()
+    },
+
+    load() {
+      const saved = readSetting(STORAGE_KEY, '')
+      this.rawInput = saved
+      this.draft = saved
+
+      const payload = saved ? parseWahlapQrPayload(saved) : null
+
+      // 关键：喂给组件的是还原出来的短内容，不是那几百字符的链接。
+      // 官方图像实测是 33×33 模块；拿链接去生成会变成 77×77，手表上看不清。
+      this.content = payload && payload.content ? payload.content : saved
+      this.hasCode = Boolean(this.content)
+      this.refreshValidity()
+
+      if (payload && payload.expiresAt) this.startTimer()
+      else this.stopTimer()
+    },
+
+    startTimer() {
+      this.stopTimer()
+      this.timer = setInterval(() => this.refreshValidity(), 1000)
+    },
+
+    stopTimer() {
+      if (this.timer) {
+        clearInterval(this.timer)
+        this.timer = null
+      }
+    },
+
+    refreshValidity() {
+      if (!this.rawInput) {
+        this.validityText = ''
+        this.validityClass = ''
+        return
+      }
+
+      const payload = parseWahlapQrPayload(this.rawInput)
+      if (!payload || !payload.recognized) {
+        this.validityText = '这不是机台二维码，但仍会按普通内容出码'
+        this.validityClass = 'validity--unknown'
+        return
+      }
+
+      const validity = describeValidity(payload)
+      this.validityText = validity.text
+      this.validityClass = 'validity--' + validity.state
+    },
+
+    onDraftChange(event) {
+      this.draft = event.value
+    },
+
+    focusInput() {
+      this.hasCode = false
+      this.stopTimer()
+    },
+
+    saveInput() {
+      const value = (this.draft || '').trim()
+      if (!value) {
+        this.errorText = '内容不能为空'
+        return
+      }
+
+      const payload = parseWahlapQrPayload(value)
+      if (!payload || !payload.content) {
+        this.errorText = '识别不出二维码内容，请粘贴小程序里的链接'
+        return
+      }
+
+      this.errorText = ''
+      writeSetting(STORAGE_KEY, value)
+      this.load()
+    },
+
+    clearInput() {
+      clearSetting(STORAGE_KEY)
+      this.draft = ''
+      this.errorText = ''
+      this.load()
+    },
+  }
+</script>
