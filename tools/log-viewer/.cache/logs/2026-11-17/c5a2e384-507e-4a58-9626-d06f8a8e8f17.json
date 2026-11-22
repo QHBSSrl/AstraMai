@@ -1,0 +1,1 @@
+{"receivedAt":"2026-11-17T16:46:14.844Z","from":"111.208.78.245","report":{"device":"test-device-1","scope":"Settings:testBridge","message":"模拟错误","stack":"at test","at":1794933940658,"phase":"before","entries":[{"t":1,"lv":"mark","m":"opened settings"},{"t":2,"lv":"error","m":"testBridge failed"}]}}

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ORhythm · 内部日志</title>
+<style>
+  :root {
+    --bg: #070b16;
+    --card: #141d30;
+    --card2: #1c2740;
+    --line: #223050;
+    --text: #e8eefc;
+    --dim: #9bacd0;
+    --muted: #6d7fa3;
+    --pink: #ff5f9e;
+    --green: #4fd6a0;
+    --amber: #ffb454;
+    --red: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 5;
+  }
+  header h1 { font-size: 16px; margin: 0; color: var(--pink); }
+  header .meta { color: var(--muted); font-size: 12px; }
+  button {
+    background: var(--card2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:hover { border-color: var(--pink); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .layout { display: grid; grid-template-columns: 380px 1fr; height: calc(100vh - 57px); }
+  .list { overflow-y: auto; border-right: 1px solid var(--line); }
+  .detail { overflow-y: auto; padding: 16px 20px; }
+
+  .row {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .row:hover { background: var(--card); }
+  .row.on { background: var(--card2); border-left: 3px solid var(--pink); }
+  .row .t { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .row .m { margin-top: 2px; color: var(--text); word-break: break-word; }
+  .row .m.err { color: var(--red); }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--card2);
+    color: var(--dim);
+  }
+
+  .empty { padding: 40px 20px; color: var(--muted); text-align: center; }
+  .err-banner {
+    margin: 12px 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    color: var(--red);
+    font-size: 12px;
+    white-space: pre-wrap;
+  }
+
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 13px; margin-bottom: 16px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { color: var(--text); word-break: break-all; }
+
+  .logs {
+    background: #05080f;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: 12px/1.7 ui-monospace, Consolas, monospace;
+    max-height: 62vh;
+    overflow-y: auto;
+  }
+  .log { white-space: pre-wrap; word-break: break-word; }
+  .log .ts { color: var(--muted); margin-right: 8px; }
+  .log.warn { color: var(--amber); }
+  .log.error { color: var(--red); }
+  .log.mark { color: var(--green); }
+</style>
+</head>
+<body>
+<header>
+  <h1>ORhythm · 内部日志</h1>
+  <span class="meta" id="meta">加载中…</span>
+  <span style="flex:1"></span>
+  <button id="refresh">刷新</button>
+</header>
+
+<div class="layout">
+  <div class="list" id="list">
+    <div class="empty">加载中…</div>
+  </div>
+  <div class="detail" id="detail">
+    <div class="empty">左边选一条</div>
+  </div>
+</div>
+
+<script>
+  let reports = [];
+  let current = '';
+
+  const $list = document.getElementById('list');
+  const $detail = document.getElementById('detail');
+  const $meta = document.getElementById('meta');
+  const $refresh = document.getElementById('refresh');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  async function load() {
+    const res = await fetch('/api/reports');
+    const data = await res.json();
+    reports = data.reports || [];
+
+    if (data.error) {
+      $meta.textContent = '拉取失败';
+      $list.innerHTML = `<div class="err-banner">${esc(data.error)}</div>`;
+      return;
+    }
+
+    $meta.textContent = `${reports.length} 条 · 拉取于 ${fmtTime(new Date(data.pulledAt).toISOString())}`;
+
+    if (!reports.length) {
+      $list.innerHTML = '<div class="empty">还没有上报。手机上跑一次，点刷新。</div>';
+      return;
+    }
+
+    $list.innerHTML = reports.map((r) => `
+      <div class="row ${r.id === current ? 'on' : ''}" data-id="${esc(r.id)}">
+        <div class="t">
+          <span>${fmtTime(r.receivedAt)}</span>
+          <span>${r.device ? esc(r.device.slice(0, 10)) : '—'} · ${r.entryCount} 行</span>
+        </div>
+        <div class="m ${r.message ? 'err' : ''}">${esc(r.scope ? r.scope + ' · ' : '')}${esc(r.preview || r.message || '(无摘要)')}</div>
+      </div>
+    `).join('');
+
+    $list.querySelectorAll('.row').forEach((el) => {
+      el.onclick = () => open(el.dataset.id);
+    });
+  }
+
+  async function open(id) {
+    current = id;
+    $list.querySelectorAll('.row').forEach((el) => el.classList.toggle('on', el.dataset.id === id));
+
+    const res = await fetch('/api/report?id=' + encodeURIComponent(id));
+    const body = await res.json();
+    if (!body.ok) {
+      $detail.innerHTML = '<div class="empty">读不到这条</div>';
+      return;
+    }
+
+    const d = body.data || {};
+    const r = d.report || {};
+    const entries = Array.isArray(r.entries) ? r.entries : [];
+
+    const logs = entries.map((e) => {
+      const lv = String(e.lv || 'log');
+      const d0 = new Date(Number(e.t) || 0);
+      const p = (n) => String(n).padStart(2, '0');
+      const ts = isNaN(d0.getTime())
+        ? '--:--:--'
+        : `${p(d0.getHours())}:${p(d0.getMinutes())}:${p(d0.getSeconds())}.${String(d0.getMilliseconds()).padStart(3, '0')}`;
+      return `<div class="log ${esc(lv)}"><span class="ts">${ts}</span>${esc(e.m)}</div>`;
+    }).join('');
+
+    $detail.innerHTML = `
+      <h2>${esc(r.scope || '上报')}</h2>
+      <div class="kv">
+        <div class="k">收到</div><div class="v">${fmtTime(d.receivedAt)}</div>
+        <div class="k">设备</div><div class="v">${esc(r.device || '—')}</div>
+        <div class="k">来源 IP</div><div class="v">${esc(d.from || '—')}</div>
+        <div class="k">阶段</div><div class="v">${esc(r.phase || '—')}</div>
+        <div class="k">错误</div><div class="v">${esc(r.message || '—')}</div>
+        ${r.stack ? `<div class="k">堆栈</div><div class="v">${esc(r.stack)}</div>` : ''}
+        <div class="k">日志</div><div class="v">${entries.length} 行</div>
+      </div>
+      <div class="logs">${logs || '<div class="log">（空）</div>'}</div>
+    `;
+  }
+
+  $refresh.onclick = async () => {
+    $refresh.disabled = true;
+    $refresh.textContent = '拉取中…';
+    try {
+      await fetch('/api/refresh', { method: 'POST' });
+      await load();
+      if (current) await open(current);
+    } finally {
+      $refresh.disabled = false;
+      $refresh.textContent = '刷新';
+    }
+  };
+
+  load();
+</script>
+</body>
+</html>

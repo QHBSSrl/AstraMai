@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/log_uploader.dart';
+
 import '../../data/bridge_channel.dart';
 
 /// 手机 ↔ 手表 网桥。
@@ -68,6 +70,22 @@ class _BridgePageState extends State<BridgePage> {
     }
   }
 
+  /// 手动上传日志（仅 debug 包，见 core/log_uploader.dart）。
+  Future<void> _uploadLogs() async {
+    LogUploader.mark('手动上传日志');
+    final ok = await LogUploader.report(
+      'BridgePage',
+      message: '用户手动上传（网桥排查）',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? '日志已上传，谢谢！' : '上传失败，检查网络后重试'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _toggle(bool on) async {
     setState(() => _busy = true);
     try {
@@ -107,6 +125,25 @@ class _BridgePageState extends State<BridgePage> {
           ),
           const SizedBox(height: 24),
           _Checklist(),
+          const SizedBox(height: 20),
+
+          /*
+           * 上传日志（仅 debug 包）。
+           *
+           * 测试用户开不了网桥时，点这个把最近 500 行日志传上来，
+           * 内部站点上能看到完整时间线 —— 比让他截图描述强得多。
+           *
+           * release 包里 LogUploader.enabled 是 false，这个按钮不显示。
+           */
+          if (LogUploader.enabled)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.upload_file, size: 18),
+                label: const Text('上传日志（内测）'),
+                onPressed: _uploadLogs,
+              ),
+            ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),

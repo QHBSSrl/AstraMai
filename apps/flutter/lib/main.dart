@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'data/bridge_channel.dart';
 import 'core/platform.dart';
+import 'core/log_uploader.dart';
 import 'core/update_check.dart';
 import 'ui/material/main_shell.dart';
 import 'ui/theme.dart';
@@ -25,8 +26,18 @@ import 'ui/theme.dart';
 /// ⚠️ **失败必须能退回。** 拿不到动态色还硬用会变成一片纯色，
 /// 用户只会觉得 App 坏了。
 void main() {
-  // 读一次编译期功能开关（网桥只在小手环版里开）
   WidgetsFlutterBinding.ensureInitialized();
+
+  /*
+   * 日志收集（**只在 debug 包里**，见 core/log_uploader.dart）。
+   *
+   * 必须在 runApp 之前装 —— 才能抓到启动阶段的错误。
+   * 测试用户报的「开了网桥用不了」很可能就发生在启动或首次请求时。
+   */
+  LogUploader.install();
+  LogUploader.mark('app start');
+
+  // 读一次编译期功能开关（网桥只在小手环版里开）
   BridgeChannel.loadFeatures();
   runApp(const AstraMaiApp());
 }
