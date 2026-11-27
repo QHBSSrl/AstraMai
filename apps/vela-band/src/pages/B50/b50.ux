@@ -56,9 +56,6 @@
         <div class="action {{ actionClass }}" @click="onQueryTap">
           <text class="action__text {{ actionTextClass }}">{{ actionLabel }}</text>
         </div>
-        <div class="action action--ghost" if="{{ kinds.length > 0 }}" @click="toggleKeyboard">
-          <text class="action__text action__text--ghost">{{ keyboardHidden ? '输入' : '收起' }}</text>
-        </div>
       </div>
 
       <text class="error" if="{{ errorText }}">{{ errorText }}</text>
@@ -90,11 +87,13 @@
     <input-method
       hide="{{ keyboardHidden }}"
       keyboardtype="QWERTY"
+      numeric="{{ true }}"
       screentype="rect"
       vibratemode="short"
       maxlength="20"
       @complete="onComplete"
       @delete="onDelete"
+      @hidekeyboard="onHideKeyboard"
     ></input-method>
   </div>
 </template>
@@ -601,6 +600,11 @@
       this.hasResult = false;
       this.keyboardHidden = false;
       this.refreshInputState();
+    },
+
+    /** 键盘上的「收」键按了 —— 直接收起。 */
+    onHideKeyboard() {
+      this.keyboardHidden = true;
     },
 
     toggleKeyboard() {

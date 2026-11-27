@@ -125,6 +125,7 @@
     <!-- 键盘提到根容器下：它靠 position:absolute 的 left:0/width:100% 定位，
          父容器一旦有 padding 就会缩进去，真机上右边留一条缝。 -->
     <input-method
+      numeric="{{ true }}"
       hide="{{ keyboardHidden }}"
       keyboardtype="QWERTY"
       screentype="rect"
@@ -132,6 +133,7 @@
       maxlength="5"
       @complete="onComplete"
       @delete="onDelete"
+      @hidekeyboard="onHideKeyboard"
     ></input-method>
   </div>
 </template>

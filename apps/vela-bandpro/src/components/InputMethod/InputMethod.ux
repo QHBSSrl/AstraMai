@@ -204,6 +204,10 @@
               </div>
               <div static style="margin-left: 64px;margin-top: -5px;height: 60px;">
                 <text class="calbtn67" for="{{item in keys['sign'][2]}}" @click="onSelect(item)">{{item}}</text>
+              <!-- 收起键盘的键放在第三行数字右边 -->
+              <div static style="margin-left: 96px;margin-top: -5px;height: 60px;">
+                <text class="calbtn67" @click="hideKeyboard">收</text>
+              </div>
               </div>
             </div>
             <div if="{{numFlag_jp}}" style="left: 6px; flex-direction: column;">
@@ -279,6 +283,10 @@
               </div>
               <div static style="margin-left: 64px;margin-top: -5px;height: 60px;">
                 <text class="calbtn66" for="{{item in keys['sign'][2]}}" @click="onSelect(item)">{{item}}</text>
+              <!-- 收起键盘的键放在第三行数字右边 -->
+              <div static style="margin-left: 96px;margin-top: -5px;height: 60px;">
+                <text class="calbtn66" @click="hideKeyboard">收</text>
+              </div>
               </div>
             </div>
             <div if="{{numFlag_jp}}" style="left: 3px; flex-direction: column;">
@@ -356,6 +364,15 @@ export default {
     },
     vibratemode: {
       default: "",
+    },
+    /*
+     * 是否**直接进数字模式**。
+     *
+     * 好友码和 QQ 号都是纯数字，用 QWERTY 纯属浪费 ——
+     * 原来只能靠键盘上的 `123` 键切，页面没法指定初始状态。
+     */
+    numeric: {
+      default: false,
     },
     screentype: {
       default: "circle",
@@ -446,6 +463,12 @@ export default {
       this.adjustScreenWidth();
     }
     if (!this.hide) this.keyboardCreated = true;
+    // 一进来就是数字盘（用 numFlag 而不是改 keys —— keys 是共用的）
+    if (this.numeric) {
+      this.numFlag = true;
+      this.numFlag_jp = false;
+    }
+
     this.$watch("hide", "watchHidePropsChange");
     this.$watch("maxlength", "watchMaxLengthPropsChange");
     this.$watch("keyboardtype", "watchKeyboardTypePropsChange");
@@ -453,6 +476,16 @@ export default {
   onDestroy() {
     this._dictionary.destroy();
   },
+  /**
+   * 收起键盘。
+   *
+   * 键盘上有个「收」键直接调它 —— 用户不用再跑到页面上方找
+   * 「收起」按钮。
+   */
+  hideKeyboard() {
+    this.$emit("hidekeyboard", {});
+  },
+
   addAllTxt(txt) {
     this.$emit("complete", { content: txt });
   },
