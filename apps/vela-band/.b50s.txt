@@ -1,0 +1,1118 @@
+<script>
+  // 共享模块从 global 取，不再 import（官方内存优化建议）。
+  // 页面各自 import 会让每个页面都打一份，手表内存扛不住。
+  const { api, core, diag, games, keys, navigation, screenSize, store, validate } = global.AstraMai;
+  const {
+    fetchB50,
+    fetchB50ByQq,
+    fetchChunithmBests,
+    fetchChunithmBestsByQq,
+    fetchOsuBests,
+    fetchPhigrosBests,
+  } = api;
+  const { chunithmDifficultyColor } = core;
+  const { gameById, readCurrentGame, queryKindsOf, b50TitleOf } = games;
+  const { mark } = diag;
+  const { goBack, push } = navigation;
+  const { readSetting, warmUp, writeSetting } = store;
+  const {
+    KIND_LABELS,
+    appendDigit,
+    backspace,
+    describeInput,
+    isReadyToSubmit,
+    isUsername,
+    normalizeByKind,
+  } = validate;
+
+  /**
+   * 每页条数。
+   * 官方《常用业务优化》：list 内容超过 10 条建议分页渲染。
+   */
+  const PAGE_SIZE = 10;
+
+  /**
+   * 全部曲目成绩。放在脚本作用域而不是 viewModel：
+   * 它是纯数据、不需要响应式，塞进 viewModel 只会多一层 observer
+   * （官方《内存优化》第 1 条）。
+   */
+  let allEntries = [];
+  let shownCount = 0;
+
+  /** 难度配色，与游戏内一致：绿 / 黄 / 红 / 紫 / 白。 */
+  const DIFFICULTY_COLOR = ['#7ee081', '#f5d547', '#f2564b', '#b06fe8', '#f2f2f2'];
+
+  /** pp 的展示格式，和 core 里的 formatOsuPp 保持一致。 */
+  function formatPp(value) {
+    const pp = Number(value);
+    if (!Number.isFinite(pp)) return '—';
+    if (pp >= 10000) return String(Math.round(pp));
+    if (pp >= 1000) return pp.toFixed(1);
+    return pp.toFixed(2);
+  }
+
+  /**
+   * 按星数给颜色。
+   *
+   * osu! 没有固定难度档位，所以用星数映射——
+   * 玩家对星数的直观印象就是「越亮越难」。
+   */
+  function starColor(star) {
+    const value = Number(star);
+    if (!Number.isFinite(value) || value <= 0) return '#9bacd0';
+    if (value >= 8) return '#f2564b';
+    if (value >= 6.5) return '#b06fe8';
+    if (value >= 5) return '#f5d547';
+    if (value >= 3) return '#7ee081';
+    return '#4fd6ff';
+  }
+
+  /**
+   * 离线缓存最多保留几条。
+   *
+   * **跨游戏一起算** —— 它们共享同一份 storage 配额。
+   * 定 6 是因为一份 B50 view 十几 KB，6 条约 100 KB，
+   * 对穿戴设备的存储是个安全量级。
+   */
+  const CACHE_MAX = 6;
+
+  /** 缓存索引的键。索引里记 `[{key, at}]`，按最近使用排序。 */
+  const CACHE_INDEX_KEY = 'b50CacheIndex';
+
+
+  /**
+   * 把时间戳格式化成「10月18日 14:32」。
+   *
+   * 只用来标注「这是什么时候的数据」，不需要秒、不需要年份。
+   *
+   * ⚠️ 必须放在**模块作用域**，不能放在 `export default { ... }` 里面——
+   * 那是对象字面量，里面只能有属性/方法，`function` 声明会直接语法错误
+   * （构建报 `Parsing error: Unexpected keyword 'function'`）。
+   */
+  function formatCachedTime(timestamp) {
+    const d = new Date(timestamp);
+    if (Number.isNaN(d.getTime())) return '之前';
+    const pad = (n) => (n < 10 ? '0' + n : String(n));
+    return (
+      d.getMonth() + 1 + '月' + d.getDate() + '日 ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+    );
+  }
+
+  export default {
+    private: {
+      kind: 'friendCode',
+      code: '',
+      keyboardHidden: true,
+
+      hint: '',
+      canSubmit: false,
+      errorText: '',
+      saving: '',
+      /* 按钮的三个派生状态，由 syncBusy() 计算，模板直接绑 */
+      busy: false,
+      actionLabel: '查询',
+      actionClass: '',
+      actionTextClass: '',
+      displayValue: '输入好友码',
+
+      hasResult: false,
+      ratingText: '',
+      /** Phigros 专用：整数部分（放大显示）。 */
+      ratingInt: '',
+      /** Phigros 专用：小数部分（缩小显示），空字符串表示不走拆分分支。 */
+      ratingDec: '',
+      tierText: '',
+      /** 玩家名。多号玩家靠它确认「看的是谁的」。 */
+      playerName: '',
+      statLine1: '',
+      statLine2: '',
+      statLine3: '',
+      statLine4: '',
+      statLine5: '',
+      /** 成绩对比的一句话总结；空串表示不显示。 */
+      diffLine: '',
+      /** 当前游戏 id。决定请求哪个接口、以及统计行怎么写。 */
+      gameId: 'maimai',
+      /** 标题按游戏变：舞萌 Best 50 / 中二 B30 / Phigros RKS / osu Best Plays。 */
+      pageTitle: 'Best 50',
+      /**
+       * 这个游戏支持哪些查询方式。
+       *
+       * 从 `gameById(...).queryKinds` 来，页面只负责渲染。
+       * **不要在模板里写死「好友码 / QQ 号」**——osu 只有用户名，
+       * 写死就会出现「切到 osu 还让你填好友码」。
+       */
+      kinds: [],
+      /** 行的「定数」标签按游戏变：舞萌/中二用「定数」，osu 用「星数」。 */
+      levelLabel: '定数',
+      /** 行的版本标签：舞萌/中二用「版本」，osu 用「MOD」。 */
+      versionPrefix: '版本',
+      entries: [],
+    },
+
+    /** 返回上一页。失败也不会把用户困住——goBack 内部会兜底跳首页。 */
+    onBack() {
+      goBack('/');
+    },
+
+    /** 点对比那一行 → 看详情（哪几首涨了/跌了）。 */
+    openDiff() {
+      push('/diff');
+    },
+
+    /**
+     * 点某条成绩 → 打开推分页。
+     *
+     * 跨页传数据走 **storage**，不用路由参数 —— 这个 App 一直是这么做的
+     * （`Song` 页读 `songDetail` 也是这套）。路由参数要自己拼字符串、
+     * 还得处理编码，而曲名里有空格和各种符号。
+     *
+     * 传的是**数值**（`raw*` 系列字段），不是模板里那些格式化过的字符串。
+     */
+    openPush(item) {
+      if (!item) return;
+
+      const level = typeof item.rawLevelValue === 'number' ? item.rawLevelValue : null;
+      if (level === null || level <= 0) {
+        // 曲库里查不到定数就没法推分 —— 直接不跳，免得打开一个空页面
+        console.warn('[AstraMai] 这条成绩没有定数，无法推分');
+        return;
+      }
+
+      const seed = {
+        title: item.title || '',
+        levelValue: level,
+        achievement: typeof item.rawAchievement === 'number' ? item.rawAchievement : 0,
+        rating: typeof item.rawRating === 'number' ? item.rawRating : 0,
+      };
+
+      try {
+        writeSetting(keys.PUSH_SEED_KEY, JSON.stringify(seed));
+      } catch (error) {
+        console.warn('[AstraMai] 写推分种子失败：', error);
+      }
+
+      push('/push');
+    },
+
+    onReady() {
+      mark('B50:onReady');
+    },
+
+    onInit() {
+      mark('B50:onInit');
+      console.debug('[AstraMai] B50 onInit');
+      warmUp(['queryKind', 'queryValue', 'friendCode', 'currentGame', 'phigrosSession'])
+        .then(() => {
+          // 当前游戏决定查哪个接口、统计行怎么写
+          this.gameId = gameById(readCurrentGame(readSetting)).id;
+          this.applyGameProfile();
+          // Phigros 没有要输入的码，键盘一律收起（也省掉一个组件的初始化开销）
+          if (this.kinds.length === 0) this.keyboardHidden = true;
+          return this.restore();
+        })
+        .catch((error) => console.error('[AstraMai] B50 初始化失败：', error));
+    },
+
+    /**
+     * 按当前游戏把「标题 / 输入方式 / 行标签」一次配好。
+     *
+     * 集中在一处改：这三个东西都**跟着游戏变**，散在各处一定会漏。
+     */
+    applyGameProfile() {
+      const game = gameById(this.gameId);
+
+      this.pageTitle = b50TitleOf(game);
+      this.kinds = queryKindsOf(game).map((id) => ({
+        id,
+        label: KIND_LABELS[id] ?? id,
+      }));
+
+      if (this.gameId === 'osu') {
+        // osu! 的成绩行里：没有「定数」（是星数），没有「版本」（是 MOD）
+        this.levelLabel = '★';
+        this.versionPrefix = 'MOD';
+      } else {
+        this.levelLabel = '定数';
+        this.versionPrefix = '版本';
+      }
+    },
+
+    /**
+     * 恢复上次保存的查询目标。
+     *
+     * 手表上输入 15 位数字很费劲，所以「存下来、下次直接用」不是锦上添花，
+     * 而是这个页面能不能用的前提。
+     */
+    restore() {
+      /*
+       * 只能用**当前游戏支持**的查询方式。
+       *
+       * 上次可能是在舞萌页存的 'qq'，这次切到 osu 就不认了——
+       * 不校验的话会出现「输入框让你填 QQ 号但其实在查 osu」。
+       */
+      const savedKind = readSetting('queryKind', '');
+      const allowed = this.kinds.map((item) => item.id);
+      this.kind = allowed.indexOf(savedKind) >= 0 ? savedKind : allowed.length > 0 ? allowed[0] : 'friendCode';
+
+      // 兼容早期只存 friendCode 的版本
+      const saved =
+        normalizeByKind(this.kind, readSetting('queryValue', '')) ||
+        normalizeByKind(this.kind, readSetting('friendCode', ''));
+
+      this.code = saved;
+      this.refreshInputState();
+
+      if (saved) {
+        this.keyboardHidden = true;
+        this.query();
+      }
+    },
+
+    setKind(kind) {
+      if (this.kind === kind) return;
+      this.kind = kind;
+      // 两种方式的长度上限不同，切换时清空，避免留下不合法的残留
+      this.code = '';
+      this.errorText = '';
+      this.hasResult = false;
+      this.keyboardHidden = false;
+      this.refreshInputState();
+    },
+
+    /** 键盘上的「收」键按了 —— 直接收起。 */
+    onHideKeyboard() {
+      this.keyboardHidden = true;
+    },
+
+    toggleKeyboard() {
+      this.keyboardHidden = !this.keyboardHidden;
+    },
+
+    /**
+     * 按长度判定查的是 QQ 号还是好友码。
+     *
+     *     ≤ 11 位  → QQ（QQ 最长 11 位）
+     *     ≥ 12 位  → 好友码（15 位）
+     *
+     * 12~14 位理论上两边都不到，但 QQ 根本到不了 12 位，所以没有歧义。
+     *
+     * 只在「同时支持两种」的游戏里生效；osu 是用户名（字母），不参与。
+     * 输入为空时保持原判定 —— 否则刚进页面标签就跳，用户会以为坏了。
+     */
+    detectKind(code) {
+      const ids = (this.kinds || []).map((item) => item.id);
+      if (ids.indexOf('qq') < 0 || ids.indexOf('friendCode') < 0) return this.kind;
+
+      const digits = String(code || '').replace(/\D/g, '');
+      if (!digits) return this.kind;
+
+      return digits.length >= 12 ? 'friendCode' : 'qq';
+    },
+
+    refreshInputState() {
+      // 先按当前输入长度定性质，再算提示和可提交状态
+      this.kind = this.detectKind(this.code);
+
+      const described = describeInput(this.kind, this.code);
+      this.hint = described.text + (this.saving ? ` · ${this.saving}` : "");
+      this.canSubmit = isReadyToSubmit(this.kind, this.code);
+      this.syncBusy();
+      this.displayValue = this.code ? this.code : "好友码 / QQ 号";
+    },
+
+
+    /** 只监听 complete：keyDown 会在拼音模式下把字母也报上来，两个都听会重复输入。 */
+    /**
+     * 把「忙不忙」同步到按钮上。
+     *
+     * 之前只有 Phigros / osu 的路径会设 `saving`，舞萌的查询完全没设 ——
+     * 所以点了按钮之后界面一动不动，用户以为没点上，会反复点。
+     *
+     * 现在按钮文字、颜色、可点性都跟着 `saving` 走。
+     */
+    syncBusy() {
+      const busy = !!this.saving;
+      this.busy = busy;
+
+      const phigros = this.gameId === 'phigros';
+      const ready = this.canSubmit || phigros;
+
+      if (busy) {
+        this.actionLabel = '查询中…';
+        // 保持实心，但不再接受点击 —— 用 disabled 的类把颜色压暗一点
+        this.actionClass = 'action--disabled';
+        this.actionTextClass = 'action__text--filled';
+        return;
+      }
+
+      this.actionLabel = phigros ? '查询自己的成绩' : '查询';
+      this.actionClass = ready ? '' : 'action--disabled';
+      this.actionTextClass = ready ? 'action__text--filled' : 'action__text--disabled';
+    },
+
+    /** 按钮点击：忙的时候直接忽略，避免重复请求。 */
+    onQueryTap() {
+      if (this.busy) return;
+      this.query();
+    },
+
+    onComplete(evt) {
+      const content = evt && evt.detail ? evt.detail.content : '';
+      const before = this.code;
+      this.code = appendDigit(this.kind, this.code, content);
+      if (this.code === before && normalizeByKind(this.kind, content) === '') {
+        // 输入了不接受的字符，提示一下而不是静默吞掉
+        this.hint =
+          this.kind === 'username'
+            ? '用户名只能是字母、数字、下划线、连字符、空格、方括号'
+            : this.kind === 'qq'
+              ? 'QQ 号只能是数字'
+              : '好友码只能是数字';
+        return;
+      }
+      this.refreshInputState();
+    },
+
+    onDelete() {
+      this.code = backspace(this.code);
+      this.refreshInputState();
+    },
+
+    query() {
+      // Phigros 没有「输入好友码」这回事——凭证来自 TapTap 扫码，
+      // 所以必须在校验输入框之前就分出去，否则会提示「好友码应为 15 位数字」
+      if (this.gameId === 'phigros') {
+        this.queryPhigros();
+        return;
+      }
+
+      if (this.gameId === 'osu') {
+        this.queryOsu();
+        return;
+      }
+
+      const code = normalizeByKind(this.kind, this.code);
+      if (!isReadyToSubmit(this.kind, code)) {
+        this.errorText =
+          this.kind === 'username'
+            ? '用户名应为 2–15 个字符（字母、数字、下划线、连字符、空格、方括号）'
+            : this.kind === 'qq'
+              ? 'QQ 号应为 5–11 位数字'
+              : '好友码应为 15 位数字';
+        this.keyboardHidden = false;
+        return;
+      }
+
+      this.errorText = '';
+      this.keyboardHidden = true;
+
+      /*
+       * 标记「正在查询」。
+       *
+       * 之前这里没有这一行（只有 Phigros / osu 的路径有），所以舞萌查询
+       * 期间界面毫无变化。海外节点一次要几秒，用户会以为没点上。
+       */
+      this.saving = '查询中…';
+      this.syncBusy();
+
+      // 落盘：下次打开直接可用
+      writeSetting('queryKind', this.kind);
+      writeSetting('queryValue', code);
+      if (this.kind === 'friendCode') writeSetting('friendCode', code);
+
+      const request =
+        this.gameId === 'chunithm'
+          ? this.kind === 'qq'
+            ? fetchChunithmBestsByQq(code)
+            : fetchChunithmBests(code)
+          : this.kind === 'qq'
+            ? fetchB50ByQq(code)
+            : fetchB50(code);
+      request
+        .then((view) => {
+          this.apply(view);
+          this.saving = '';
+          this.refreshInputState();
+          // 先比上一次（此时 cache 里还是旧数据），再覆盖
+          this.compareWithCache(view, code);
+          // 成功就缓存一份，没网/服务器挂了还能看
+          this.saveCache(view, code);
+        })
+        .catch((error) => {
+          this.saving = '';
+          this.refreshInputState();
+          // 先试离线缓存；有缓存就不显示错误，改成"离线数据"的提示
+          if (this.showCache(code, '查询失败。')) return;
+          this.errorText = this.explainError(error, code);
+          this.hasResult = false;
+          this.keyboardHidden = false;
+        });
+    },
+
+    /**
+     * 把错误翻译成用户能看懂的一句话。
+     *
+     * 为什么需要：最常见的一次「网络请求失败」其实不是网络问题 ——
+     * 用户在「好友码」标签下填了自己的 **QQ 号**，客户端因为
+     * `FRIEND_CODE_MIN_LENGTH = 10` 放行了，服务端按 15 位好友码解析
+     * 就回了 400。用户看到的是一串接口路径，根本猜不到是这个原因。
+     *
+     * 所以这里做两件事：
+     *   1. 输入像 QQ 号而当前是好友码时，**直接告诉他切标签**
+     *   2. 其它情况保留服务端消息（它比「请求失败」有用）
+     */
+    explainError(error, code) {
+      const raw = error && error.message ? String(error.message) : '查询失败';
+
+      /*
+       * ⚠️ 先分清「网络挂了」和「服务端拒绝」，这两类要给的提示完全不同。
+       *
+       * 踩过的坑：之前只要消息里带 `/api/` 就当成服务端拒绝，但**网络层的
+       * 错误也会把路径拼进消息**（`网络请求失败：/api/v1/...`）。结果用户在
+       * QQ 号标签、号码也没错，却被告知「检查你选的是好友码还是 QQ 号」，
+       * 完全误导。
+       */
+      const isNetwork = /网络请求失败|请求超时|timeout|network/i.test(raw);
+      if (isNetwork) {
+        /*
+         * 按**设备类型**给不同的排查建议。
+         *
+         * ⚠️ 之前这里一律说「手环需要手机网桥」，对 REDMI Watch 这类
+         * 自带联网的手表是**错的** —— 它们连上小米运动健康就能上网，
+         * 跟网桥没关系，照着提示去开网桥只会白折腾。
+         *
+         * deviceType 来自 @system.device.getInfo()（APILevel 2+）：
+         *   band          手环 → 没有网络模块，必须靠手机中转
+         *   watch         手表 → 自带联网，问题多半在 WiFi / 信号
+         *   smartspeaker  音箱 → 少见，按网络问题处理
+         */
+        let device = '';
+        try {
+          device = String(screenSize.deviceType() || '');
+        } catch (error) {
+          device = '';
+        }
+
+        if (device === 'band') {
+          return '连不上服务器。手环没有网络模块，需要手机 App 的「手机网桥」开着。';
+        }
+        return '连不上服务器。检查一下手表的 WiFi 或信号。';
+      }
+
+      // 好友码 15 位，QQ 最多 11 位 —— 长度对不上就是填错了地方
+      if (this.kind === 'friendCode' && code && code.length < 15) {
+        return `好友码是 15 位数字，你填了 ${code.length} 位。如果这是 QQ 号，请切到「QQ 号」标签。`;
+      }
+
+      // 服务端消息里若还残留路径，换成一句人话
+      if (/\/api\//.test(raw)) {
+        return '查询失败：服务器拒绝了这次请求。检查一下选的是「好友码」还是「QQ 号」。';
+      }
+
+      return raw;
+    },
+
+    /*
+     * ── 离线缓存 ────────────────────────────────────────────────────
+     *
+     * 为什么需要：**音游厅在地下** —— 没信号是常事，而恰恰是在机台前
+     * 才想看成绩。服务器挂掉时同理。
+     *
+     * Phigros 早就有这套（`phigrosLastView`），但舞萌和中二没有 ——
+     * 用户正好需要的那两个反而没有。所以这里补上。
+     *
+     * 按「游戏 + 查询目标」分开存：同一个人可能查自己、查朋友，
+     * 用同一个键会互相覆盖，看到的是别人的成绩还以为是自己的。
+     */
+
+    /** 缓存的键。code 里可能有特殊字符，但 storage 的键是任意字符串，不用转义。 */
+    cacheKey(code) {
+      return keys.b50CacheKey(this.gameId, code);
+    },
+
+    /**
+     * 和上一次查到的比一比，把一句话总结放进 `diffLine`。
+     *
+     * ⚠️ **必须在 `saveCache` 之前调用** —— 那时缓存里还是上次的数据。
+     * 顺序反了就是拿新数据和新数据比，永远是"没有变化"。
+     *
+     * 没有上次数据（第一次查）时 `diffB50` 返回 `comparable: false`，
+     * `summarizeDiff` 给 `null`，`diffLine` 保持空串 → 模板不渲染任何东西。
+     */
+    compareWithCache(view, code) {
+      // 只有舞萌有这个对比（中二/Phigros 的视图结构不同，先不做）
+      if (this.gameId !== 'maimai') return;
+
+      /*
+       * 注意：`diffLine` 和 `DIFF_KEY` 的清理在 `apply()` 里做过了，
+       * 这里不用重复。`apply()` 是所有渲染路径的入口，
+       * 在它那里清一次就够 —— 写两处以后一定会有一处被忘掉。
+       */
+
+      let previous = null;
+      try {
+        const raw = readSetting(this.cacheKey(code), '');
+        if (raw) previous = JSON.parse(raw);
+      } catch (error) {
+        console.warn('[AstraMai] 读旧缓存用于对比失败：', error);
+        return;
+      }
+
+      if (!previous || typeof previous !== 'object') return;
+
+      try {
+        const diff = core.diffB50(previous, view);
+        const text = core.summarizeDiff(diff);
+        if (!text) return;
+
+        this.diffLine = text;
+
+        /*
+         * 把完整对比也存下来，供「对比详情」页读。
+         *
+         * 为什么不存 `previous` 视图再让详情页自己算：
+         * 那要多存十几 KB，而且详情页得再依赖一次 diffB50 的签名。
+         * 存算好的结果，详情页只管渲染 —— 数据只算一次，两边不会不一致。
+         */
+        try {
+          writeSetting(keys.B50_DIFF_KEY, JSON.stringify(diff));
+        } catch (error) {
+          console.warn('[AstraMai] 保存对比结果失败：', error);
+        }
+      } catch (error) {
+        // 旧缓存是旧版本写的、结构对不上 —— 对比失败不影响看成绩
+        console.warn('[AstraMai] 成绩对比失败：', error);
+      }
+    },
+
+    /**
+     * 查完存一份，并按 LRU 淘汰旧条目。
+     *
+     * ⚠️ **必须有淘汰。** 一份 B50 的 view 十几 KB，如果用户查过几十个好友码，
+     * 缓存会无限增长，而手表存储是有上限的 —— 写满之后
+     * `writeSetting` 会抛异常，那时候连正常设置都存不进去了。
+     *
+     * 只保留最近 `CACHE_MAX` 条（跨游戏一起算，因为共享同一份存储配额）。
+     */
+    saveCache(view, code) {
+      const key = this.cacheKey(code);
+
+      try {
+        writeSetting(key, JSON.stringify(view));
+        writeSetting(`${key}:at`, String(Date.now()));
+      } catch (error) {
+        // 存不下就算了 —— 绝不能因为缓存失败让用户看不到成绩
+        console.warn('[AstraMai] 缓存成绩失败：', error);
+        return;
+      }
+
+      try {
+        const now = Date.now();
+        let index = [];
+        const raw = readSetting(CACHE_INDEX_KEY, '');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) index = parsed;
+        }
+
+        // 去重 + 放到最前
+        index = index.filter((item) => item && item.key !== key);
+        index.unshift({ key, at: now });
+
+        // 超出上限的老条目直接删
+        while (index.length > CACHE_MAX) {
+          const dropped = index.pop();
+          if (dropped && dropped.key) {
+            writeSetting(dropped.key, '');
+            writeSetting(`${dropped.key}:at`, '');
+          }
+        }
+
+        writeSetting(CACHE_INDEX_KEY, JSON.stringify(index));
+      } catch (error) {
+        // 索引坏了不影响已写入的缓存，下次查询会重建
+        console.warn('[AstraMai] 更新缓存索引失败：', error);
+      }
+    },
+
+    /**
+     * 读缓存并渲染。
+     *
+     * @returns 有没有可用缓存（true 表示已经把缓存画出来了）
+     */
+    showCache(code, reason) {
+      /*
+       * ⚠️ 缓存键是**动态拼的**，必须先把内存缓存预热再读。
+       *
+       * `store.readSetting` 只读内存，而内存只有 `warmUp()` 预热过的键。
+       * onInit 里那份固定列表不可能包含 `b50Cache:maimai:3687236844`，
+       * 所以以前这里永远读到空 —— **离线缓存跨重启根本没生效过**，
+       * 只是本次运行内 `writeSetting` 顺手写了内存，看起来像是好的。
+       */
+      const hit = this.renderCache(code, reason);
+      if (!hit) {
+        // 内存里没有，说明是「重启后第一次」—— 预热完再试一次
+        warmUp([this.cacheKey(code), `${this.cacheKey(code)}:at`])
+          .then(() => this.renderCache(code, reason))
+          .catch(() => {});
+      }
+      return hit;
+    },
+    renderCache(code, reason) {
+      let cached = null;
+      let at = 0;
+
+      try {
+        const raw = readSetting(this.cacheKey(code), '');
+        if (raw) cached = JSON.parse(raw);
+        at = Number(readSetting(`${this.cacheKey(code)}:at`, '0')) || 0;
+      } catch (error) {
+        console.warn('[AstraMai] 读缓存失败：', error);
+        return false;
+      }
+
+      if (!cached || typeof cached !== 'object') return false;
+
+      this.apply(cached);
+      this.saving = '';
+      this.refreshInputState();
+
+      const when = at > 0 ? formatCachedTime(at) : '之前';
+      this.errorText = `${reason}下面显示的是 ${when} 的数据（离线缓存）。`;
+      return true;
+    },
+
+    apply(view) {
+      /*
+       * 第 5 行先清空。
+       *
+       * 只有舞萌会用这一行（「公式对拍」），而成绩卡是全游戏共用的组件 ——
+       * 不清的话从舞萌切到中二，那一行会**残留着上一款游戏的内容**。
+       * 这类残留最难发现，因为只有"切过游戏"的人才会看到。
+       */
+      this.statLine5 = '';
+
+      /*
+       * 对比行和对比数据也一起清。
+       *
+       * `apply` 是**所有**渲染路径的入口（正常查询、离线缓存、切游戏），
+       * 所以在这里清一次就能覆盖全部：
+       *
+       *   · 查询失败读缓存 → 不该显示上一次查询的「+112」，
+       *     那是**上一次**的对比结果，配着缓存里的旧成绩会误导人
+       *   · 切到中二 → 不该还显示舞萌的对比，而且点进去看的是别的游戏的详情
+       *
+       * 正常查询时 `compareWithCache` 会在 `apply` 之后重新写回来。
+       */
+      this.diffLine = '';
+      try {
+        writeSetting(keys.B50_DIFF_KEY, '');
+      } catch (error) {
+        console.warn('[AstraMai] 清除对比数据失败：', error);
+      }
+
+      if (this.gameId === 'chunithm') {
+        this.applyChunithm(view);
+        return;
+      }
+      if (this.gameId === 'phigros') {
+        this.applyPhigros(view);
+        return;
+      }
+      this.applyMaimai(view);
+    },
+
+    /**
+     * 「距下一档还差多少」那一行。
+     *
+     * 玩家最常问的两个问题之一是「我还差多少上虹」。
+     * 已经是最高档（虹極）时换成一句别的，不要显示"还差 0 分"。
+     */
+    nextTierLine(rating) {
+      const info = core.nextTier(Number(rating) || 0);
+      if (!info.next) return `段位　${info.current.label}（最高档）`;
+      return `距${info.next.label}　还差 ${info.gap}`;
+    },
+
+    /**
+     * 查 Phigros 成绩。
+     *
+     * 没登录就直接引导去登录页，**不发请求**——
+     * 发出去也是 401，不如省一次往返并告诉玩家该做什么。
+     */
+    /**
+     * 查 osu! 成绩。
+     *
+     * ⚠️ **绝不自动重试**：osu! 上游限流是全应用共享的 60 次/分钟，
+     * 我们一次查询花 2 次（资料 + 成绩）。超了就让玩家等，
+     * 重试只会把所有人一起拖死，还可能被吊销 token。
+     */
+    queryOsu() {
+      const username = normalizeByKind('username', this.code);
+      if (!isUsername(username)) {
+        this.errorText = '用户名不合法，请检查后重试';
+        this.keyboardHidden = false;
+        return;
+      }
+
+      this.keyboardHidden = true;
+      this.errorText = '';
+      this.saving = '查询中…';
+
+      fetchOsuBests(username, { limit: 50 })
+        .then((view) => {
+          if (!view) throw new Error('查询失败');
+          this.applyOsu(view);
+          this.saving = '';
+          this.refreshInputState();
+        })
+        .catch((error) => {
+          this.errorText = error && error.message ? error.message : '查询失败';
+          this.hasResult = false;
+          this.saving = '';
+        });
+    },
+
+    /**
+     * osu! 成绩 → 行。
+     *
+     * 行的字段和舞萌同一套名字，但**含义不同**：
+     *   rating       → 这一局的 pp（舞萌是单曲 rating）
+     *   achievements → 准确率（舞萌是达成率）
+     *   versionTitle → MOD（舞萌是所属版本）
+     *   levelValue   → 星数（舞萌是定数）
+     *
+     * 两个标签在 `applyGameProfile` 里已经改成「★」和「MOD」。
+     */
+    applyOsu(view) {
+      const player = view.player || {};
+      const stats = view.stats || {};
+      const scores = view.scores || [];
+
+      /*
+       * 主数字是**总 pp**，用服务端格式化好的文本。
+       * pp 的小数在这个尺寸上没有价值，不分整数/小数两段。
+       */
+      const ppText = String(player.ppText ?? '—');
+      this.ratingInt = ppText;
+      this.ratingDec = '';
+      this.ratingText = ppText;
+
+      this.playerName = player.name || '';
+      // osu! 没有「段位」，这里用全球排名替代——信息量更大
+      this.tierText =
+        player.globalRankText && player.globalRankText !== '—' ? player.globalRankText : '';
+
+      /*
+       * ⚠️ **没有成绩的时候显示「—」而不是 0。**
+       *
+       * 大白号的真实数据就是 pp=0 / accuracy=0 / 没有 top play。
+       * 显示「准确率 0.00%」「最佳单曲 0.00pp」会让人以为 App 算错了 ——
+       * 而这其实是 osu 官方的真实状态。
+       *
+       * 判断"有没有成绩"看两个数：
+       *   accuracy  > 0  → 才有准确率可显示
+       *   topPp     > 0  → 才有 pp 可显示（玩过但没进 top 也算没有）
+       */
+      const hasAccuracy = (player.accuracy ?? 0) > 0;
+      const hasTop = (stats.topPp ?? 0) > 0;
+
+      this.statLine1 = '准确率　' + (hasAccuracy ? (player.accuracyText ?? '—') : '—');
+      this.statLine2 = '游玩次数　' + (player.playCount ?? 0);
+      this.statLine3 = '最佳单曲　' + (hasTop ? formatPp(stats.topPp) + 'pp' : '—');
+      this.statLine4 = '列表合计　' + (hasTop ? formatPp(stats.listedPpSum || 0) + 'pp' : '—');
+
+      allEntries = scores.map((entry) => ({
+        title: entry.songTitle || entry.title || '未知曲目',
+        difficulty: entry.version || '—',
+        // osu! 没有固定的难度配色，按星数映射（越亮越难）
+        diffColor: starColor(entry.starRating),
+        levelValue: entry.starRatingText || '—',
+        // 主数字是这局的 pp
+        rating: entry.ppText || '—',
+        achievements: entry.accuracyText || '—',
+        versionTitle: entry.modsText || '无',
+        jacketUrl: entry.coverUrl || '',
+      }));
+
+      this.finishApply();
+    },
+
+    queryPhigros() {
+      const session = readSetting('phigrosSession', '');
+      if (!session) {
+        // 没登录也要试一次缓存——过期之后凭证会被清掉，
+        // 但上次的成绩还留着，别让用户对着空白页
+        if (this.showCachedPhigros('还没登录 Phigros。')) return;
+        this.errorText = '还没登录 Phigros。请到「设置 → Phigros 登录」用 TapTap 扫码。';
+        this.hasResult = false;
+        return;
+      }
+
+      this.keyboardHidden = true;
+      this.errorText = '';
+      this.saving = '查询中…';
+
+      fetchPhigrosBests(session)
+        .then((view) => {
+          if (!view) throw new Error('查询失败');
+          // 存一份：平台会话约 1 天就过期，但成绩本身不会变
+          try {
+            writeSetting('phigrosLastView', JSON.stringify(view));
+            writeSetting('phigrosLastAt', String(Date.now()));
+          } catch (error) {
+            console.warn('[AstraMai] 缓存 Phigros 成绩失败：', error);
+          }
+          this.apply(view);
+          this.saving = '';
+        })
+        .catch((error) => {
+          this.saving = '';
+          const status = error && error.status;
+
+          if (status === 401) {
+            /*
+             * 会话过期。平台的有效期是对方定的，我们改不了——
+             * 所以做三件事：
+             *   1. 清掉本地凭证，免得每次查询都拿死 token 重试
+             *   2. 把上次的结果显示出来并**标注时间**
+             *   3. 明确告诉用户去哪儿重新扫码
+             */
+            try {
+              writeSetting('phigrosSession', '');
+            } catch (writeError) {
+              console.warn('[AstraMai] 清除过期凭证失败：', writeError);
+            }
+            if (this.showCachedPhigros('登录已过期。')) return;
+
+            this.errorText = '登录已过期，请到「设置 → Phigros 登录」重新扫码。';
+            this.hasResult = false;
+            return;
+          }
+
+          this.errorText = error && error.message ? error.message : '查询失败';
+          this.hasResult = false;
+        });
+    },
+
+    /**
+     * 把缓存的成绩显示出来，并在顶部说明这是旧数据。
+     *
+     * **宁可显示带时间标注的旧数据，也不要一片空白**——
+     * 成绩是玩家自己的历史记录，不会因为会话过期就失效。
+     *
+     * @returns 是否成功显示了缓存
+     */
+    showCachedPhigros(reason) {
+      let cached = null;
+      let at = 0;
+      try {
+        const raw = readSetting('phigrosLastView', '');
+        if (raw) cached = JSON.parse(raw);
+        at = Number(readSetting('phigrosLastAt', '0')) || 0;
+      } catch (error) {
+        console.warn('[AstraMai] 读取 Phigros 缓存失败：', error);
+        return false;
+      }
+      if (!cached || typeof cached !== 'object') return false;
+
+      this.apply(cached);
+      this.errorText =
+        reason +
+        (at > 0 ? `下面显示的是 ${formatCachedTime(at)} 的数据，` : '') +
+        '请到「设置 → Phigros 登录」重新扫码以获取最新成绩。';
+      return true;
+    },
+
+    /** Phigros：RKS + B30。 */
+    applyPhigros(view) {
+      const stats = view.stats || {};
+      const best30 = view.best30 || [];
+
+      /*
+       * RKS 是浮点数，原始值形如 15.7887875979519——
+       * 这串精度对玩家没意义，而且 16 个字符会把 150px 的列撑爆（逐字折行）。
+       *
+       * 格式化到 4 位小数（Phigros 玩家熟悉的精度），并拆成两段：
+       * 整数 40px、小数 22px。成绩类 UI 的常规做法。
+       */
+      const rks = Number(view.rks);
+      if (Number.isFinite(rks)) {
+        const fixed = rks.toFixed(4); // "15.7888"
+        const dot = fixed.indexOf('.');
+        this.ratingInt = fixed.slice(0, dot);
+        this.ratingDec = fixed.slice(dot); // ".7888"，带小数点
+        this.ratingText = fixed;
+      } else {
+        this.ratingInt = '';
+        this.ratingDec = '';
+        this.ratingText = String(view.rks);
+      }
+
+      /*
+       * ⚠️ **不要给 tierText 塞昵称。**
+       * 原来这里是 `this.tierText = view.nickname`，和 playerName 同一个值，
+       * 模板里两处都渲染 → 屏幕上出现两个玩家名字。
+       *
+       * Phigros 没有「段位」概念，留空即可（模板有 `if` 判断）。
+       */
+      this.tierText = '';
+      this.playerName = view.nickname || '';
+      this.statLine1 = 'B30　' + (stats.best30Count ?? best30.length);
+      this.statLine2 = '成绩总数　' + (stats.recordCount ?? 0);
+      this.statLine3 = 'FC　' + (stats.fullComboCount ?? 0);
+      this.statLine4 = '满分　' + (stats.phiCount ?? 0);
+
+      allEntries = best30.map((entry) => ({
+        title: entry.title,
+        difficulty: entry.difficulty,
+        diffColor: entry.color || '#9bacd0',
+        levelValue:
+          typeof entry.chartConstant === 'number' ? entry.chartConstant.toFixed(1) : '--',
+        // B30 的每条自带它对 RKS 的贡献
+        rating: typeof entry.rks === 'number' ? entry.rks.toFixed(2) : '--',
+        achievements: String(entry.score ?? '--'),
+        // Phigros 没有「版本」这种逐条信息，显示准确率更有用
+        versionTitle:
+          typeof entry.accuracy === 'number'
+            ? 'ACC ' + entry.accuracy.toFixed(2) + '%'
+            : 'ACC --',
+        jacketUrl: '',
+      }));
+
+      this.finishApply();
+    },
+
+    /** 舞萌：B35 + B15 合成 B50。 */
+    applyMaimai(view) {
+      const stats = view.stats;
+      const player = view.player;
+
+      this.ratingText = String(player.rating);
+      this.ratingInt = '';
+      this.ratingDec = '';
+      this.tierText = player.tier ? player.tier.label : '';
+      this.playerName = player.name || '';
+      this.statLine1 = '旧曲 B35　' + stats.standardTotal;
+      this.statLine2 = '新曲 B15　' + stats.dxTotal;
+      this.statLine3 = '平均定数　' + stats.averageLevelValue.toFixed(2);
+      /*
+       * 第 4 行留给「距下一档还差多少」—— 玩家最常问的两个问题之一
+       * 就是「我还差多少上虹」。原来的「公式对拍」是开发用的自检，
+       * 挪到第 5 行：它对排查数据问题有用，但不该占着玩家最想看的位置。
+       */
+      this.statLine4 = this.nextTierLine(player.rating);
+      /*
+       * 第 5 行**只在算错了的时候出现**。
+       *
+       * 「公式对拍 一致」是给开发看的质量信号对玩家没意义，
+       * 而多一行会让固定 132px 的卡片变挤。所以只在**不一致**时显示 ——
+       * 那种情况本来就该让用户看到（说明落雪返回的数据和我们算的对不上）。
+       *
+       * 顺带：常见情况回到 4 行，卡片更宽裕。
+       */
+      this.statLine5 =
+        stats.computedDelta === 0 ? '' : '公式对拍　差 ' + stats.computedDelta;
+
+      // 官方《常用业务优化》：list 内容超过 10 条建议分页渲染，
+      // 切勿初始化渲染大量数据，会造成页面渲染卡顿。
+      // 所以先渲染一页，其余等触底再追加。
+      allEntries = view.standard
+        .concat(view.dx)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .map((entry) => ({
+          title: entry.title,
+          difficulty: entry.difficultyShort,
+          // 难度配色与游戏内一致：绿 / 黄 / 红 / 紫 / 白
+          diffColor: DIFFICULTY_COLOR[entry.levelIndex] || '#9bacd0',
+          /*
+           * ⚠️ 下面三个字段同时存**两种形态**：
+           *   `levelValue` / `rating` / `achievements` 是给界面看的字符串
+           *   `raw*` 是给推分页用的数值
+           *
+           * 不合并成一个字段的原因：模板里要的是"14.0"这种格式化结果，
+           * 而推分要的是能参与计算的数字。把格式化结果反解回数字
+           * （parseFloat('14.0')）在 `--` 时会变成 NaN，更容易出错。
+           */
+          levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
+          rating: entry.rating === null ? '--' : String(entry.rating),
+          achievements: entry.achievements.toFixed(4) + '%',
+          rawLevelValue: entry.levelValue,
+          rawRating: entry.rating,
+          rawAchievement: entry.achievements,
+          // 封面直链（已裁剪到列表尺寸），服务端组装 B50 视图时已经带上
+          jacketUrl: entry.jacketUrl || '',
+          // 版本名由 core 的 versionTitleOf 解析（曲目里是细粒度版本号，版本表是千位步长）
+          versionTitle: entry.songVersionTitle || '未知',
+        }));
+
+      this.finishApply();
+    },
+
+    /**
+     * 中二节奏：B30 + Selection10 + Recent10。
+     *
+     * **三组并列进同一个列表**，而不是像舞萌那样合成一个榜单：
+     * 它们的意义不同（Best / 选拔 / 最近），合成会让玩家看不出哪条是 Best。
+     * 排序按 Rating 降序，这样 Best 30 自然排在最前。
+     */
+    applyChunithm(view) {
+      const stats = view.stats;
+      const player = view.player;
+
+      this.ratingText = String(player.rating);
+      this.ratingInt = '';
+      this.ratingDec = '';
+      // 中二没有「段位」这种概念，玩家等级才是名片上的东西
+      this.tierText = player.level ? '等级 ' + player.level : '';
+      // 中二的玩家名可能是全角（游戏内输入法打出来的），原样显示不转换
+      this.playerName = player.name || '';
+      this.statLine1 = 'Best 30　' + stats.bestsCount;
+      this.statLine2 = 'Selection 10　' + stats.selectionsCount;
+      this.statLine3 = 'Recent 10　' + stats.recentsCount;
+      this.statLine4 = 'B30 Rating 合计　' + stats.bestsRatingSum;
+
+      allEntries = view.bests
+        .concat(view.selections)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .map((entry) => ({
+          title: entry.title,
+          difficulty: entry.difficultyShort,
+          // 中二是六档下标，WE 用金色单独标出（它是特殊谱面，不是第六档难度）
+          diffColor: chunithmDifficultyColor(entry.levelIndex),
+          levelValue: entry.levelValue === null ? '--' : entry.levelValue.toFixed(1),
+          // 中二的 Rating 由接口直接给出（浮点），保留两位
+          rating: entry.rating ? entry.rating.toFixed(2) : '--',
+          // 中二看的是分数而不是达成率
+          achievements: String(entry.points),
+          jacketUrl: entry.jacketUrl || '',
+          // 中二视图没有逐条的版本名，显示难度全称更有用
+          versionTitle: entry.difficultyName + (entry.isWorldsEnd ? ' · 特殊谱面' : ''),
+        }));
+
+      this.finishApply();
+    },
+
+    /** 两个游戏共用的收尾：分页渲染 + 标记有结果。 */
+    finishApply() {
+      // 原地清空再追加，避免整份重新赋值开辟新内存（官方《内存优化》第 2 条）
+      this.entries.length = 0;
+      shownCount = 0;
+      this.appendPage();
+      this.hasResult = true;
+    },
+
+    /** 追加一页。触底时也会调这里。 */
+    appendPage() {
+      const next = allEntries.slice(shownCount, shownCount + PAGE_SIZE);
+      for (const item of next) this.entries.push(item);
+      shownCount += next.length;
+    },
+
+    /** 触底加载下一页。 */
+    onScrollBottom() {
+      if (shownCount < allEntries.length) this.appendPage();
+    },
+  };
+</script>

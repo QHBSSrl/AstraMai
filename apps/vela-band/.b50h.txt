@@ -1,0 +1,2 @@
+<import name="input-method" src="../../components/InputMethod/InputMethod.ux"></import>
+<import name="score-summary" src="../../components/ScoreSummary/ScoreSummary.ux"></import>
