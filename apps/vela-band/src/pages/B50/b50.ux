@@ -245,10 +245,16 @@
     text-overflow: ellipsis;
   }
 
-  /* Rating 是主角：字号 48 */
+  /*
+   * Rating 是主角：字号 48 + **主题色**。
+   *
+   * 设计稿里是白的，但用户说那只是示例 —— 全 App 的主数字都用主题粉
+   * （首页卡片、手表版的 game__rating 都是），这里跟着统一。
+   */
   .summary__rating {
     font-size: 48px;
-    color: #ffffff;
+    font-weight: bold;
+    color: #ff5f9e;
     margin-top: 4px;
   }
 

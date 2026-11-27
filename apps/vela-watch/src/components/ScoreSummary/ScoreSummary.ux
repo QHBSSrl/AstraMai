@@ -97,7 +97,7 @@
 
   .rating {
     font-size: 40px;
-    color: @ui-on-surface;
+    color: @ui-primary;
   }
 
   /*
