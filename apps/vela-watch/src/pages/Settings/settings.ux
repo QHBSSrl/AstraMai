@@ -9,12 +9,14 @@
 
     <text class="title">设置</text>
 
-    <!-- 游戏切换 -->
+    <!--
+      游戏切换：选中项只靠**颜色**表示（主题粉 + 加粗），
+      不再加「当前」两个字 —— 手环屏幕窄，那两个字把游戏名挤掉一截。
+    -->
     <text class="section">游戏</text>
     <div class="rows">
       <div class="row" for="{{ gameRows }}" @click="selectGame($item.id)">
-        <text class="row__label" style="color: {{ $item.current ? '#4fd6ff' : '#e8eefc' }}">{{ $item.label }}</text>
-        <text class="row__mark" if="{{ $item.current }}">当前</text>
+        <text class="row__label" style="color: {{ $item.current ? '#ff5f9e' : '#e8eefc' }}; font-weight: {{ $item.current ? 'bold' : 'normal' }}">{{ $item.label }}</text>
       </div>
     </div>
 
