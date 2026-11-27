@@ -107,9 +107,12 @@
   @import '../../common/theme-tokens.less';
 
   /*
-   * 192 宽的内容区：左右各留 8px → 176px。
+   * 192 宽的内容区：左右各留 10px → 172px。
    *
-   * 跑道屏左右是圆弧，8px 是能接受的最小值 —— 再多曲名就没地方了。
+   * ⚠️ **顶部内边距必须给足。**
+   * 跑道屏顶上是个半圆弧，y=20 处只有约 60px 可用宽度。
+   * 上一版只留 6px，返回键直接被屏幕边缘切掉一角，也点不准。
+   * 现在留 26px，返回键落在 y=26~70 这段（可用宽度 130px+），完整且好点。
    */
   .page-root {
     flex-direction: column;
@@ -123,7 +126,7 @@
     flex: 1;
     width: 100%;
     flex-direction: column;
-    padding: 6px 8px 0;
+    padding: 26px 10px 0;
   }
 
   /* ── 顶栏 ──────────────────────────────────────────────────── */
@@ -131,28 +134,28 @@
     flex-direction: row;
     align-items: center;
     width: 100%;
-    height: 40px;
+    height: 44px;
   }
 
-  /* 返回键做成 36×36 的圆，比文字胶囊省地方 */
+  /* 返回键 44×44 —— 手环上手指压不准，Vela 建议触摸区不小于 48，
+     这个已经是能接受的下限，再小就点不到。 */
   .back {
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: @ui-radius-full;
     background-color: @ui-surface-container;
   }
 
   .back__text {
-    font-size: 20px;
+    font-size: 24px;
     color: @ui-on-surface;
   }
 
-  /* 标题 15px：192 宽扣掉返回键还剩 140px，「Best 50」放得下 */
   .topbar__title {
     flex: 1;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: bold;
     color: @ui-on-surface;
     margin-left: 8px;
@@ -162,21 +165,21 @@
 
   /* ── 查询方式标签 ──────────────────────────────────────────── */
   /*
-   * 字号 13、左右内边距 8 —— 「好友码」三个字约 39px，加内边距 55px，
-   * 两个标签 110px < 176px，不会像原来那样被挤成单字。
+   * 高度 36、字号 14 —— 「好友码」约 42px + 内边距 20 = 62px，
+   * 两个标签 130px < 172px，不截断，也够高能点。
    */
   .kinds {
     flex-direction: row;
     width: 100%;
-    margin-top: 6px;
+    margin-top: 10px;
   }
 
   .kind {
     align-items: center;
     justify-content: center;
-    height: 30px;
-    margin-right: 6px;
-    padding: 0 8px;
+    height: 36px;
+    margin-right: 8px;
+    padding: 0 12px;
     border-radius: @ui-radius-full;
     background-color: @ui-surface-card;
   }
@@ -186,7 +189,7 @@
   }
 
   .kind__text {
-    font-size: 13px;
+    font-size: 14px;
     color: @ui-on-surface-variant;
   }
 
@@ -199,22 +202,21 @@
   .target {
     flex-direction: column;
     width: 100%;
-    margin-top: 8px;
-    padding: 8px 10px;
+    margin-top: 10px;
+    padding: 10px 12px;
     border-radius: @ui-radius-md;
     background-color: @ui-surface-card;
   }
 
-  /* 18px：15 位好友码约 150px，一行放得下 */
   .target__value {
-    font-size: 18px;
+    font-size: 20px;
     color: @ui-on-surface;
     lines: 1;
     text-overflow: ellipsis;
   }
 
   .target__hint {
-    font-size: 11px;
+    font-size: 12px;
     color: @ui-on-surface-variant;
     margin-top: 2px;
     lines: 1;
@@ -222,24 +224,29 @@
   }
 
   /* ── 按钮 ──────────────────────────────────────────────────── */
+  /*
+   * 高度 52 —— 上一版 36 太小，实机上点不准。
+   * 手环的触摸精度比手表差，按钮不能按手表的标准做。
+   */
   .actions {
     flex-direction: row;
     width: 100%;
-    margin-top: 8px;
+    margin-top: 12px;
   }
 
   .action {
     flex: 1;
     align-items: center;
     justify-content: center;
-    height: 36px;
+    height: 52px;
     border-radius: @ui-radius-md;
     background-color: @ui-primary;
   }
 
+  /* 「输入」固定 72 宽：够放下两个字，也给主按钮留足空间 */
   .action--ghost {
-    flex: 0 0 60px;
-    margin-left: 6px;
+    flex: 0 0 72px;
+    margin-left: 8px;
     background-color: @ui-surface-container;
   }
 
@@ -248,7 +255,7 @@
   }
 
   .action__text {
-    font-size: 14px;
+    font-size: 17px;
     font-weight: bold;
   }
 
@@ -266,10 +273,10 @@
   }
 
   .error {
-    font-size: 11px;
+    font-size: 12px;
     color: @ui-warning;
-    margin-top: 6px;
-    lines: 2;
+    margin-top: 8px;
+    lines: 3;
     text-overflow: ellipsis;
   }
 
@@ -278,28 +285,27 @@
     flex-direction: column;
     align-items: center;
     width: 100%;
-    margin-top: 8px;
-    padding: 8px 0;
+    margin-top: 10px;
+    padding: 10px 0;
     border-radius: @ui-radius-md;
     background-color: @ui-surface-emphasis;
   }
 
   .summary__name {
-    font-size: 12px;
+    font-size: 13px;
     color: @ui-on-surface-variant;
     lines: 1;
     text-overflow: ellipsis;
   }
 
-  /* Rating 是主角 */
   .summary__rating {
-    font-size: 30px;
+    font-size: 34px;
     font-weight: bold;
     color: @ui-primary;
   }
 
   .summary__label {
-    font-size: 10px;
+    font-size: 11px;
     color: @ui-on-surface-variant;
   }
 
@@ -308,26 +314,21 @@
     flex: 1;
     min-height: 80px;
     width: 100%;
-    margin-top: 6px;
+    margin-top: 8px;
   }
 
-  /*
-   * 一行一个成绩，两行式。
-   *
-   * 高度 52：曲名 15px + 元信息 11px，比原来的 82 矮 ——
-   * 曲绘去掉了，那一截高度不再需要。
-   */
+  /* 行高 56：曲名 16px + 元信息 12px，曲绘去掉后不需要 82 那么高 */
   .row {
     flex-direction: column;
     justify-content: center;
     width: 100%;
-    height: 52px;
+    height: 56px;
     padding: 0 4px;
     border-bottom: 1px solid @ui-surface-container;
   }
 
   .row__title {
-    font-size: 15px;
+    font-size: 16px;
     color: @ui-on-surface;
     lines: 1;
     text-overflow: ellipsis;
@@ -338,18 +339,18 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    margin-top: 1px;
+    margin-top: 2px;
   }
 
   .row__left {
-    font-size: 11px;
+    font-size: 12px;
     color: @ui-on-surface-variant;
     lines: 1;
     text-overflow: ellipsis;
   }
 
   .row__ach {
-    font-size: 11px;
+    font-size: 12px;
     color: @ui-on-surface-variant;
   }
 </style>
