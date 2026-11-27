@@ -44,11 +44,7 @@
 
       <!-- 输入块：Phigros 没有输入（扫码登录），kinds 为空时整块不渲染 -->
       <block if="{{ kinds.length > 0 }}">
-        <div class="kinds" if="{{ kinds.length > 1 }}">
-          <div class="kind {{ kind === $item.id ? 'kind--on' : '' }}" for="{{ kinds }}" @click="setKind($item.id)">
-            <text class="kind__text{{ kind === $item.id ? ' kind__text--on' : '' }}">{{ $item.label }}</text>
-          </div>
-        </div>
+        <!-- 不再有「好友码 / QQ 号」切换：按输入长度自动识别（见 detectKind） -->
 
         <div class="target" @click="toggleKeyboard">
           <text class="target__value">{{ displayValue }}</text>
@@ -168,36 +164,6 @@
    * 高度 36、字号 14 —— 「好友码」约 42px + 内边距 20 = 62px，
    * 两个标签 130px < 172px，不截断，也够高能点。
    */
-  .kinds {
-    flex-direction: row;
-    width: 100%;
-    margin-top: 10px;
-  }
-
-  .kind {
-    align-items: center;
-    justify-content: center;
-    height: 36px;
-    margin-right: 8px;
-    padding: 0 12px;
-    border-radius: @ui-radius-full;
-    background-color: @ui-surface-card;
-  }
-
-  .kind--on {
-    background-color: @ui-surface-emphasis;
-  }
-
-  .kind__text {
-    font-size: 14px;
-    color: @ui-on-surface-variant;
-  }
-
-  .kind__text--on {
-    color: @ui-on-surface;
-    font-weight: bold;
-  }
-
   /* ── 输入显示 ──────────────────────────────────────────────── */
   .target {
     flex-direction: column;
@@ -641,15 +607,38 @@
       this.keyboardHidden = !this.keyboardHidden;
     },
 
+    /**
+     * 按长度判定查的是 QQ 号还是好友码。
+     *
+     *     ≤ 11 位  → QQ（QQ 最长 11 位）
+     *     ≥ 12 位  → 好友码（15 位）
+     *
+     * 12~14 位理论上两边都不到，但 QQ 根本到不了 12 位，所以没有歧义。
+     *
+     * 只在「同时支持两种」的游戏里生效；osu 是用户名（字母），不参与。
+     * 输入为空时保持原判定 —— 否则刚进页面标签就跳，用户会以为坏了。
+     */
+    detectKind(code) {
+      const ids = (this.kinds || []).map((item) => item.id);
+      if (ids.indexOf('qq') < 0 || ids.indexOf('friendCode') < 0) return this.kind;
+
+      const digits = String(code || '').replace(/\D/g, '');
+      if (!digits) return this.kind;
+
+      return digits.length >= 12 ? 'friendCode' : 'qq';
+    },
+
     refreshInputState() {
+      // 先按当前输入长度定性质，再算提示和可提交状态
+      this.kind = this.detectKind(this.code);
+
       const described = describeInput(this.kind, this.code);
-      this.hint = described.text + (this.saving ? ` · ${this.saving}` : '');
+      this.hint = described.text + (this.saving ? ` · ${this.saving}` : "");
       this.canSubmit = isReadyToSubmit(this.kind, this.code);
       this.syncBusy();
-      this.displayValue = this.code
-        ? this.code
-        : `输入${KIND_LABELS[this.kind] ?? '好友码'}`;
+      this.displayValue = this.code ? this.code : "好友码 / QQ 号";
     },
+
 
     /** 只监听 complete：keyDown 会在拼音模式下把字母也报上来，两个都听会重复输入。 */
     /**
