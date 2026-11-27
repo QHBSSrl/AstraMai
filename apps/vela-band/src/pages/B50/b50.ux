@@ -2,138 +2,101 @@
 <import name="score-summary" src="../../components/ScoreSummary/ScoreSummary.ux"></import>
 
 <template>
+  <!--
+    Best 50 · 小米手环（跑道型 192×490）
+
+    ── 这一版是重写，不是微调 ──────────────────────────────────────
+    原来那套是按 432 宽设计的，缩到 192 之后：
+        · 顶栏「Best 50」被截成「Best」
+        · 「好友码 / QQ 号」两个标签挤成单字「好」「Q」
+        · 输入框提示文字撑满整屏
+        · 键盘一弹就把内容全盖住
+
+    所以模板和样式整体重排，**业务脚本一行没动**（查询、缓存、
+    错误提示、状态污染修复都在里面）。
+
+    ── 版式 ────────────────────────────────────────────────────────
+        ‹ 返回   Best 50          顶栏 40
+        [好友码] [QQ 号]          标签 32（字号 13，不截断）
+        3687236844                输入显示 46
+        好友码已就绪               提示 16
+        [ 查询 ]  [ 输入 ]         按钮 38
+        ...错误提示...
+        12533                     结果卡
+        DX Rating
+        ┌──────────────────────┐
+        │ 曲名                  │   ← 两行式，**无曲绘**
+        │ #1 EXP 13.2    100.5% │
+        └──────────────────────┘
+
+    ── 曲绘 ────────────────────────────────────────────────────────
+    用户要求手环版不要封面：「用不上还卡资源」。
+    **不写 `<image>`** —— 不建节点、不请求图片。
+  -->
   <div class="page-root">
     <div class="b50-page">
-    <!--
-      显式返回键。
-      手表上没有可见的返回入口，用户得先知道「从边缘侧滑」这个隐藏手势才能回去；
-      不知道的人会到处找按钮，找不到就只能大退应用重进。模拟器上更是没有侧滑手势。
-    -->
-    <div class="topbar">
-      <div class="back" @click="onBack">
-        <text class="back__text">‹ 返回</text>
+      <div class="topbar">
+        <div class="back" @click="onBack">
+          <text class="back__text">‹</text>
+        </div>
+        <text class="topbar__title">{{ pageTitle }}</text>
       </div>
-      <text class="topbar__title">{{ pageTitle }}</text>
-    </div>
 
-    <!--
-      查询目标。**Phigros 整块隐藏**——它靠 TapTap 扫码登录，查的是自己，
-      根本没有「输入一个码」这回事。留着只占地方，还会让人以为要输好友码。
-    -->
-    <!--
-      输入块按游戏声明的 `queryKinds` 渲染：
-        舞萌/中二 → 好友码 / QQ 号 两个选项卡
-        osu       → 只有「用户名」，选项卡不必显示
-        Phigros   → 没有输入（扫码登录），整块不渲染
-    -->
-    <block if="{{ kinds.length > 0 }}">
-      <div class="kinds" if="{{ kinds.length > 1 }}">
-        <div class="kind {{ kind === $item.id ? 'kind--on' : '' }}" for="{{ kinds }}" @click="setKind($item.id)">
-          <text class="kind__text{{ kind === $item.id ? ' kind__text--on' : '' }}">{{ $item.label }}</text>
+      <!-- 输入块：Phigros 没有输入（扫码登录），kinds 为空时整块不渲染 -->
+      <block if="{{ kinds.length > 0 }}">
+        <div class="kinds" if="{{ kinds.length > 1 }}">
+          <div class="kind {{ kind === $item.id ? 'kind--on' : '' }}" for="{{ kinds }}" @click="setKind($item.id)">
+            <text class="kind__text{{ kind === $item.id ? ' kind__text--on' : '' }}">{{ $item.label }}</text>
+          </div>
+        </div>
+
+        <div class="target" @click="toggleKeyboard">
+          <text class="target__value">{{ displayValue }}</text>
+          <text class="target__hint">{{ hint }}</text>
+        </div>
+      </block>
+
+      <div class="actions">
+        <div class="action {{ actionClass }}" @click="onQueryTap">
+          <text class="action__text {{ actionTextClass }}">{{ actionLabel }}</text>
+        </div>
+        <div class="action action--ghost" if="{{ kinds.length > 0 }}" @click="toggleKeyboard">
+          <text class="action__text action__text--ghost">{{ keyboardHidden ? '输入' : '收起' }}</text>
         </div>
       </div>
 
-      <div class="target">
-        <text class="target__value">{{ displayValue }}</text>
-        <text class="target__hint">{{ hint }}</text>
-      </div>
-    </block>
+      <text class="error" if="{{ errorText }}">{{ errorText }}</text>
 
-    <!--
-      查询按钮。
+      <!-- ── 结果 ─────────────────────────────────────────────── -->
+      <block if="{{ hasResult }}">
+        <div class="summary">
+          <text class="summary__name" if="{{ playerName }}">{{ playerName }}</text>
+          <text class="summary__rating">{{ ratingText }}</text>
+          <text class="summary__label">DX Rating</text>
+        </div>
 
-      ⚠️ 查询中必须**看得见**。换了海外节点之后一次查询要好几秒，
-      之前只有 hint 里悄悄多一句「· 查询中…」，用户以为按钮没反应，
-      会反复点。
-
-      现在：按钮文字直接变成「查询中…」，并且禁用点击。
-    -->
-    <div class="actions">
-      <div class="action {{ actionClass }}" @click="onQueryTap">
-        <text class="action__text {{ actionTextClass }}">{{ actionLabel }}</text>
-      </div>
-      <!-- 输入按钮对 Phigros 也没意义（没有要输入的码） -->
-      <div class="action action--ghost" if="{{ kinds.length > 0 }}" @click="toggleKeyboard">
-        <text class="action__text action__text--ghost">{{ keyboardHidden ? '输入' : '收起' }}</text>
-      </div>
-    </div>
-
-    <text class="error" if="{{ errorText }}">{{ errorText }}</text>
-
-    <!-- ── 结果 ─────────────────────────────────────────────────── -->
-    <block if="{{ hasResult }}">
-      <!--
-        成绩卡抽成组件了。
-
-        **为什么要抽**：这张卡的高度以前由内容撑开，而三个游戏塞进来的
-        行数不一样（Phigros 的大数字要拆整数/小数两段），
-        所以切一次游戏整块卡片就变高变矮，**把下面的列表挤到看不见**。
-
-        现在高度写在组件的样式里（固定 132px），页面只负责往固定的槽位
-        填东西——**不管数据长什么样，布局都不会动**。
-
-        页面这边的字段名没变（playerName / ratingInt / ratingDec /
-        ratingText / tierText / statLine1..4），所以 apply* 那几个方法
-        一行都不用改。
-      -->
-      <score-summary
-        name="{{ playerName }}"
-        value="{{ ratingInt || ratingText }}"
-        valueDecimal="{{ ratingDec }}"
-        caption="{{ tierText }}"
-        line1="{{ statLine1 }}"
-        line2="{{ statLine2 }}"
-        line3="{{ statLine3 }}"
-        line4="{{ statLine4 }}"
-        line5="{{ statLine5 }}"
-      ></score-summary>
-
-      <!--
-        成绩对比：这次和上次查的比。
-        放在成绩卡和列表之间，**只在有变化时渲染**——
-        显示"较上次持平"既占地方又没信息量。
-
-        点它进「对比详情」（哪几首涨了/跌了）。
-      -->
-      <text class="diff" if="{{ diffLine }}" @click="openDiff">{{ diffLine }} ›</text>
-
-      <!-- <list> 必须显式给高度，否则高度为 0、成绩一条都画不出来 -->
-      <list class="list" onscrollbottom="onScrollBottom">
-        <list-item class="row" type="item" for="{{ entries }}" @click="openPush($item)">
-          <text class="row__rank">{{ $idx + 1 }}</text>
-          <!-- 没有图就不渲染：Phigros 平台不提供曲绘，渲染空的 <image> 会显示成灰块 -->
-          <!--
-            手环版**不渲染曲绘**：用户要求「用不上还卡资源」。
-            不创建 <image> 节点 = 不占渲染内存、不发图片请求。
-            服务端的 compact 端点本来也不返回 jacketUrl。
-          -->
-          <div class="row__main">
+        <list class="list" onscrollbottom="onScrollBottom">
+          <list-item class="row" type="item" for="{{ entries }}" @click="openPush($item)">
             <text class="row__title">{{ $item.title }}</text>
-            <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · {{ levelLabel }} {{ $item.levelValue }}</text>
-            <text class="row__version">{{ versionPrefix }} {{ $item.versionTitle }}</text>
-          </div>
-          <div class="row__right">
-            <text class="row__rating">{{ $item.rating }}</text>
-            <text class="row__ach">{{ $item.achievements }}</text>
-          </div>
-        </list-item>
-      </list>
-    </block>
-
-    <!--
-      完整输入法。好友码是纯数字，用它的「123」数字键盘即可；
-      这样全应用只有一套输入组件，不必为不同输入各写一个键盘。
-    -->
+            <div class="row__meta">
+              <text class="row__left">#{{ $idx + 1 }} <text style="color: {{ $item.diffColor }}">{{ $item.difficulty }}</text> {{ $item.levelValue }}</text>
+              <text class="row__ach">{{ $item.achievements }}</text>
+            </div>
+          </list-item>
+        </list>
+      </block>
     </div>
 
-    <!-- 键盘提到根容器下：它靠 position:absolute 的 left:0/width:100% 定位，
-         父容器一旦有 padding 就会缩进去，真机上右边留一条缝。 -->
+    <!--
+      键盘提到根容器下：它靠 position:absolute 的 left:0/width:100% 定位，
+      父容器一旦有 padding 就会缩进去，真机上右边留一条缝。
+    -->
     <input-method
       hide="{{ keyboardHidden }}"
       keyboardtype="QWERTY"
       screentype="rect"
       vibratemode="short"
-      maxlength="5"
+      maxlength="20"
       @complete="onComplete"
       @delete="onDelete"
     ></input-method>
@@ -144,18 +107,11 @@
   @import '../../common/theme-tokens.less';
 
   /*
-   * 页面根容器：**全幅、零内边距**。
-   * 输入法是它的直接子元素，靠 position:absolute 的 left:0/width:100% 定位，
-   * 父容器有内边距的话键盘就会跟着缩进去——真机上右边会留一条缝。
-   * 所以内边距放在内层的 .b50-page 上，这一层专门给键盘当定位基准。
+   * 192 宽的内容区：左右各留 8px → 176px。
+   *
+   * 跑道屏左右是圆弧，8px 是能接受的最小值 —— 再多曲名就没地方了。
    */
   .page-root {
-    /*
-     * ⚠️ **必须显式写 flex-direction: column。**
-     * Vela 的 div 默认是 `flex-direction: row`（不是网页里的 block），
-     * 不写就会把内层页面和键盘摆成横向一排——内层被压窄，
-     * 而它内部是纵向布局，结果所有内容挤在一起重叠。
-     */
     flex-direction: column;
     width: 100%;
     height: 100%;
@@ -164,71 +120,73 @@
   }
 
   .b50-page {
-    /* 吃掉剩余高度、横轴拉满——键盘是 absolute，不占流式空间 */
     flex: 1;
     width: 100%;
     flex-direction: column;
-    padding: 14px;
-    background-color: @ui-surface;
+    padding: 6px 8px 0;
   }
 
-  /* 返回键。做够大，手表上要好点。 */
+  /* ── 顶栏 ──────────────────────────────────────────────────── */
   .topbar {
     flex-direction: row;
     align-items: center;
-    height: 56px;
-    margin-bottom: 4px;
+    width: 100%;
+    height: 40px;
   }
 
+  /* 返回键做成 36×36 的圆，比文字胶囊省地方 */
   .back {
-    padding: 8px 20px;
-    border-radius: 22px;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: @ui-radius-full;
     background-color: @ui-surface-container;
   }
 
   .back__text {
-    font-size: 22px;
+    font-size: 20px;
     color: @ui-on-surface;
   }
 
+  /* 标题 15px：192 宽扣掉返回键还剩 140px，「Best 50」放得下 */
   .topbar__title {
-    font-size: 22px;
-    color: @ui-on-surface-variant;
-    margin-left: 14px;
+    flex: 1;
+    font-size: 15px;
+    font-weight: bold;
+    color: @ui-on-surface;
+    margin-left: 8px;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
+  /* ── 查询方式标签 ──────────────────────────────────────────── */
+  /*
+   * 字号 13、左右内边距 8 —— 「好友码」三个字约 39px，加内边距 55px，
+   * 两个标签 110px < 176px，不会像原来那样被挤成单字。
+   */
   .kinds {
     flex-direction: row;
-    justify-content: center;
+    width: 100%;
+    margin-top: 6px;
   }
 
   .kind {
-    padding: 10px 26px;
-    margin: 0 6px;
-    border-radius: 24px;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    margin-right: 6px;
+    padding: 0 8px;
+    border-radius: @ui-radius-full;
     background-color: @ui-surface-card;
   }
 
   .kind--on {
-    /* 选中的标签用更亮的表面，靠亮度差区分，不靠描边 */
     background-color: @ui-surface-emphasis;
   }
 
-  /*
-   * ⚠️ 这里踩过一个对比度坑。
-   *
-   * 原来选中态写的是 `color: @ui-on-primary` —— 那是**给粉色底用的深色字**
-   * （#1a0710，近乎纯黑）。但标签的底色是深蓝的 surface-container，
-   * 结果就是「黑字压深蓝」，在实机上几乎看不见。
-   *
-   * 未选中的 `.kind__text` 更糟：**根本没写 color**，用的是运行时默认，
-   * 也是黑的。
-   *
-   * 现在：未选中用 on-surface-variant（浅蓝灰，能读），
-   *       选中用 on-surface（近白）+ 加粗。
-   */
   .kind__text {
-    font-size: 22px;
+    font-size: 13px;
     color: @ui-on-surface-variant;
   }
 
@@ -237,250 +195,162 @@
     font-weight: bold;
   }
 
-
+  /* ── 输入显示 ──────────────────────────────────────────────── */
   .target {
     flex-direction: column;
-    align-items: center;
-    margin-top: 12px;
-    padding: 14px;
-    border-radius: 14px;
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: @ui-radius-md;
     background-color: @ui-surface-card;
   }
 
+  /* 18px：15 位好友码约 150px，一行放得下 */
   .target__value {
-    font-size: 32px;
+    font-size: 18px;
     color: @ui-on-surface;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .target__hint {
-    font-size: 17px;
+    font-size: 11px;
     color: @ui-on-surface-variant;
-    margin-top: 4px;
+    margin-top: 2px;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
+  /* ── 按钮 ──────────────────────────────────────────────────── */
   .actions {
     flex-direction: row;
-    justify-content: center;
-    margin-top: 12px;
+    width: 100%;
+    margin-top: 8px;
   }
 
   .action {
-    height: 68px;
-    padding: 0 34px;
-    margin: 0 6px;
-    border-radius: 34px;
-    background-color: @ui-primary;
+    flex: 1;
     align-items: center;
     justify-content: center;
+    height: 36px;
+    border-radius: @ui-radius-md;
+    background-color: @ui-primary;
   }
 
   .action--ghost {
-    background-color: @ui-surface-container;
-  }
-
-  .action--disabled {
-    background-color: @ui-outline;
-  }
-
-  .action__text {
-    /* 只留尺寸。**颜色必须拆到变体类上**——
-       写在基类里会和变体规则打架，谁赢取决于编译顺序。 */
-    font-size: 26px;
-  }
-
-  /* 主按钮上的文字：深色，压在粉色底上 */
-  .action__text--filled {
-    color: @ui-on-primary;
-  }
-
-  /* 次要按钮上的文字：浅色，压在深色底上 */
-  .action__text--ghost {
-    color: @ui-on-surface;
-  }
-
-  /* 禁用态：中间灰。**不再借用 opacity**，手表上小字号容易糊 */
-  .action__text--disabled {
-    color: @ui-on-surface-variant;
-  }
-
-
-
-  .error {
-    font-size: 18px;
-    color: @ui-error;
-    margin-top: 8px;
-    text-align: center;
-  }
-
-
-
-
-
-  /*
-   * 玩家名。
-   *
-   * `.summary__main` 固定 150px，"CHUNITHM" 这种长名字在 20px 下放不下，
-   * 会折成两行、把下面的评级挤下去——看起来就是「内容往里缩」。
-   *
-   * `lines: 1` + 省略号：宁可截断，也不要换行改变布局。
-   */
-
-
-
-
-  /*
-   * 小数部分：和整数同一行、靠底对齐。
-   *
-   * 成绩类 UI 的常见做法——整数是主信息、要大；小数是细节、要小。
-   * 两个都 40px 的话，"15.7888" 需要约 190px，150px 的列放不下。
-   */
-
-
-
-
-
-
-
-
-
-
-  /*
-   * 成绩对比那一行。
-   *
-   * 只在有变化时才渲染（模板里 `if="{{ diffLine }}"`），所以这里不用考虑
-   * "隐藏时占位"的问题 —— 没变化时它压根不存在。
-   *
-   * 高度固定 34px：它出现时列表会被 flex 压缩同样的高度，
-   * 而不是把整个页面顶下去。
-   */
-  .diff {
-    width: 100%;
-    height: 34px;
-    font-size: 15px;
-    color: @ui-primary;
-    text-align: center;
-    lines: 1;
-  }
-
-  .list {
-    width: 100%;
-    /*
-     * **用 flex: 1，不吃固定高度。**
-     *
-     * 成绩卡现在由 `<score-summary>` 组件负责，**高度固定 132px**，
-     * 所以上面那一坨（顶栏 + 输入 + 按钮 + 成绩卡）的总高度是**稳定的**，
-     * 列表拿到的「剩余高度」也就是稳定的——
-     * **这才是「不管怎么查都不压缩」真正成立的原因**。
-     *
-     * `min-height` 是兜底：万一哪天上面的块又变回随内容撑开，
-     * 至少保证列表还能看见一行，而不是被压成 0。
-     */
-    flex: 1;
-    min-height: 110px;
-    margin-top: 10px;
-  }
-
-  .row {
-    flex-direction: row;
-    align-items: center;
-    /* 96 太高：一行只放三行文字（19 + 15 + 14），82 够了 */
-    height: 82px;
-    padding: 4px 8px;
-  }
-
-  /* 封面。定死尺寸，避免图片加载前后布局跳动。 */
-  .row__cover {
-    width: 58px;
-    height: 58px;
+    flex: 0 0 60px;
     margin-left: 6px;
     background-color: @ui-surface-container;
   }
 
-  .row__rank {
-    width: 40px;
-    font-size: 18px;
-    color: @ui-on-surface-variant;
+  .action--disabled {
+    background-color: @ui-surface-card;
   }
 
-  .row__main {
-    flex: 1;
-    flex-direction: column;
-  }
-
-  .row__title {
-    font-size: 19px;
-    color: @ui-on-surface;
-    /*
-     * 日文曲名很长。行的横向预算只剩 174px（432 − 28 页边距 − 40 排名
-     * − 64 封面 − 110 右侧 − 16 内边距），不限制会换行把下面的定数压掉。
-     */
-    lines: 1;
-    text-overflow: ellipsis;
-  }
-
-  .row__sub {
-    font-size: 15px;
-    color: @ui-on-surface-variant;
-    lines: 1;
-    text-overflow: ellipsis;
-  }
-
-  /* 版本单独一行并带标签 */
-  .row__version {
+  .action__text {
     font-size: 14px;
+    font-weight: bold;
+  }
+
+  /* 粉底上的字用深色，深色底上的字用浅色 —— 不能混 */
+  .action__text--filled {
+    color: @ui-on-primary;
+  }
+
+  .action__text--ghost {
+    color: @ui-on-surface;
+  }
+
+  .action__text--disabled {
+    color: @ui-on-surface-muted;
+  }
+
+  .error {
+    font-size: 11px;
     color: @ui-warning;
-    margin-top: 1px;
+    margin-top: 6px;
+    lines: 2;
+    text-overflow: ellipsis;
+  }
+
+  /* ── 结果卡 ────────────────────────────────────────────────── */
+  .summary {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 0;
+    border-radius: @ui-radius-md;
+    background-color: @ui-surface-emphasis;
+  }
+
+  .summary__name {
+    font-size: 12px;
+    color: @ui-on-surface-variant;
     lines: 1;
     text-overflow: ellipsis;
   }
 
-  .row__right {
-    flex-direction: column;
-    align-items: flex-end;
-    /* 110 → 92：把横向预算让给曲名；评级字号也跟着降一点 */
-    width: 92px;
-  }
-
-  .row__rating {
-    font-size: 22px;
+  /* Rating 是主角 */
+  .summary__rating {
+    font-size: 30px;
     font-weight: bold;
-    color: @ui-on-surface;
+    color: @ui-primary;
   }
 
-  .row__ach {
-    font-size: 15px;
+  .summary__label {
+    font-size: 10px;
     color: @ui-on-surface-variant;
+  }
+
+  /* ── 成绩列表 ──────────────────────────────────────────────── */
+  .list {
+    flex: 1;
+    min-height: 80px;
+    width: 100%;
+    margin-top: 6px;
   }
 
   /*
-   * ── 圆形屏适配 ─────────────────────────────────────────────────
-   * 依据官方《多屏适配 · 页面标题栏》：
-   *   「在圆屏、胶囊屏等存在边缘剪切的设备上，标题栏会使用多行设计，
-   *     保证顶部的展示内容长度不会超出屏幕；而在矩形屏幕上则做单行左右布局。」
+   * 一行一个成绩，两行式。
    *
-   * 圆屏四角是物理裁掉的：466×466 的屏，顶栏中心 y≈44 处可用宽度只有约 272px，
-   * 而「标题在左 + 设置在右」需要整幅 466px，两端必然被切。
-   * 所以这里改竖排居中，并加左右内边距把内容压进圆内接矩形。
-   *
-   * **只影响 shape: circle**，矩形屏样式与行为完全不变。
+   * 高度 52：曲名 15px + 元信息 11px，比原来的 82 矮 ——
+   * 曲绘去掉了，那一截高度不再需要。
    */
-  @media (shape: circle) {
-    .b50-page {
-      padding-left: 40px;
-      padding-right: 40px;
-    }
+  .row {
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+    height: 52px;
+    padding: 0 4px;
+    border-bottom: 1px solid @ui-surface-container;
+  }
 
-    /* 顶栏改竖排居中：单行左右布局在圆屏上两端必被裁 */
-    .topbar {
-      flex-direction: column;
-      align-items: center;
-      height: auto;
-    }
+  .row__title {
+    font-size: 15px;
+    color: @ui-on-surface;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
 
-    /* 返回键/标题不再靠边，改为居中并留出上下间距 */
-    .back {
-      margin-bottom: 8px;
-    }
+  .row__meta {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 1px;
+  }
+
+  .row__left {
+    font-size: 11px;
+    color: @ui-on-surface-variant;
+    lines: 1;
+    text-overflow: ellipsis;
+  }
+
+  .row__ach {
+    font-size: 11px;
+    color: @ui-on-surface-variant;
   }
 </style>
 
