@@ -102,7 +102,11 @@
         <list-item class="row" type="item" for="{{ entries }}" @click="openPush($item)">
           <text class="row__rank">{{ $idx + 1 }}</text>
           <!-- 没有图就不渲染：Phigros 平台不提供曲绘，渲染空的 <image> 会显示成灰块 -->
-          <image class="row__cover" if="{{ $item.jacketUrl }}" src="{{ $item.jacketUrl }}"></image>
+          <!--
+            手环版**不渲染曲绘**：用户要求「用不上还卡资源」。
+            不创建 <image> 节点 = 不占渲染内存、不发图片请求。
+            服务端的 compact 端点本来也不返回 jacketUrl。
+          -->
           <div class="row__main">
             <text class="row__title">{{ $item.title }}</text>
             <text class="row__sub" style="color: {{ $item.diffColor }}">{{ $item.difficulty }} · {{ levelLabel }} {{ $item.levelValue }}</text>
