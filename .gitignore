@@ -40,3 +40,5 @@ apps/flutter/android/app/*.keystore
 # 33.7 MB 的二进制进了 git 会永久留在历史里，克隆一次就多 34 MB
 # 部署前由本地的 flutter build / aiot release 生成
 apps/site/releases/
+# 构建产物统一收集目录（scripts/collect-builds.mjs 生成）
+/dist/

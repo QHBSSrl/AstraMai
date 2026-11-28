@@ -23,6 +23,8 @@
     "test": "npm run build:core && npm run test -w @astramai/core && npm run test -w @astramai/server && npm --prefix apps/vela test",
     "test:vela": "npm --prefix apps/vela test",
     "bundle:core": "node scripts/bundle-core.mjs",
+    "collect": "node scripts/collect-builds.mjs",
+    "collect:all": "node scripts/collect-builds.mjs --all",
     "icon:vela": "node scripts/make-vela-icon.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "node scripts/clean.mjs",
