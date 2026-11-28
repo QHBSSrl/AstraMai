@@ -1,0 +1,54 @@
+﻿chore: 清理仓库，释放 9.3 GB
+
+## 删掉的
+
+    apps/flutter/build          8138 MB   Flutter 构建产物，可重新生成
+    .probe                       913 MB   排查过程的临时文件（截图 / 下载的模板 / 临时脚本）
+    apps/flutter/.dart_tool      410 MB   Dart 缓存，pub get 会重建
+    apps/site/dist                34 MB   站点构建产物
+    apps/site-v2/dist             35 MB   站点构建产物
+    .wrangler                     34 MB   wrangler 本地状态
+    apps/vela*/build              2.4 MB   aiot 工具链中间产物
+
+**共 9.34 GB。**
+
+## 顺手修了两个误跟踪
+
+**① `apps/vela*/build/` 被 git 跟踪了**
+
+那是 aiot 每次构建都会重建的中间目录（app.js、manifest.json、组件资源副本）。
+323 个文件白白进仓库，而且每次构建都产生一堆二进制 diff。
+
+**② `.wrangler/state/` 里有 14 个 sqlite 被跟踪**
+
+wrangler 的本地 KV/R2 模拟状态，和源码无关。
+
+两个都 `git rm --cached` 并补进 `.gitignore`。
+
+## 保留
+
+    dist/                   收集好的构建产物（npm run collect 维护）
+    node_modules            依赖
+    apps/site               旧站源码
+    apps/site-v2            新站源码
+    plugins/                网桥插件源码
+    apps/sync-web           占位（9 个文件）
+    apps/watchOS            占位（空）
+    apps/HarmoneyOSWatch    占位（空）
+
+补充的 `.gitignore` 规则：
+
+    apps/vela*/build/          apps/vela*/.temp_vela/
+    apps/flutter/build/        apps/flutter/.dart_tool/
+    apps/site/dist/            apps/site-v2/dist/
+    .wrangler/
+
+## 加了 npm run clean
+
+`scripts/clean.mjs` 可以重复执行，只删能重新生成的东西。
+每条都带「为什么安全」的说明，以后不用再猜。
+
+## 验证
+
+    清理后跑一次 vela-band build → build success
+    build 目录重建了，但 git 状态里不再出现
