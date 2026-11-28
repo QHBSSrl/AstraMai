@@ -1,295 +1,187 @@
 <template>
-  <div class="page">
-    <!-- 返回键：手表上没有可见的返回入口，用户得知道「边缘侧滑」这个隐藏手势 -->
-    <div class="topbar">
-      <div class="back" @click="onBack">
-        <text class="back__text">‹ 返回</text>
-      </div>
-    </div>
+  <!--
+    设置 · 小米手环（跑道型 192×490）
 
-    <text class="title">设置</text>
+    ── 正式版只留两块 ──────────────────────────────────────────────
+    设计稿：node-id=37-2
 
-    <!--
-      游戏切换：选中项只靠**颜色**表示（主题粉 + 加粗），
-      不再加「当前」两个字 —— 手环屏幕窄，那两个字把游戏名挤掉一截。
-    -->
-    <text class="section">游戏</text>
-    <div class="rows">
-      <div class="row" for="{{ gameRows }}" @click="selectGame($item.id)">
-        <text class="row__label" style="color: {{ $item.current ? '#ff5f9e' : '#e8eefc' }}; font-weight: {{ $item.current ? 'bold' : 'normal' }}">{{ $item.label }}</text>
-      </div>
-    </div>
+        y=43    设置            字号 23，居中
+        y=67    游戏            字号 18
+        y=94    ┌ 舞萌 DX        ┐  179×150  #213052 圆角 15
+        y=101     ∟ 字号 22
+        y=136     Phigros
+        y=172     中二节奏
+        y=208     osu!
+        y=246   关于软件        字号 18
+        y=270   ┌ 关于        ›  ┐  179×40
+        y=277     ∟ 字号 18
 
-    <!-- 功能 -->
-    <text class="section">功能</text>
-    <div class="rows">
-      <!--
-        Phigros 的凭证来自 TapTap 扫码，只能在这里登一次。
-        和其它源不同（落雪是服务端一把密钥，玩家不用登录），所以单列一项。
-      -->
-      <div class="row" @click="goPhigrosLogin">
-        <text class="row__label">Phigros 登录</text>
-        <text class="row__mark">{{ phigrosStatus }}</text>
-      </div>
-    </div>
-    <text class="hint">同步：在电脑上填好友码，手表取过来。手表上不用打字。</text>
-    <text class="hint hint--warn" if="{{ syncNotice }}">{{ syncNotice }}</text>
-    <text class="hint">Phigros 需要先用 TapTap 扫码登录一次，之后就不用再扫。</text>
+    ── 正式版删掉了什么，为什么 ────────────────────────────────────
+    用户：「你正式上线你设置要那么多功能干嘛」
 
-    <!--
-      用户群入口。
-      **只在配置了群号时出现**（见 common/community.js）——
-      没配就显示一个空群号，比不显示更糟。
+        Phigros 登录    删 —— 改成手机查完通过网桥推给手环，手环上不登录
+        加入用户群      删 —— 关于软件里有
+        字号            删 —— 「没卵用」
+        服务器线路      删 —— 正式版不该让用户选，出问题我们自己查
+        测试连接/传输方式/强制走网桥/设备信息/测试服务器
+                        移到 **debug 区**，正式构建里整块不渲染
 
-      引导页里也有一步，但引导可以跳过，而且老版本装上的用户没有引导，
-      所以设置页必须留一个长期入口。
-    -->
-    <block if="{{ groupNumber }}">
-      <text class="section">反馈</text>
-      <div class="rows">
-        <div class="row" @click="showGroup">
-          <text class="row__label">加入用户群</text>
-          <text class="row__mark">{{ groupNumber }}</text>
+    这些能力没有丢，只是从「用户能看到的设置」变成「开发排查用」，
+    由 `DEBUG_BUILD` 控制显隐（见 script 里的常量）。
+
+    ── 选中态 ──────────────────────────────────────────────────────
+    游戏选中只靠**颜色 + 加粗**表示，不写「当前」两个字 ——
+    192 宽下那两个字会把游戏名挤掉一截。
+  -->
+  <div class="page-root">
+    <div class="settings-page">
+      <text class="title">设置</text>
+
+      <text class="section">游戏</text>
+      <div class="card">
+        <div class="game" for="{{ gameRows }}" @click="selectGame($item.id)">
+          <text class="game__label" style="color: {{ $item.current ? '#ff5f9e' : '#ffffff' }}; font-weight: {{ $item.current ? 'bold' : 'normal' }}">{{ $item.label }}</text>
         </div>
       </div>
-    </block>
 
-    <!--
-      网络 —— 只在**这台设备真的需要网桥**时出现。
-
-      判断依据不是机型，是能力：`api.activeTransport()` 返回 'direct'
-      说明设备自带 fetch，这一整块直接不显示。手表系列的用户永远看不到。
-
-      ⚠️ 文案里不要再提 AstroBox 插件 —— 现在的中转方是我们自己的
-      手机 App（手环版）。用户装错东西的话会白折腾半天。
-    -->
-    <block if="{{ bridgeNeeded }}">
-      <text class="section">网络</text>
-      <div class="rows">
-        <div class="row" @click="testBridge">
-          <text class="row__label">测试连接</text>
-          <text class="row__mark">{{ bridgeState }}</text>
+      <text class="section">关于软件</text>
+      <div class="card card--tight">
+        <div class="row" @click="goAbout">
+          <text class="row__label">关于</text>
+          <text class="row__mark">›</text>
         </div>
-        <div class="row" @click="toggleBridgeMode">
-          <text class="row__label">传输方式</text>
-          <text class="row__mark">{{ bridgeModeLabel }}</text>
-        </div>
-      </div>
-      <text class="hint" if="{{ bridgeNotice }}">{{ bridgeNotice }}</text>
-      <text class="hint" if="{{ bridgeHint }}">{{ bridgeHint }}</text>
-    </block>
-
-    <!-- 字号 —— 手环屏幕小，默认给「大」 -->
-    <text class="section">显示</text>
-    <div class="rows">
-      <div class="row" @click="toggleFontScale">
-        <text class="row__label">字号</text>
-        <text class="row__mark">{{ fontScaleLabel }}</text>
-      </div>
-    </div>
-    <text class="hint" if="{{ fontNotice }}">{{ fontNotice }}</text>
-
-    <!--
-      调试区 —— **给用户和测试者用的**，不是内部开关。
-
-      出问题时他们能自己看到：走的哪条网络、设备什么型号、能不能连上手机。
-      真机拿不到 console 日志，所以这些信息必须摆在界面上。
-    -->
-    <text class="section">调试</text>
-
-    <div class="rows">
-      <div class="row" @click="toggleForceBridge">
-        <text class="row__label">强制走网桥</text>
-        <text class="row__mark">{{ forceBridgeOn ? '已开启' : '关闭' }}</text>
-      </div>
-
-      <div class="row" @click="toggleDeviceInfo">
-        <text class="row__label">设备信息</text>
-        <text class="row__mark">{{ deviceInfoOpen ? '收起' : '查看' }}</text>
       </div>
 
       <!--
-        测试服务器连接。
-
-        为什么必须有这一行：上面那个「测试连接」是给**网桥**用的，
-        包在 `if="{{ bridgeNeeded }}"` 里 —— 手表上整块「网络」都不显示，
-        所以手表用户遇到「连不上」时**没有任何可以点的地方**。
-
-        这里直接打一次 /api/health：成功报状态码和耗时，
-        失败把原始错误显示出来，方便判断卡在哪一步。
+        ⚠️ 下面整块只在 DEBUG_BUILD 为 true 时渲染。
+        正式包里 `debugBuild` 是 false，这些节点根本不进组件树。
       -->
-      <div class="row" @click="testServer">
-        <text class="row__label">测试服务器</text>
-        <text class="row__mark">{{ serverState }}</text>
-      </div>
-
-      <!--
-        线路切换（排查用）。
-
-        在「正式（HTTPS 域名）」和「阿里云直连（明文 IP）」之间切。
-        明文能通、HTTPS 不通 → 问题在设备的 TLS，不是网络。
-      -->
-      <div class="row" @click="toggleLine">
-        <text class="row__label">服务器线路</text>
-        <text class="row__mark">{{ lineLabel }}</text>
-      </div>
+      <block if="{{ debugBuild }}">
+        <text class="section">调试</text>
+        <div class="card card--tight">
+          <div class="row" @click="testServer">
+            <text class="row__label">测试服务器</text>
+            <text class="row__mark">{{ serverState }}</text>
+          </div>
+          <div class="row" @click="toggleLine">
+            <text class="row__label">服务器线路</text>
+            <text class="row__mark">{{ lineLabel }}</text>
+          </div>
+          <div class="row" @click="toggleForceBridge">
+            <text class="row__label">强制走网桥</text>
+            <text class="row__mark">{{ forceBridgeOn ? '开' : '关' }}</text>
+          </div>
+          <div class="row" @click="toggleDeviceInfo">
+            <text class="row__label">设备信息</text>
+            <text class="row__mark">{{ deviceInfoOpen ? '收起' : '查看' }}</text>
+          </div>
+        </div>
+        <text class="hint" if="{{ serverNotice }}">{{ serverNotice }}</text>
+        <text class="hint" if="{{ deviceInfoText && deviceInfoOpen }}">{{ deviceInfoText }}</text>
+      </block>
     </div>
-
-    <text class="hint" if="{{ forceBridgeNotice }}">{{ forceBridgeNotice }}</text>
-    <text class="hint">强制走网桥：即使能直接联网也改走手机中转，用来排查网络问题。</text>
-
-    <block if="{{ deviceInfoOpen }}">
-      <text class="hint">{{ deviceInfoText }}</text>
-    </block>
-    <!--
-      重看引导。
-      两个用处：
-        1. 用户想再看一遍协议 —— 这是正经需求，不是调试后门
-        2. **开发时要反复看引导页** —— 不然只能在设备上刷数据才能再看到
-    -->
-    <text class="section">关于</text>
-    <div class="rows">
-      <div class="row" @click="goAbout">
-        <text class="row__label">关于软件</text>
-        <text class="row__mark">›</text>
-      </div>
-    </div>
-
   </div>
 </template>
 
 <style lang="less">
   @import '../../common/theme-tokens.less';
 
-  .page {
+  .page-root {
     flex-direction: column;
-    padding: 18px 26px 22px;
-    background-color: @ui-surface;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background-color: #000000;
   }
 
-  .topbar {
+  /* 左右 13 是设计稿的边距，内容宽 179 */
+  .settings-page {
+    flex: 1;
+    width: 100%;
+    flex-direction: column;
+    padding: 24px 13px 0;
+  }
+
+  /* 标题：字号 23，居中 */
+  .title {
+    width: 100%;
+    font-size: 23px;
+    color: #ffffff;
+    text-align: center;
+  }
+
+  /* 分区标签：字号 18 */
+  .section {
+    width: 100%;
+    font-size: 18px;
+    color: #ffffff;
+    margin-top: 14px;
+    margin-bottom: 6px;
+  }
+
+  /* ── 卡片 ──────────────────────────────────────────────────── */
+  .card {
+    flex-direction: column;
+    width: 100%;
+    padding: 6px 0;
+    border-radius: 15px;
+    background-color: #213052;
+  }
+
+  /* 关于那张卡只有一行，40 高 */
+  .card--tight {
+    padding: 0;
+  }
+
+  /* ── 游戏行 ────────────────────────────────────────────────── */
+  /*
+   * 每行 36 高：设计稿 y=101/136/172/208，正好 35~36 的间距。
+   * 字号 22 —— 从左边 x=22 开始，和卡片 13 + 内边距 9 对齐。
+   */
+  .game {
     flex-direction: row;
     align-items: center;
     width: 100%;
-    height: 56px;
+    height: 36px;
+    padding: 0 9px;
   }
 
-  .back {
-    padding: 8px 20px;
-    border-radius: 22px;
-    background-color: @ui-surface-container;
-  }
-
-  .back__text {
+  .game__label {
     font-size: 22px;
-    color: @ui-on-surface;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
-  .title {
-    font-size: 30px;
-    font-weight: bold;
-    color: @ui-on-surface;
-    margin-top: 4px;
-  }
-
-  .section {
-    font-size: 16px;
-    color: @ui-on-surface-variant;
-    margin-top: 20px;
-    margin-bottom: 8px;
-  }
-
-  .rows {
-    flex-direction: column;
-    width: 100%;
-    border-radius: 14px;
-    background-color: @ui-surface-card;
-  }
-
+  /* ── 普通行（关于 / 调试项）───────────────────────────────── */
   .row {
     flex-direction: row;
     align-items: center;
+    justify-content: space-between;
     width: 100%;
-    height: 64px;
-    padding: 0 18px;
-  }
-
-  .row--static {
-    height: 56px;
+    height: 40px;
+    padding: 0 9px;
   }
 
   .row__label {
-    flex: 1;
-    font-size: 22px;
-    color: @ui-on-surface;
-  }
-
-  .row__value {
-    font-size: 16px;
-    color: @ui-on-surface-variant;
+    font-size: 18px;
+    color: #ffffff;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .row__mark {
-    font-size: 19px;
-    color: #4fd6ff;
-  }
-
-  /* 不可用的行：压暗，并且不显示「›」（它点不动，给箭头是误导） */
-  .row--off {
-    opacity: 0.5;
-  }
-
-  .row__label--off {
-    color: @ui-on-surface-variant;
-  }
-
-  .hint--warn {
-    color: @ui-warning;
+    font-size: 18px;
+    color: #9bacd0;
+    lines: 1;
+    text-overflow: ellipsis;
   }
 
   .hint {
-    font-size: 14px;
-    color: @ui-on-surface-variant;
-    margin-top: 8px;
-    line-height: 1.5;
-  }
-
-  .foot {
-    font-size: 14px;
-    color: @ui-outline;
-    text-align: center;
-    margin-top: 24px;
-  }
-
-  /*
-   * ── 圆形屏适配 ─────────────────────────────────────────────────
-   * 依据官方《多屏适配 · 页面标题栏》：
-   *   「在圆屏、胶囊屏等存在边缘剪切的设备上，标题栏会使用多行设计，
-   *     保证顶部的展示内容长度不会超出屏幕；而在矩形屏幕上则做单行左右布局。」
-   *
-   * 圆屏四角是物理裁掉的：466×466 的屏，顶栏中心 y≈44 处可用宽度只有约 272px，
-   * 而「标题在左 + 设置在右」需要整幅 466px，两端必然被切。
-   * 所以这里改竖排居中，并加左右内边距把内容压进圆内接矩形。
-   *
-   * **只影响 shape: circle**，矩形屏样式与行为完全不变。
-   */
-  @media (shape: circle) {
-    .page {
-      padding-left: 40px;
-      padding-right: 40px;
-    }
-
-    /* 顶栏改竖排居中：单行左右布局在圆屏上两端必被裁 */
-    .topbar {
-      flex-direction: column;
-      align-items: center;
-      height: auto;
-    }
-
-    /* 返回键/标题不再靠边，改为居中并留出上下间距 */
-    .back {
-      margin-bottom: 8px;
-    }
+    font-size: 12px;
+    color: #9bacd0;
+    margin-top: 6px;
+    lines: 3;
+    text-overflow: ellipsis;
   }
 </style>
 
@@ -321,8 +213,18 @@ const { api, community, config, diag, fetchbridge, fontScale, games, navigation,
   const { goBack, push } = navigation;
   const { clearSetting, readSetting, warmUp, writeSetting } = store;
 
+  /**
+   * 正式构建为 false —— 调试区整块不进组件树。
+   *
+   * 需要排查线上问题时改成 true 重新打包，排查完改回去。
+   * **不要靠「隐藏」**：用户说过藏起来不省内存，JS 节点和渲染开销都还在。
+   */
+  const DEBUG_BUILD = false;
+
   export default {
     private: {
+      /** 调试区显不显示。见文件里的 DEBUG_BUILD。 */
+      debugBuild: DEBUG_BUILD,
       gameRows: [],
       /** 同步为何不可用——点一下会展开说明。 */
       syncNotice: '',
