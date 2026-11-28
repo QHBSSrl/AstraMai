@@ -1,0 +1,28 @@
+﻿fix: clean 默认不再删 Flutter 构建缓存
+
+用户：「Flutter 构建产物删了干嘛，下次构建还要多等一段时间」
+
+对。`apps/flutter/build`（8 GB）+ `.dart_tool`（400 MB）是**增量构建缓存**，
+删了下次 `flutter build` 要全量重编 —— 几分钟到十几分钟。
+用 8 GB 换一次全量重编不值。
+
+## 改法：分两档
+
+**默认（`npm run clean`）** 只删「便宜」的：
+
+    Vela 的 .temp_vela / build     几 MB，重建几秒
+    站点 dist                      几十 MB，重建几秒
+    wrangler 状态                  34 MB，用到时再建
+
+**深度（`npm run clean:deep`）** 才连 Flutter 缓存一起删：
+
+    apps/flutter/build
+    apps/flutter/.dart_tool
+
+脚本里把这条判断标准写清楚了：**不是「能不能重新生成」，而是
+「重新生成的代价 vs 省下的空间」。**
+
+## 说明
+
+这次清理已经把 Flutter 缓存删掉了，恢复不了 —— 下次构建会慢一次，
+之后又恢复增量。以后默认不会再动它。
