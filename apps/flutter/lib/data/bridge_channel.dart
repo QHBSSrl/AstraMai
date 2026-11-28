@@ -22,6 +22,13 @@ class BridgeChannel {
   /// 原生侧主动推状态变更时回调。
   void Function(BridgeStatus status)? onStatusChanged;
 
+  /// `bridge://` 本地命令的处理器（由 App 装配时注入）。
+  ///
+  /// 参数是完整的 URL（如 `bridge://phigros/bests`），
+  /// 返回值必须是一段 JSON 字符串 —— 会被**原样当作响应体**送回手环。
+  /// 返回 null 表示没处理，手环那边会看到「手机端没有及时返回」。
+  Future<String?> Function(String url)? localCommandHandler;
+
   /// 网桥入口要不要显示。
   ///
   /// **现在是恒 true。** 曾经按 Gradle flavor（std / band 两个包体）区分，
@@ -73,6 +80,19 @@ class BridgeChannel {
   }
 
   Future<dynamic> _onNativeCall(MethodCall call) async {
+    /*
+     * `bridge://` 本地命令。
+     *
+     * 手环没有网络，查分靠手机代理；但 Phigros 需要 TapTap 登录态，
+     * 那个会话只在 Dart 这边（secure storage）。所以 Kotlin 把命令
+     * 转过来，我们用自己的会话查完，把 JSON 原样交回去。
+     *
+     * **凭证全程不出手机。**
+     */
+    if (call.method == 'localCommand') {
+      return localCommandHandler?.call(call.arguments as String? ?? '');
+    }
+
     if (call.method == 'stateChanged') {
       final args = Map<String, dynamic>.from(call.arguments as Map);
       onStatusChanged?.call(

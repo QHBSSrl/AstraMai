@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class WearableBridge(private val context: Context) {
 
     companion object {
-        private const val TAG = "AstraMaiBridge"
+        internal const val TAG = "AstraMaiBridge"
 
         /** 一次请求的超时。手表那边也有自己的超时，取小的那个生效。 */
         private const val HTTP_TIMEOUT_MS = 15_000
@@ -62,7 +62,8 @@ class WearableBridge(private val context: Context) {
      * 对端支不支持「分片流」。
      *
      * 手表默认 MODE.SINGLE，握手里声明 chunk: false ——
-     * 那时它**期望响应体直接放在 esp.body 里**，不接受分帧。
+     * 那时它**期望响应体直接放在 
+esp.body 里**，不接受分帧。
      * 一律按流式回帧，它就不认，表现是同一个请求反复重试。
      */
     private var peerStream: Boolean = false
@@ -87,6 +88,21 @@ class WearableBridge(private val context: Context) {
         update(State.WAITING_NODE, null)
         findNode()
     }
+
+    /**
+     * 本地命令回调 —— 把 `bridge://` 请求交给 Flutter 处理。
+     *
+     * 为什么需要：手环没有网络模块，查分要靠手机代理。但 **Phigros
+     * 需要 TapTap 登录态**，那个会话存在 Flutter 的 secure storage 里，
+     * Kotlin 这边读不到（加密密钥由 Dart 侧的插件管理）。
+     *
+     * 所以桥协议多一个约定：URL 以 `bridge://` 开头时不发 HTTP，
+     * 而是回调这个函数，由 Flutter 用自己的会话查完再返回 JSON。
+     *
+     * 返回的字符串**直接当作响应体**送回手环，格式和普通接口一致 ——
+     * 手环那边完全感觉不到区别。
+     */
+    var onLocalCommand: ((String) -> String?)? = null
 
     fun stop() {
         if (!running.compareAndSet(true, false)) return
@@ -301,6 +317,18 @@ class WearableBridge(private val context: Context) {
 
         Log.i(TAG, "代理请求 $method $url")
 
+        /*
+         * `bridge://` 是**本地命令**，不是真实地址 ——
+         * 转给 Flutter，用手机自己的登录态查完再回。
+         *
+         * 这样手环不需要任何凭证，也不会因为会话过期而卡住：
+         * 手机那边会话失效时可以在手机上重新登录。
+         */
+        if (url.startsWith("bridge://")) {
+            handleLocalCommand(id, requestId, url)
+            return
+        }
+
         val result = runCatching { performHttp(url, method, headers, body) }
 
         result.onSuccess { resp ->
@@ -405,7 +433,7 @@ class WearableBridge(private val context: Context) {
      * ⚠️ 消息是 **字节**，UTF-8 JSON。手表端 `onmessage` 拿到的是字符串，
      * 直接 `JSON.parse` —— 两边约定好了，别改成别的编码。
      */
-    private fun send(id: String, json: String) {
+    internal fun send(id: String, json: String) {
         val bytes = json.toByteArray(Charsets.UTF_8)
         if (bytes.size > 60 * 1024) {
             Log.w(TAG, "帧太大（${bytes.size} 字节），可能被 interconnect 丢掉")

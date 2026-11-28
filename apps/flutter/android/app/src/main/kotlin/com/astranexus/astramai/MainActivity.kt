@@ -8,6 +8,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import com.astranexus.astramai.bridge.BridgeProtocol
 import com.astranexus.astramai.bridge.WearableBridge
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 /**
  * 主 Activity。
@@ -83,6 +85,49 @@ class MainActivity : FlutterActivity() {
                                             "error" to error,
                                         ),
                                     )
+                                }
+                            }
+
+                            /*
+                             * `bridge://` 请求转给 Flutter。
+                             *
+                             * 手环发来的 URL 是 `bridge://phigros/...` 这种，
+                             * 不是真实地址。Flutter 那边用自己的 TapTap
+                             * 会话查完，把 JSON 原样交回来。
+                             *
+                             * 这里必须**阻塞**等结果 —— 上层 handleFetch
+                             * 是同步的，拿不到数据就没法拼响应帧。
+                             * 10 秒超时兜底，绝不无限挂。
+                             */
+                            b.onLocalCommand = { url ->
+                                val future = CompletableFuture<String?>()
+                                runOnUiThread {
+                                    bridgeChannel?.invokeMethod(
+                                        "localCommand",
+                                        url,
+                                        object : MethodChannel.Result {
+                                            override fun success(result: Any?) {
+                                                future.complete(result as? String)
+                                            }
+
+                                            override fun error(
+                                                code: String,
+                                                message: String?,
+                                                details: Any?,
+                                            ) {
+                                                future.complete(null)
+                                            }
+
+                                            override fun notImplemented() {
+                                                future.complete(null)
+                                            }
+                                        },
+                                    ) ?: future.complete(null)
+                                }
+                                try {
+                                    future.get(10, TimeUnit.SECONDS)
+                                } catch (error: Exception) {
+                                    null
                                 }
                             }
                         }
